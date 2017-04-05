@@ -16,21 +16,21 @@
 |Using XForms to Create, Publish, and Manage Linked Open Data|[doi:10.14337/XMLLondon16.Gruber01](http://dx.doi.org/10.14337/XMLLondon16.Gruber01)|Ethan Gruber|2016|
 |Dynamic Translation of Modular XML Documentation Using Linked Data|[doi:10.14337/XMLLondon16.Dew01](http://dx.doi.org/10.14337/XMLLondon16.Dew01)|Simon Dew|2016|
 |Parse Earley, Parse Often|[doi:10.14337/XMLLondon16.Pemberton01](http://dx.doi.org/10.14337/XMLLondon16.Pemberton01)|Steven Pemberton|2016|
-|Improving Pattern Matching Performance in XSLT|[doi:10.14337/XMLLondon15.Lumley01](http://dx.doi.org/10.14337/XMLLondon15.Lumley01](http://dx.doi.org/10.14337/XMLLondon15.Lumley01](http://dx.doi.org/10.14337/XMLLondon15.Lumley01)))|John Lumley and Michael Kay|2015|
-|It's the little things that matter|[doi:10.14337/XMLLondon15.Braaksma01](http://dx.doi.org/10.14337/XMLLondon15.Braaksma01](http://dx.doi.org/10.14337/XMLLondon15.Braaksma01](http://dx.doi.org/10.14337/XMLLondon15.Braaksma01)))|Abel Braaksma|2015|
-|Continuous Integration for XML and RDF Data|[doi:10.14337/XMLLondon15.Cirulli01](http://dx.doi.org/10.14337/XMLLondon15.Cirulli01](http://dx.doi.org/10.14337/XMLLondon15.Cirulli01](http://dx.doi.org/10.14337/XMLLondon15.Cirulli01)))|Sandro Cirulli|2015|
-|Magic URLs in an XML Universe|[doi:10.14337/XMLLondon15.Bina01](http://dx.doi.org/10.14337/XMLLondon15.Bina01](http://dx.doi.org/10.14337/XMLLondon15.Bina01](http://dx.doi.org/10.14337/XMLLondon15.Bina01)))|George Bina|2015|
-|A rendering language for RDF|[doi:10.14337/XMLLondon15.Labella01](http://dx.doi.org/10.14337/XMLLondon15.Labella01](http://dx.doi.org/10.14337/XMLLondon15.Labella01](http://dx.doi.org/10.14337/XMLLondon15.Labella01)))|Fabio Labella and Henry S. Thompson|2015|
-|Lizard|[doi:10.14337/XMLLondon15.Seaborne01](http://dx.doi.org/10.14337/XMLLondon15.Seaborne01](http://dx.doi.org/10.14337/XMLLondon15.Seaborne01](http://dx.doi.org/10.14337/XMLLondon15.Seaborne01)))|Andy Seaborne|2015|
-|XML Interfaces to the Internet of Things with XForms|[doi:10.14337/XMLLondon15.Pemberton01](http://dx.doi.org/10.14337/XMLLondon15.Pemberton01](http://dx.doi.org/10.14337/XMLLondon15.Pemberton01](http://dx.doi.org/10.14337/XMLLondon15.Pemberton01)))|Steven Pemberton|2015|
-|Implementation of Portable EXPath Extension Functions|[doi:10.14337/XMLLondon15.Retter01](http://dx.doi.org/10.14337/XMLLondon15.Retter01](http://dx.doi.org/10.14337/XMLLondon15.Retter01](http://dx.doi.org/10.14337/XMLLondon15.Retter01)))|Adam Retter|2015|
-|Publishing with XProc|[doi:10.14337/XMLLondon15.Gibson01](http://dx.doi.org/10.14337/XMLLondon15.Gibson01](http://dx.doi.org/10.14337/XMLLondon15.Gibson01](http://dx.doi.org/10.14337/XMLLondon15.Gibson01)))|Nic Gibson|2015|
-|Validating XSL-FO with Relax NG and Schematron|[doi:10.14337/XMLLondon15.Graham01](http://dx.doi.org/10.14337/XMLLondon15.Graham01](http://dx.doi.org/10.14337/XMLLondon15.Graham01](http://dx.doi.org/10.14337/XMLLondon15.Graham01)))|Tony Graham|2015|
-|XML Processing with Scala and yaidom|[doi:10.14337/XMLLondon15.DeVreeze01](http://dx.doi.org/10.14337/XMLLondon15.DeVreeze01](http://dx.doi.org/10.14337/XMLLondon15.DeVreeze01](http://dx.doi.org/10.14337/XMLLondon15.DeVreeze01)))|Chris de Vreeze|2015|
-|Data-Driven Programming in XQuery|[doi:10.14337/XMLLondon15.Vlist01](http://dx.doi.org/10.14337/XMLLondon15.Vlist01](http://dx.doi.org/10.14337/XMLLondon15.Vlist01](http://dx.doi.org/10.14337/XMLLondon15.Vlist01)))|Eric Van Der Vlist|2015|
-|Diaries of a desperate XProc Hacker|[doi:10.14337/XMLLondon15.Fuller01](http://dx.doi.org/10.14337/XMLLondon15.Fuller01](http://dx.doi.org/10.14337/XMLLondon15.Fuller01](http://dx.doi.org/10.14337/XMLLondon15.Fuller01)))|James Fuller|2015|
-|The application of Schematron schemas to word-processing documents|[doi:10.14337/XMLLondon15.Sales01](http://dx.doi.org/10.14337/XMLLondon15.Sales01](http://dx.doi.org/10.14337/XMLLondon15.Sales01](http://dx.doi.org/10.14337/XMLLondon15.Sales01)))|Andrew Sales|2015|
-|Vivliostyle - Web browser based CSS typesetting engine|[doi:10.14337/XMLLondon15.Wilm01](http://dx.doi.org/10.14337/XMLLondon15.Wilm01](http://dx.doi.org/10.14337/XMLLondon15.Wilm01](http://dx.doi.org/10.14337/XMLLondon15.Wilm01)))|Shinyu Murakami and Johannes Wilm|2015|
+|Improving Pattern Matching Performance in XSLT|[doi:10.14337/XMLLondon15.Lumley01](http://dx.doi.org/10.14337/XMLLondon15.Lumley01)|John Lumley and Michael Kay|2015|
+|It's the little things that matter|[doi:10.14337/XMLLondon15.Braaksma01](http://dx.doi.org/10.14337/XMLLondon15.Braaksma01)|Abel Braaksma|2015|
+|Continuous Integration for XML and RDF Data|[doi:10.14337/XMLLondon15.Cirulli01](http://dx.doi.org/10.14337/XMLLondon15.Cirulli01)|Sandro Cirulli|2015|
+|Magic URLs in an XML Universe|[doi:10.14337/XMLLondon15.Bina01](http://dx.doi.org/10.14337/XMLLondon15.Bina01)|George Bina|2015|
+|A rendering language for RDF|[doi:10.14337/XMLLondon15.Labella01](http://dx.doi.org/10.14337/XMLLondon15.Labella01)|Fabio Labella and Henry S. Thompson|2015|
+|Lizard|[doi:10.14337/XMLLondon15.Seaborne01](http://dx.doi.org/10.14337/XMLLondon15.Seaborne01)|Andy Seaborne|2015|
+|XML Interfaces to the Internet of Things with XForms|[doi:10.14337/XMLLondon15.Pemberton01](http://dx.doi.org/10.14337/XMLLondon15.Pemberton01)|Steven Pemberton|2015|
+|Implementation of Portable EXPath Extension Functions|[doi:10.14337/XMLLondon15.Retter01](http://dx.doi.org/10.14337/XMLLondon15.Retter01)|Adam Retter|2015|
+|Publishing with XProc|[doi:10.14337/XMLLondon15.Gibson01](http://dx.doi.org/10.14337/XMLLondon15.Gibson01)|Nic Gibson|2015|
+|Validating XSL-FO with Relax NG and Schematron|[doi:10.14337/XMLLondon15.Graham01](http://dx.doi.org/10.14337/XMLLondon15.Graham01)|Tony Graham|2015|
+|XML Processing with Scala and yaidom|[doi:10.14337/XMLLondon15.DeVreeze01](http://dx.doi.org/10.14337/XMLLondon15.DeVreeze01)|Chris de Vreeze|2015|
+|Data-Driven Programming in XQuery|[doi:10.14337/XMLLondon15.Vlist01](http://dx.doi.org/10.14337/XMLLondon15.Vlist01)|Eric Van Der Vlist|2015|
+|Diaries of a desperate XProc Hacker|[doi:10.14337/XMLLondon15.Fuller01](http://dx.doi.org/10.14337/XMLLondon15.Fuller01)|James Fuller|2015|
+|The application of Schematron schemas to word-processing documents|[doi:10.14337/XMLLondon15.Sales01](http://dx.doi.org/10.14337/XMLLondon15.Sales01)|Andrew Sales|2015|
+|Vivliostyle - Web browser based CSS typesetting engine|[doi:10.14337/XMLLondon15.Wilm01](http://dx.doi.org/10.14337/XMLLondon15.Wilm01)|Shinyu Murakami and Johannes Wilm|2015|
 |Benchmarking XSLT Performance|[doi:10.14337/XMLLondon14.Kay01](http://dx.doi.org/10.14337/XMLLondon14.Kay01)|Michael Kay and Debbie Lockett|2014|
 |Streaming Design Patterns or: How I Learned to Stop Worrying and Love the Stream|[doi:10.14337/XMLLondon14.Braaksma01](http://dx.doi.org/10.14337/XMLLondon14.Braaksma01)|Abel Braaksma|2014|
 |From monolithic XML for print/web to lean XML for data: realising linked data for dictionaries|[doi:10.14337/XMLLondon14.Kohl01](http://dx.doi.org/10.14337/XMLLondon14.Kohl01)|Matt Kohl, Sandro Cirulli and Phil Gooch|2014|
