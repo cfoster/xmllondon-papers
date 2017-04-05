@@ -61,3 +61,19 @@
 |Using Distributed Version Control Systems|[doi:10.14337/XMLLondon13.Warman01](http://dx.doi.org/10.14337/XMLLondon13.Warman01)|Adrian Warman|2013|
 |A complete schema definition language for the Text Encoding Initiative|[doi:10.14337/XMLLondon13.Rahtz01](http://dx.doi.org/10.14337/XMLLondon13.Rahtz01)|Sebastian Rahtz and Lou Burnard|2013|
 
+```sparql
+PREFIX org: <http://www.w3.org/ns/org#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX o: <http://data.semanticweb.org/ns/swc/ontology#>
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+
+SELECT ?title ?doi ?creatorName
+WHERE {
+  ?paper a o:Paper .
+  #  ?paper o:isPartOf <http://data.semanticweb.org/conference/xmllondon/2016/proceedings> .
+  ?paper dc:title ?title .
+  ?paper dc:identifier ?doi .
+  ?paper dc:creator ?creator .
+  ?creator foaf:name ?creatorName
+}
+```
