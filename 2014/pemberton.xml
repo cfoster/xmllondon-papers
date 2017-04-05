@@ -1,0 +1,696 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-20" version="5.0" xml:lang="en">
+
+  <info xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Live XML Data</title>
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Steven</firstname>
+          <surname>Pemberton</surname>
+        </personname>
+        <affiliation>
+          <orgname>CWI, Amsterdam</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+    <abstract>
+      <para>XML is often thought of in terms of documents, or data being
+      transferred between machines, but there is an aspect of XML often
+      overlooked, and that is as a source of live data, that can be
+      displayed in different ways in real time, and used in interactive
+      applications.</para>
+      <para>In this paper we talk about the use of live XML data, and
+      give some examples of its use.</para>
+    </abstract>
+  </info>
+
+  <section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_Introductio"><title>Introduction</title>
+<para>In <xref linkend="paper-20_ref1"/>, Tim Bray, one of the
+developers of XML, said</para>
+<blockquote>
+<para>"You know, the people who invented XML were a bunch of
+publishing technology geeks, and we really thought we were doing
+the smart document format for the future. Little did we know that
+it was going to be used for syndicated news feeds and purchase
+orders."</para>
+</blockquote>
+<para>In other words, they did they not anticipate XML's use
+outside of documents and publishing, as data, as interactive
+documents, and so on.</para>
+<para>But with the increasing availability of apps, live data is
+becoming more and more significant.</para>
+</section><section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_Live_Dat"><title>Live Data</title>
+<para>Live XML data is the use of XML in an application where the
+data is constantly updated, either by repeated polling of an
+external source, or through interaction with the user, or a
+combination of both.</para>
+<para>To give an example <xref linkend="paper-20_ref2"/>, it is
+currently good practice to give suggestions if a user is searching
+in a large database or similar. Using XML and XForms
+<xref linkend="paper-20_ref3"/>, <xref linkend="paper-20_ref4"/>,
+<xref linkend="paper-20_ref5"/>, <xref linkend="paper-20_ref6"/>,
+<xref linkend="paper-20_ref7"/>, it is easy to specify this: the
+search string is kept in instance data:</para>
+<programlisting language="xml">&lt;root xmlns=""&gt;
+  &lt;search/&gt;
+&lt;/root&gt;</programlisting>
+
+<para>which is input with an <emphasis>incremental</emphasis>
+control, that updates the data each time a key is pressed:</para>
+<programlisting language="xml">&lt;input ref="search" incremental="true"&gt;
+  &lt;label&gt;Search: &lt;/label&gt;
+&lt;/input&gt;</programlisting>
+
+<para>Whenever the value is changed in the control (which invokes
+an <literal>xforms-value-changed</literal> event), the data is
+submitted to the site (in this case wikipedia):</para>
+<programlisting language="xml">&lt;send ev:event="xforms-value-changed"
+      submission="s1"/&gt;</programlisting>
+
+<para>The submission that causes this specifies that the results of
+the submission are returned into a different instance</para>
+<programlisting language="xml">&lt;submission id="s1" resource="
+http://en.wikipedia.org/w/api.php?action=opensearch
+" method="get"
+  replace="instance"
+  instance="iresults"/&gt;</programlisting>
+
+<para>The results are then displayed to the user, as a series of
+'triggers', which when clicked on, set the value of the search
+string:</para>
+<programlisting language="xml">&lt;repeat id="results"
+        nodeset="instance('iresults')/*[2]/*"&gt;
+  &lt;trigger appearance="minimal"&gt;
+  &lt;label&gt;&lt;output value="."/&gt;&lt;/label&gt;
+    &lt;action ev:event="DOMActivate"&gt;
+      &lt;setvalue
+        ref="instance('isearch')/search"
+        value="instance('iresults')
+               /*[2]/*[index('results')]" /&gt;
+    &lt;/action&gt;
+  &lt;/trigger&gt;
+&lt;/repeat&gt;</programlisting>
+
+<para>And the result looks like this:</para>
+<para><inlinemediaobject><imageobject>
+<imagedata fileref="images/wikipedia.png" width="100%"/>
+</imageobject></inlinemediaobject>
+</para>
+<para>This is a general idiom that can be used in many places:
+source data is changed in some way, possibly by interactions from
+the user, and this causes data to be updated from external
+sources.</para>
+</section><section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_XForm"><title>XForms</title>
+<para>XForms is a language originally developed for dealing with
+forms on the web. However, thanks to the generality of its design
+it was soon realised that, with a little more generality, it could
+be used for more general applications as well. So since XForms
+version 1.1, applications can be built with XForms. In fact, a form
+is really just the collection of data, some calculation, and some
+output, as well as submission of data. But this is a actually the
+description of an application as well. The only real noticeable
+difference is the manner in which the data is collected and
+presented.</para>
+<para>XForms has been in use for more than a decade now, by a wide
+range of users including the BBC, the Dutch national weather
+service, NASA, and Xerox, just to name a few. Experience has shown
+that XForms greatly reduces the time needed to produce an
+application (by about an order of magnitude). This is largely due
+to the approach used by XForms, of declaratively specifying
+<emphasis>what</emphasis> is to be achieved, rather than
+<emphasis>how</emphasis> to achieve it.</para>
+</section><section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_An_Exampl"><title>An Example</title>
+<para>In XForms you can put the URL of an image in your
+data:</para>
+<programlisting language="xml">&lt;instance&gt;
+  &lt;data xmlns=""&gt;
+    &lt;url&gt;
+      http://tile.openstreetmap.org/10/511/340.png
+    &lt;/url&gt;
+  &lt;/data&gt;
+&lt;/instance&gt;</programlisting>
+
+<para>and output it with</para>
+
+<programlisting language="xml">&lt;output ref="url"/&gt;</programlisting>
+
+<para>This would give as output:</para>
+
+<programlisting>http://tile.openstreetmap.org/10/511/340.png</programlisting>
+
+<para>But if you add a <literal>mediatype</literal> to the
+<literal>&lt;output&gt;</literal>, the image itself is output
+instead:</para>
+<programlisting language="xml">&lt;output ref="url" mediatype="image/*" /&gt;</programlisting>
+<!-- &lt;output ref="url" <emphasis>mediatype="image/*"</emphasis> /&gt; -->
+
+<para><inlinemediaobject><imageobject>
+<imagedata fileref="images/340.png" width="100%"/>
+</imageobject></inlinemediaobject>
+</para>
+</section><section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_URL_Structur"><title>URL Structure</title>
+<para>An Open Street Map URL is made up as:
+<literal>http://&lt;site&gt;/&lt;zoom&gt;/&lt;x&gt;/&lt;y&gt;.png</literal></para>
+<para>So we can represent that in XForms data:</para>
+<programlisting language="xml">[&lt;instance&gt;
+  &lt;map xmlns=""&gt;
+    &lt;site&gt;http://tile.openstreetmap.org/&lt;/site&gt;
+    &lt;zoom&gt;10&lt;/zoom&gt;
+    &lt;x&gt;511&lt;/x&gt;
+    &lt;y&gt;340&lt;/y&gt;
+    &lt;url/&gt;
+  &lt;/map&gt;
+&lt;/instance&gt;</programlisting>
+<!--
+&lt;instance&gt;
+   &lt;map xmlns=""&gt;
+<emphasis>&lt;site&gt;http://tile.openstreetmap.org/&lt;/site&gt;
+      &lt;zoom&gt;10&lt;/zoom&gt;
+      &lt;x&gt;511&lt;/x&gt;
+      &lt;y&gt;340&lt;/y&gt;
+      &lt;url/&gt;</emphasis>
+   &lt;/map&gt;
+&lt;/instance&gt;
+-->
+
+<para>and calculate the URL from the parts:</para>
+<programlisting language="xml">&lt;bind ref="url"
+      calculate="concat(../site, ../zoom, '/',
+                        ../x, '/', ../y, '.png')"/&gt;</programlisting>
+<!--
+&lt;bind ref="<emphasis>url</emphasis>"
+      calculate="concat(../site, ../zoom, '/', ../x, '/', ../y, '.png')"/&gt;
+-->
+
+<para>But now that we have the data, we can also input the
+different parts:</para>
+
+<programlisting language="xml">&lt;input ref="zoom"&gt;&lt;label&gt;zoom&lt;/label&gt;&lt;/input&gt;</programlisting>
+<!-- &lt;input ref="<emphasis>zoom</emphasis>"&gt;&lt;label&gt;zoom&lt;/label&gt;&lt;/input&gt; -->
+
+<para>This means that we can enter different values for the tile
+coordinates, and because XForms keep all relationships up-to-date,
+a new tile URL is calculated and the corresponding tile is
+displayed.</para>
+<para>However, since entering numbers like this is inconvenient, we
+can also add some nudge buttons, of the form:</para>
+<programlisting language="xml">&lt;trigger&gt;
+  &lt;label&gt;→&lt;/label&gt;
+  &lt;setvalue ev:event="DOMActivate" ref="x"
+            value=". + 1"/&gt;
+&lt;/trigger&gt;</programlisting>
+<!--
+&lt;trigger&gt;
+   &lt;label&gt;→&lt;/label&gt;
+   &lt;setvalue ev:event="DOMActivate" ref="x" value=". + 1"/&gt;
+&lt;/trigger&gt;
+-->
+
+<para>so it looks like this:</para>
+<para><inlinemediaobject><imageobject>
+<imagedata fileref="images/maps1.png" width="100%"/>
+</imageobject></inlinemediaobject>
+</para>
+</section><section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_Zoo"><title>Zoom</title>
+<para>A problem with this is that while the x and y nudge buttons
+work fine, the zoom button doesn't. This is because at each level
+of zoom the x and y coordinates change: at the outermost level of
+zoom, 0, there is one tile, x=0, y=0. At level 1, the coordinates
+double in both direction, [0-1], so there are 4 tiles; at level 2,
+the coordinates are [0-3], and there are 8 tiles, 16 at level 3,
+and in general 2z at level z (up to level 18).</para>
+<para>So to make zoom work properly, we must save our location in
+world coordinates, each value between 0 and 226 (which is the 18
+levels of zoom, plus 8 bits for the 256 pixels of each tile), and
+then calculate the tile at any level of zoom from that:</para>
+<blockquote>
+<para>scale=226 - zoom</para>
+<para>x=floor(posx/scale)</para>
+<para>y=floor(posy/scale)</para>
+</blockquote>
+<para>In XForms:</para>
+<programlisting language="xml">&lt;bind ref="scale"
+      calculate="power(2, 26 - ../zoom)"/&gt;
+&lt;bind ref="x"
+      calculate="floor(../posx div ../scale)"/&gt;
+&lt;bind ref="y"
+      calculate="floor(../posy div ../scale)"/&gt;</programlisting>
+
+<para>Now when you zoom in and out, the area remains the
+same:</para>
+<para><inlinemediaobject><imageobject>
+<imagedata fileref="images/maps2.png" width="100%"/>
+</imageobject></inlinemediaobject>
+</para>
+</section><section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_Location_location_locatio"><title>Location,
+location, location</title>
+<para>You'll notice from the two images above that we got the tile
+that contains our location, but the location (in this case, central
+London) is at a different part of the tile. This is because if you
+have a tile where the location is in the middle of the tile, when
+you zoom in, you get one of the 4 quadrants, and so by definition,
+the location is no longer at the centre of the tile:</para>
+<para><inlinemediaobject><imageobject>
+<imagedata fileref="images/zoom1.png" width="100%"/>
+</imageobject></inlinemediaobject>
+</para>
+<para>From a usability point of view of course, we want our
+location to remain in the middle of the view, so to achieve this,
+we create a 3×3 array of tiles, with a porthole over
+it. The porthole stays static, and we shift the tiles around
+underneath so that our location remains in the centre. This we do
+by calculating offsets that the tile array has to be shifted by,
+and then using these to construct a snippet of CSS to move the tile
+array:</para>
+<para><inlinemediaobject><imageobject>
+<imagedata fileref="images/porthole1.png" width="100%"/>
+</imageobject></inlinemediaobject>
+</para>
+<programlisting language="xml">&lt;bind ref="offx" 
+      calculate="0 - floor(((
+                      ../posx - ../x * ../scale)
+                      div ../scale)*../tilesize)"/&gt;
+&lt;bind ref="offy" 
+   calculate="0 - floor(((
+                    ../posy - ../y * ../scale)
+                    div ../scale)*../tilesize)"/&gt;
+ ...
+&lt;div style="margin-left: {offx};
+            margin-top: {offy}"&gt;</programlisting>
+
+<para>Now we have a live map, where we can zoom in and out, and pan
+left and right and up and down. Here is a view also showing the
+parts that would normally not be visible, outside of the
+porthole:</para>
+<para><inlinemediaobject><imageobject>
+<imagedata fileref="images/offsets1.png" width="100%"/>
+</imageobject></inlinemediaobject>
+</para>
+<para><inlinemediaobject><imageobject>
+<imagedata fileref="images/offsets.png" width="100%"/>
+</imageobject></inlinemediaobject>
+</para>
+<para>Unfortunately, in a paper, you can't see interactive
+applications like this working. You can see it in action, and look
+at the code, at <xref linkend="paper-20_ref8"/>.</para>
+</section><section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_Mous"><title>Mouse</title>
+<para>Of course, what we <emphasis>really</emphasis> want is to be
+able to drag the map around with the mouse, not have to click on
+nudge buttons. Now we're really going to see the power of live
+data! We will want to know the position of the mouse, and the state
+of the button, up or down. So we create instance data for
+that:</para>
+<programlisting language="xml">&lt;mouse&gt;
+  &lt;x/&gt;&lt;y/&gt;&lt;state/&gt;
+&lt;/mouse&gt;</programlisting>
+
+<para>and then we catch the mouse events:</para>
+<programlisting language="xml">&lt;action ev:event="mousemove"&gt;
+  &lt;setvalue ref="mouse/x"
+            value="event('clientX')"/&gt;
+  &lt;setvalue ref="mouse/y"
+            value="event('clientY')"/&gt;
+&lt;/action&gt;
+&lt;action ev:event="mousedown"&gt;
+  &lt;setvalue ref="mouse/state"&gt;down&lt;/setvalue&gt;
+&lt;/action&gt;
+&lt;action ev:event="mouseup"&gt;
+  &lt;setvalue ref="mouse/state"&gt;up&lt;/setvalue&gt;
+&lt;/action&gt;</programlisting>
+<!--
+&lt;action ev:event="<emphasis>mousemove</emphasis>"&gt;
+   &lt;setvalue ref="mouse/x" value="event('clientX')"/&gt;
+   &lt;setvalue ref="mouse/y" value="event('clientY')"/&gt;
+&lt;/action&gt;
+&lt;action ev:event="<emphasis>mousedown</emphasis>"&gt;
+   &lt;setvalue ref="mouse/state"&gt;down&lt;/setvalue&gt;
+&lt;/action&gt;
+&lt;action ev:event="<emphasis>mouseup</emphasis>"&gt;
+   &lt;setvalue ref="mouse/state"&gt;up&lt;/setvalue&gt;
+&lt;/action&gt;
+-->
+
+<para>Now we have live data for the mouse!</para>
+<para>We can show the state of the mouse by changing the mouse
+cursor from a hand into a clenched hand:</para>
+<programlisting language="xml">&lt;div style="cursor: {
+  if(mouse/state='up', 'pointer', 'move')
+}"&gt;...</programlisting>
+
+</section><section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_Capturing_a_mov"><title>Capturing a move</title>
+<para>The last bit is that we want is to save the start and end
+point of a move, so we can calculate how far we have dragged. The
+instance data is extended:</para>
+<programlisting language="xml">&lt;mouse&gt;
+  &lt;x/&gt;&lt;y/&gt;&lt;state/&gt;
+  &lt;start&gt;&lt;x/&gt;&lt;y/&gt;&lt;/start&gt;
+  &lt;end&gt;&lt;x/&gt;&lt;y/&gt;&lt;/end&gt;
+  &lt;move&gt;&lt;x/&gt;&lt;y/&gt;&lt;/move&gt;
+&lt;/mouse&gt;</programlisting><!--
+&lt;mouse&gt;
+   &lt;x/&gt;&lt;y/&gt;&lt;state/&gt;
+<emphasis>&lt;start&gt;&lt;x/&gt;&lt;y/&gt;&lt;/start&gt;
+   &lt;end&gt;&lt;x/&gt;&lt;y/&gt;&lt;/end&gt;
+   &lt;move&gt;&lt;x/&gt;&lt;y/&gt;&lt;/move&gt;</emphasis>
+&lt;/mouse&gt;
+-->
+
+<para>We capture the start point of the drag when the mouse button
+goes down:</para>
+<programlisting language="xml">&lt;action ev:event="mousedown"&gt;
+  &lt;setvalue ref="mouse/state"&gt;down&lt;/setvalue&gt;
+  &lt;setvalue ref="mouse/start/x"
+            value="event('clientX')"/&gt;
+  &lt;setvalue ref="mouse/start/y"
+            value="event('clientY')"/&gt;
+&lt;/action&gt;</programlisting><!--
+&lt;action ev:event="mousedown"&gt;
+   &lt;setvalue ref="mouse/state"&gt;down&lt;/setvalue&gt;
+   &lt;setvalue ref="<emphasis>mouse/start/x</emphasis>" value="event('clientX')"/&gt;
+   &lt;setvalue ref="<emphasis>mouse/start/y</emphasis>" value="event('clientY')"/&gt;
+&lt;/action&gt;
+-->
+
+<para>While the mouse button is down, we save the end
+position:</para>
+<programlisting language="xml">&lt;bind ref="mouse/end/x"
+      calculate="if(mouse/state = 'down',
+                    mouse/x, .)"/&gt;
+&lt;bind ref="mouse/end/y"
+      calculate="if(mouse/state = 'down',
+                    mouse/y, .)"/&gt;</programlisting>
+<!--
+&lt;bind ref="<emphasis>mouse/end/x</emphasis>"
+      calculate="if(mouse/state = 'down', mouse/x, .)"/&gt;
+&lt;bind ref="<emphasis>mouse/end/y</emphasis>"
+      calculate="if(mouse/state = 'down', mouse/y, .)"/&gt;
+-->
+
+<para>And calculate the distance moved as just end - start:</para>
+<programlisting language="xml">&lt;bind ref="mouse/move/x"
+      calculate="mouse/end/x - mouse/start/x"/&gt;
+&lt;bind ref="mouse/move/y"
+      calculate="mouse/end/y - mouse/start/y"/&gt;</programlisting><!--
+&lt;bind ref="<emphasis>mouse/move/x</emphasis>"
+      calculate="mouse/end/x - mouse/start/x"/&gt;
+&lt;bind ref="<emphasis>mouse/move/y</emphasis>"
+      calculate="mouse/end/y - mouse/start/y"/&gt;
+-->
+
+</section><section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_Dragging_the_ma"><title>Dragging the map</title>
+<para>So now we have the scaffolding we need to be able to drag the
+map. You may recall that the position of the map is recorded in
+<literal>posx</literal> and <literal>posy</literal>. That position
+now also depends on the mouse dragging. So we add instance data to
+record the last position:</para>
+<programlisting language="xml">&lt;lastx/&gt;&lt;lasty/&gt;</programlisting>
+
+<para>and add a calculation to keep <literal>posx</literal> and
+<literal>posy</literal> updated (remember <literal>scale</literal>
+is the number of positions represented on a tile, so we divide by
+the tile size to get the number of positions represented by a
+pixel):</para>
+<programlisting language="xml">&lt;bind ref="posx"
+      calculate="../lastx -
+                 ../mouse/move/x *
+                 (../scale div ../tilesize)"/&gt;
+&lt;bind ref="posy"
+      calculate="../lasty -
+                 ../mouse/move/y *
+                 (../scale div ../tilesize)"/&gt;</programlisting>
+
+<para>and only one other thing, namely reset
+<literal>lastx</literal> and <literal>lasty</literal> when the
+dragging stops:</para>
+<programlisting language="xml">&lt;action ev:event="mouseup"&gt;
+  &lt;setvalue ref="lastx"
+            value="posx"/&gt;
+  &lt;setvalue ref="lasty"
+            value="posy"/&gt;
+  &lt;setvalue ref="mouse/start/x"
+            value="mouse/end/x"/&gt;
+  &lt;setvalue ref="mouse/start/y"
+            value="mouse/end/y"/&gt;
+&lt;/action&gt;</programlisting>
+
+<para>Now it is possible to drag the map around. Although from the
+user's point of view it feels like you are grabbing the map and
+dragging it around, all that is happening underneath is that we are
+tracking the live data representing the mouse, and using it to
+alter the live data that represents the centre of the map.</para>
+</section><section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_Bells_Whistle"><title>Bells. Whistles</title>
+<para>Once we have this foundation, it is
+<emphasis>trivial</emphasis> to add things like a "Home" button, to
+add keystroke shortcuts, to zoom in and out with the mouse wheel,
+or to select tiles for another version of the map. For
+instance:</para>
+<programlisting language="xml">&lt;select1 ref="site"&gt;
+  &lt;label&gt;Map&lt;/label&gt;
+  &lt;item&gt;
+    &lt;label&gt;Standard&lt;/label&gt;
+    &lt;value&gt;
+      http://tile.openstreetmap.org/
+    &lt;/value&gt;
+  &lt;/item&gt;
+  &lt;item&gt;
+    &lt;label&gt;Cycle&lt;/label&gt;
+    &lt;value&gt;
+      http://tile.opencyclemap.org/cycle/
+    &lt;/value&gt;
+  &lt;/item&gt;
+  &lt;item&gt;
+    &lt;label&gt;Transport&lt;/label&gt;
+    &lt;value&gt;
+      http://tile2.opencyclemap.org/transport/
+    &lt;/value&gt;
+  &lt;/item&gt;
+  ...
+&lt;/select1&gt;</programlisting>
+
+<para>Thanks to the live data, any time a different value is
+selected for "site", all the tiles get updated, without any further
+work from us.</para>
+<para><inlinemediaobject><imageobject>
+<imagedata fileref="images/cycle.png" width="100%"/>
+</imageobject></inlinemediaobject>
+</para>
+</section><section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_Implementatio"><title>Implementation</title>
+<para>The implementation used in the online version of this
+application is XSLTForms <xref linkend="paper-20_ref9"/>, a
+client-side implementation of XForms that runs in all modern
+browsers, using a mixture of XSLT and Javascript. However, the code
+only uses standard XForms, and does not use any special facilities
+of this implementation. As long as the XForms implementation
+correctly catches the DOM mouse events used, the code should work
+in any implementation of XForms.</para>
+</section><section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_Conclusio"><title>Conclusion</title>
+<para>In a very abstract sense, a map like the one presented above
+can be seen as the presentation of two values, an x and y
+coordinate, overlaid with an input control to affect the values of
+x and y. The ability of XForms to abstract the data out of an
+application and make the data live via simple declarative
+invariants that keep related values up to date makes the
+construction of interactive applications extremely simple. The
+above example map application is around 150 lines of XForms code,
+in sharp comparison with the several thousand lines that a
+procedural programming language would need.</para>
+</section>
+
+  <bibliography xmlns:xl="http://www.w3.org/1999/xlink">
+      <title>References</title>
+      
+    <biblioentry xml:id="paper-20_ref1" xreflabel="[1]">
+      <abbrev>1</abbrev>
+      <title>A Conversation with Tim Bray, Searching for ways to tame the world's vast stores of information.</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Jim</firstname>
+            <surname>Gray</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>ACM Queue</publishername>
+      <pagenums>20-25</pagenums>
+      <volumenum>3</volumenum>
+      <edition>1</edition>
+      <date>February 2005</date>
+      <biblioid class="uri">http://queue.acm.org/detail.cfm?id=1046941</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-20_ref2" xreflabel="[2]">
+      <abbrev>2</abbrev>
+      <title>WIKIPEDIA OpenSearch Test Form</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Alain</firstname>
+            <surname>Couthures</surname>            
+          </personname>
+        </author>
+      </authorgroup>
+      <biblioid class="uri">http://www.agencexml.com/xsltforms/wikipediasearch.xml</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-20_ref3" xreflabel="[3]">
+      <abbrev>3</abbrev>
+      <title>XForms 1.0</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Micah</firstname>
+            <surname>Dubinko</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Leigh</firstname>
+            <surname>Klotz</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Roland</firstname>
+            <surname>Merrick</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>T V</firstname>
+            <surname>Raman</surname>            
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>W3C</publishername>
+      <date>2003</date>
+      <biblioid class="uri">http://www.w3.org/TR/2003/REC-xforms-20031014/</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-20_ref4" xreflabel="[4]">
+      <abbrev>4</abbrev>
+      <title>XForms 1.1</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>John</firstname>
+            <surname>Boyer</surname>            
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>W3C</publishername>
+      <date>2009</date>
+      <biblioid class="uri">http://www.w3.org/TR/2009/REC-xforms-20091020/</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-20_ref5" xreflabel="[5]">
+      <abbrev>5</abbrev>
+      <title>XForms 2.0 (draft)</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>John</firstname>
+            <surname>Boyer</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Erik</firstname>
+            <surname>Bruchez</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Leigh</firstname>
+            <surname>Klotz</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Steven</firstname>
+            <surname>Pemberton</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Nick</firstname>
+            <surname>Van den Bleeken</surname>            
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>W3C</publishername>
+      <date>2014</date>
+      <biblioid class="uri">https://www.w3.org/MarkUp/Forms/wiki/XForms_2.0</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-20_ref6" xreflabel="[6]">
+      <abbrev>6</abbrev>
+      <title>XForms 1.1 Quick Reference</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Steven</firstname>
+            <surname>Pemberton</surname>            
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>W3C</publishername>
+      <date>2010</date>
+      <biblioid class="uri">http://www.w3.org/MarkUp/Forms/2010/xforms11-qr.html</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-20_ref7" xreflabel="[7]">
+      <abbrev>7</abbrev>
+      <title>XForms for HTML Authors</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Steven</firstname>
+            <surname>Pemberton</surname>            
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>W3C</publishername>
+      <date>2010</date>
+      <biblioid class="uri">http://www.w3.org/MarkUp/Forms/2010/xforms11-for-html-authors</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-20_ref8" xreflabel="[8]">
+      <abbrev>8</abbrev>
+      <title>Live XML (Slides)</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Steven</firstname>
+            <surname>Pemberton</surname>            
+          </personname>
+        </author>
+      </authorgroup>
+      <date>2014</date>
+      <biblioid class="uri">http://www.cwi.nl/~steven/Talks/2014/xml-london</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-20_ref9" xreflabel="[9]">
+      <abbrev>9</abbrev>
+      <title>XSLTForms</title>
+      <biblioid class="uri">http://www.agencexml.com/xsltforms</biblioid>
+    </biblioentry>
+
+  </bibliography>
+
+  <appendix xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-20_Credi">
+
+    <title>Credit</title>
+
+    <para>
+      Open Street Map data is
+        <link xl:href="http://www.openstreetmap.org/copyright">
+          © OpenStreetMap contributors
+        </link>, licensed as CC BY-SA.
+    </para>
+
+  </appendix>
+
+</article>

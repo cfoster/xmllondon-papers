@@ -1,0 +1,978 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink"
+  version="5.0">
+  <info>
+    <title>Publishing with XProc</title>
+    <subtitle>Transforming documents through progressive refinement</subtitle>
+
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Nic</firstname>
+          <surname>Gibson</surname>
+        </personname>
+        <email>nicg@corbas.co.uk</email>
+        <affiliation>
+          <orgname>Corbas Consulting and LexisNexis</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+    <keywordset>
+      <keyword>XProc</keyword>
+      <keyword>XSLT</keyword>
+      <keyword>Word</keyword>
+    </keywordset>
+    <abstract>
+      <para>Over the last few years, we, as a community, have spent a great deal of time writing
+        code to convert Microsoft Word documents into XML. This is a common task with fairly
+        predictable stages to it. We need to read the .Docx or WordML file and and transform the
+        flat, formatting-rich XML in a well structured XML document.</para>
+      <para>One approach to this problem is to create a pipeline that uses a progressive refinement
+        technique to achieve a simple sequence of transformations from one format to another. Given
+        that this approach requires the ability to chain multiple transformations together, we
+        decided to build a framework to enable that.</para>
+      <para>This paper explores the implementation of this kind of pipelining through XProc and
+        examine the pipeline processing used. We discuss the use of progressive enhancement to
+        convert Microsoft Word files to an intermediate format, considering the challenges involved
+        in converting Word in context. We look at the features of XProc which enable this sort of
+        processing.</para>
+    </abstract>
+  </info>
+
+  <section>
+    <title>Introduction</title>
+    <para>Authors like Microsoft Word, transformers of content don’t. Traditionally, a publishing
+      house (or publishing organisation) would receive manuscript in Word, copy edit it, typeset it,
+      proofread it and publish it. Structured authoring is not something the majority of authors are
+      able do. Organisations and individuals involved in digital publishing conversion are
+      interested in converting Word files to XML as it enables multi-output publishing, querying of
+      documents and simplifies reuse. Conversion from Word to structured formats has become an
+      important part of the publishing process. Currently, many publishers are migrating existing
+      content from Word and/or RTF sources to XML. There is a need for a robust framework to enable
+      this kind of conversion. The framework we present here was originally created in order to
+      fulfil that requirement although it can be used for any multi-stage XML conversion
+      task.</para>
+    <para>XSLT is the obvious choice for a processing tool but the environment in which that tool
+      operates is a less clear choice. Apache Ant has been used but this usage is not within the
+      realm which Ant was designed for and bulk conversion in Ant suffers from performance problems.
+      We chose to implement an XProc based processing environment because the language supports
+      in-memory pipelining of multiple documents through multiple steps. This dramatically decreases
+      the overheads while proving a more elegant solution to the problem.</para>
+  </section>
+  <section>
+    <title>Progressive enhancement</title>
+    <para>It is, in general, simpler to create a sequence of transformations, each one focussed on a
+      particular aspect of a task than it is to define a single complex transformation. </para>
+    <para>It is worthwhile considering that XML content is generally found in two basic forms:
+      linear and structured. Microsoft Word (and sometimes HTML) are the archetypal linear formats.
+      Linear formats are well suited to authoring as authoring tends to be a linear activity. XML
+      languages such as DocBook, JATS and the internal formats used by many publishers are the
+      structured forms to which we need to transform. Structured formats are well suited for
+      transformation to multiple outputs, storage and analysis. </para>
+    <para>Conversion, is therefore, primarily as task of adding structure to content. Any reasonably
+      complex, mature, publishing activity such as legal publishing will have complex formatting
+      rules used by authors and editors when preparing documents. Conversion to structured XML can
+      be considered primarily as the addition of structure. However, the conversion of an element in
+      one language to semantically appropriate equivalent in the other is still a required portion
+      of the process.</para>
+    <para>Complex conversions can be challenging for a developer to maintain. A sequence of simpler
+      transformations has both a better change of being maintained and a better change of reuse. </para>
+    <para>When converting from WordML to XML we choose to convert to XHTML 5 before we convert to
+      the final format. The vast majority of narrative documents can be decomposed into a sequence
+      of nested sections and blocks of text. </para>
+  </section>
+  <section>
+    <title>Microsoft Word</title>
+    <para>The approach we have taken starts with conversion of Microsoft Word OOXML elements to
+      XHTML 5 elements. Following that we, add structure to the intermediate XML document in several
+      stages.</para>
+    <para>Legal documents tend to contain structured at several levels:</para>
+    <itemizedlist>
+      <listitem>
+        <para>the sectional structure of the document</para>
+      </listitem>
+      <listitem>
+        <para>clauses</para>
+      </listitem>
+      <listitem>
+        <para>numbered paragraphs</para>
+      </listitem>
+    </itemizedlist>
+    <para>This structure is also found in legislation (although legislation tends to have additional
+      structures such as chapters). </para>
+    <para>The approach we are describing here is intended for use in bulk conversion. This allows us
+      to ignore problems of performance in some ways. There may be performance issues caused by this
+      approach and we intend to investigate this a later date.</para>
+  </section>
+  <section>
+    <title>WordML conversion</title>
+    <para>In current versions Word emits an XML based format (either packaged into a zip file or as
+      a single XML file). The difference between the various versions in the wild is not hugely
+      significant and support for the varying formats can be easily achieved.</para>
+    <para>Fundamentally, the vast majority of constructs in a Word document are paragraphs. Lists
+      are represented as paragraphs so grouping is required to identify and mark up list content.
+      Tables are marked up using a format very different to either that of CALS or HTML. </para>
+
+    <informalexample>
+
+      <figure xml:id="ex-01-img-01">
+        <title>Formatting in Word</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/ng-example-01.png" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+
+
+
+    </informalexample>
+
+    <para>Image and picture markup can be very complex. In the context of the projects in which the
+      toolkit described here is used, image markup has not been complex and no attempt has been made
+      to find a general solution to the problem. Consider the XML created by Word for those two
+      paragraphs:</para>
+
+
+    <programlisting language="xml">&lt;w:p&gt;
+  &lt;w:r&gt;
+    &lt;w:t&gt;Normal paragraph&lt;/w:t&gt;
+  &lt;/w:r&gt;
+&lt;/w:p&gt;
+&lt;w:p&gt;
+  &lt;w:pPr&gt;
+    &lt;w:pStyle 
+     w:val=&quot;ListParagraph&quot;/&gt;
+    &lt;w:numPr&gt;
+      &lt;w:ilvl 
+       w:val=&quot;0&quot;/&gt;
+      &lt;w:numId 
+       w:val=&quot;1&quot;/&gt;
+    &lt;/w:numPr&gt;
+  &lt;/w:pPr&gt;
+  &lt;w:r&gt;
+    &lt;w:t
+    &gt;Bulleted paragraph&lt;/w:t&gt;
+  &lt;/w:r&gt;
+&lt;/w:p&gt;</programlisting>
+
+    <para>An initial conversion step would convert these paragraphs to XHTML preserving some of the
+      important information:</para>
+
+    <programlisting language="xml">&lt;p&gt;Normal paragraph&lt;/p&gt;
+&lt;li cword:list-level=&quot;0&quot;&quot; 
+ cword:list-mark=&quot;1&quot;
+ &gt;Bulleted paragraph&lt;/li&gt;</programlisting>
+
+    <para>Obviously, this content is not yet close to a structured output but it has been simplified
+      and important information retained.</para>
+    <para>A second step would be to add the list markup around the <code>li</code> element:</para>
+
+    <programlisting language="xml">&lt;p&gt;Normal paragraph&lt;/p&gt;
+&lt;ul&gt;
+	&lt;li&gt;Bulleted paragraph&lt;/li&gt;
+&lt;/ul&gt;</programlisting>
+
+
+    <para>At this point the namespaced attributes are no longer required because we have determined
+      that the list is a simple bulleted list (by examining other structures in the WordML).</para>
+
+    <section>
+      <title>Challenges in conversion of WordML to XHTML</title>
+      <para>There are several challenges in conversion. Change tracking markup and annotations have
+        no obvious analogs in XHTML. However, these are simply challenges in that a decision has to
+        be made and implemented (we have generally converted change tracking markup to sequences of
+        spans and annotations to XHTML spans). </para>
+      <para>Inline text can be complex when converting from Word markup to XHTML. A WordML paragraph
+        consists of one or more “runs” of text. These can have complex properties and, sometimes, it
+        can be unclear why a span exists at all.</para>
+
+      <example>
+        <title>Inline formatting in Word</title>
+        <informalfigure>
+          <mediaobject>
+            <imageobject>
+              <imagedata fileref="images/ng-example-02-01.png"/>
+            </imageobject>
+          </mediaobject>
+
+        </informalfigure>
+
+        <programlisting language="xml">&lt;w:p&gt;
+  &lt;w:r&gt;
+    &lt;w:t xml:space=&quot;preserve&quot;
+    &gt;A sample sentence in a word document
+    &lt;/w:t&gt;
+  &lt;/w:r&gt;
+&lt;/w:p&gt;</programlisting>
+
+      </example>
+
+      <para>If a user formats any of the text in the paragraph (either using a character style or
+        direct formatting), Word will add additional run elements:</para>
+
+      <example>
+        <title>User marks text as bold</title>
+
+        <informalfigure>
+          <mediaobject>
+            <imageobject>
+              <imagedata fileref="images/ng-example-02-02.png"/>
+            </imageobject>
+          </mediaobject>
+
+
+        </informalfigure>
+
+        <programlisting language="xml"><![CDATA[<w:p>
+  <w:r>
+    <w:t xml:space="preserve"
+    >A sample </w:t>
+  </w:r>
+  <w:r w:rsidRPr="0077343A">
+    <w:rPr>
+      <w:b/>
+    </w:rPr>
+    <w:t>sentence</w:t>
+  </w:r>
+  <w:r>
+    <w:t xml:space="preserve"
+    > in a word document</w:t>
+  </w:r>
+</w:p>]]></programlisting>
+      </example>
+
+      <para>Here, a word has been marked as bold. This processing is relatively simple. However,
+        almost every user change of this type will be represented in this way even if those changes
+        lead to identical formatting:</para>
+
+      <example>
+        <title>User changes an adjacent run</title>
+        <informalfigure>
+          <mediaobject>
+            <imageobject>
+              <imagedata fileref="images/ng-example-02-03.png"/>
+            </imageobject>
+          </mediaobject>
+        </informalfigure>
+
+        <programlisting language="xml"><![CDATA[<w:p>
+  <w:r>
+    <w:t xml:space="preserve"
+    >A sample </w:t>
+  </w:r>
+  <w:r >
+    <w:rPr>
+      <w:b/>
+    </w:rPr>
+    <w:t>sentence</w:t>
+  </w:r>
+  <w:r>
+    <w:rPr>
+      <w:b/>
+    </w:rPr>
+    <w:t xml:space="preserve"
+    > in</w:t>
+  </w:r>
+  <w:r>
+    <w:t xml:space="preserve"
+    > a word document</w:t>
+  </w:r>
+</w:p>]]></programlisting>
+      </example>
+
+
+      <para>The initial conversion to XHTML for a paragraph like this would be:</para>
+
+      <programlisting language="xml"><![CDATA[<p>A sample <strong>sentence</strong>
+  <strong> in</strong> a word document</p>]]></programlisting>
+
+      <para>Word does not merge runs in identical formatting so the initial, simplistic, conversion
+        won&#8217;t either. This is something that needs to be resolved in structured XML. The
+        obvious solution to this problem is to create a step in our pipeline to handle this
+        situation. It should be possible to create a general transformation.</para>
+    </section>
+  </section>
+  <section>
+    <title>Progressive enhancement and XSLT</title>
+    <para>Progressive enhancement is XSLT is simple. The identity transformation does much of the
+      work for us. We will demonstrate the process using a transformation to XHTML 5. This
+      transformation is useful as the first stage of a transformation into another XML format. </para>
+    <para>The first step of our conversion process is generally to convert the WordML elements to
+      XHTML 5 elements without regard to validity. During this step we convert paragraphs and tables
+      and we maintain the original Word styles using a namespaced attribute.</para>
+    <para>There is no major complexity in the initial conversion. </para>
+
+    <programlisting language="xml"><![CDATA[
+<xsl:stylesheet
+version="2.0"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform" 
+  xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+  xmlns:cword="http://www.corbas.co.uk/ns/word"
+  xmlns:w=
+"http://schemas.microsoft.com/office/word/2003/wordml"
+  xmlns="http://www.w3.org/1999/xhtml"
+  xpath-default-namespace=
+"http://schemas.microsoft.com/office/word/2003/wordml">
+
+  <xsl:import href="identity.xsl"/>
+
+  <xsl:template match="w:wordDocument">
+    <html xmlns="http://www.w3.org/1999/xhtml">
+      <head/>
+      <xsl:apply-templates select="w:body"/>
+    </html>
+  </xsl:template>
+
+  <xsl:template match="w:body">
+    <body>
+      <xsl:apply-templates/>
+    </body>
+  </xsl:template>
+ 
+  <xsl:template 
+    match="w:p[w:pPr/w:numPr[w:numId and w:ilvl]]" 
+    priority="1">
+    <li 
+   cword:list-level="{w:pPr/w:numPr/w:ilvl/@w:val}"
+  cword:list-mark="{w:pPr/w:numPr/w:numId/@w:val}">
+     <xsl:next-match/>
+    </li>
+  </xsl:template>
+
+  <xsl:template match="w:p">
+    <p><xsl:apply-templates/></p>
+  <xsl:template/>
+
+  <xsl:template match="w:pPr/w:pStyle">
+    <xsl:attribute name="cword:style" 
+      select="@w:val"/>
+  </xsl:template>
+
+</xsl:stylsheet>]]></programlisting>
+
+
+    <para>Each step is used to transform the content to a form nearer to that desired in the final
+      output. This process allows us to maintain relatively simple XSLT whilst creating a complex
+      transformation. Additional steps can be written to improve the transformation. </para>
+    <section>
+      <title>Using meta-programming to structure content taken from Word</title>
+      <para>Adding structure to content taken from Microsoft Word can be challenging. There is
+        nothing inherently different about a heading or title in Microsoft Word — they are simply
+        paragraphs with a style. It is relatively simple to convert the Word built-in paragraph
+        styles to HTML heading elements:</para>
+      <informaltable>
+
+        <tgroup cols="2">
+          <thead>
+            <row>
+              <entry><para>Style</para></entry>
+              <entry><para>Element</para></entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry>Heading 1</entry>
+              <entry>h1</entry>
+            </row>
+            <row>
+              <entry>Heading 2</entry>
+              <entry>h2</entry>
+            </row>
+            <row>
+              <entry>Heading 3</entry>
+              <entry>h3</entry>
+            </row>
+          </tbody>
+
+        </tgroup>
+
+      </informaltable>
+      <para>However, publishers conventionally use document and task specific styles in Word:</para>
+      <itemizedlist>
+        <listitem>
+          <para>Title</para>
+        </listitem>
+        <listitem>
+          <para>Sub Title</para>
+        </listitem>
+        <listitem>
+          <para>Clause Title</para>
+        </listitem>
+        <listitem>
+          <para>A-Head</para>
+        </listitem>
+        <listitem>
+          <para>B-Head</para>
+        </listitem>
+      </itemizedlist>
+
+      <para>We could write a new stylesheet to convert these elements to the right headings and
+        insert this into our sequence of stylesheets:</para>
+
+      <programlisting language="xml"><![CDATA[
+<xsl:template match="p[@cword:style='Title']">
+  <h1><xsl:apply-templates/></h1>
+</xsl:template>
+
+<xsl:template match="p:[@cword:style='Sub Title']">
+  <h2><xsl:apply-templates/></h2>
+</xsl:template>]]>
+			</programlisting>
+
+
+
+      <para>It is clear that any stylesheet as repetitive as this could be replaced with a
+        configuration file and another stylesheet to generate it. We took this approach because it
+        allows a stylesheet to be generated from a standard configuration:</para>
+
+      <programlisting language="xml"><![CDATA[
+<map xmlns="http://www.corbas.co.uk/ns/transforms/map" 
+    xmlns:cword="http://www.corbas.co.uk/ns/word"
+    source-attribute="cword:style"  
+    ns="http://www.w3.org/1999/xhtml" 
+    source-element="p">
+  <mapping source-value="Title"  
+    target-element="h1" heading-level="1"/>
+  <mapping source-value="Sub Title"
+    target-element="h2" heading-level="2"/>
+  <mapping source-value="Clause Title" 
+    target-element="h3" heading-level="2"/>
+</map>]]></programlisting>
+
+
+      <para>We can then write a stylesheet that will generate the appropriate stylesheet:</para>
+
+      <programlisting language="xml"><![CDATA[
+<xsl:stylesheet
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:xd="http://www.oxygenxml.com/ns/doc/xsl"
+  xmlns:axsl=
+    "http://www.w3.org/1999/XSL/TransformAlias"
+  exclude-result-prefixes="xs xd axsl"
+  version="2.0">
+
+  <xsl:strip-space elements="*"/>
+  <xsl:namespace-alias stylesheet-prefix="axsl"
+                       result-prefix="xsl"/>
+
+  <xsl:template match="mapping" as="element()">
+    
+    <axsl:template>
+      <xsl:apply-templates select="@source-value"/>
+      <xsl:apply-templates select="."
+        mode="generate-elements"/>
+    </axsl:template>
+    
+  </xsl:template>
+  
+  <xsl:template match="@source-value">
+    <xsl:attribute name="match"
+      select="concat(../@source-element, '[@', 
+      /map/@source-attribute, ' = ''', ., ''']')"/>
+  </xsl:template>
+  
+  <xsl:template match="mapping"
+    mode="generate-elements">
+    
+    <xsl:param name="element-list" as="xs:string*"
+      select="tokenize(@target-element, '\s+')"/>
+    <xsl:param name="top-level" as="xs:boolean" 
+                                select="true()"/>
+    
+    <xsl:choose>
+      
+      <!-- If there are no input elements in the 
+           sequence, create an apply-templates only 
+           - stop the recursion -->
+      <xsl:when test="count($element-list) = 0">
+        <axsl:apply-templates select="node()"/>
+      </xsl:when>
+      
+      <xsl:otherwise>
+        
+        <!-- Generate a literal element -->
+        <xsl:element name="{$element-list[1]}" 
+          namespace="{/map/@ns}">
+          
+         <!-- If top level, process mapping 
+              attributes and generate an apply 
+              templates for the input ID attributes 
+              (if any) -->
+          <xsl:if test="$top-level = true()">
+            <xsl:apply-templates 
+              select="@hint|@heading-level"/>
+            <axsl:apply-templates 
+              select="@*[local-name() = 'id']"/>
+          </xsl:if>
+          
+          <xsl:apply-templates select="." 
+                           mode="copy-attributes"/>
+          
+          <!-- Recursing passing the tail of the 
+               sequence  and setting top-level to 
+               false -->
+          <xsl:apply-templates select="." 
+                          mode="generate-elements">
+            <xsl:with-param name="element-list"
+             select="subsequence($element-list, 2)"
+            />
+            <xsl:with-param name="top-level" 
+                            select="false()"/>
+          </xsl:apply-templates>
+          
+        </xsl:element>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+  
+</xsl:stylesheet>
+]]></programlisting>
+
+      <para>This stylesheet generates a new stylesheet which we can apply to the content. We
+        consider that the ability to generate stylesheets for predictable parts of the process is
+        very important. It allows us to reduce the amount of new code written for each
+        transformation. The purpose of the toolkit we have created is to maximise reuse.
+        Configuration driven approaches to transformations allow us to reduce the custom code
+        requirements dramatically. </para>
+    </section>
+    <section>
+      <title>Implementation</title>
+      <para>The XSLT approach techniques discussed here have allowed us to create a set of
+        stylesheets that maximise reuse and minimise coding. However, we require an environment in
+        which this code can be run. We considered several approaches to constructing the framework
+        in which these stylesheets could be executed. </para>
+      <para>The first approach constructed a shell script using XSLT. This proved inefficient since
+        the overhead caused by IO requirements and the overhead of restarting the JVM proved
+        excessive. A second approach was taken where we wrote custom software using Perl and the
+        XML::LibXML libraries. This was more efficient but required us to maintain and support a
+        second codebase. The first XProc implementations appeared at the time at which we were
+        creating the Perl implementation. We chose to investigate using XProc to process our
+        documents.</para>
+      <para>Given that the stylesheets required for any given transformation process may differ from
+        that required for any other process, we decided to find an approach which allowed us use
+        configuration files to indicate which stylesheets should be run and in which
+        sequence.</para>
+    </section>
+  </section>
+
+
+  <section>
+    <title>XProc</title>
+    <para>We chose to implement this framework using XProc because we believed that it had all of
+      the features we required built into the implementations. We chose to use Norm Walsh’s Calabash
+      XProc processor. </para>
+    <para>XProc is a language for specifying pipelined transformations on XML documents. A pipeline
+      takes one or more documents as input and produces one or more as output. There is a certain
+      amount of symmetry to an XProc pipeline since steps in the pipeline and the pipeline itself
+      share semantics allowing an existing pipeline to be used as a step in another pipeline. </para>
+    <section>
+      <title>Manifest files</title>
+      <para>We have defined a schema and processing mechanism for manifest files which allows an
+        XProc step to load a sequence of XSLT files via a manifest file and prepare them for
+        evaluation against a document. </para>
+      <para>At its simplest a manifest file may be a simple set of stylesheets:</para>
+      <programlisting language="xml"><![CDATA[
+<manifest 
+  xmlns="http://www.corbas.co.uk/ns/transforms/data" 
+  version="1.0">
+  <item href="word-to-xhtml5-elements.xsl"/>
+  <item href="wrap-blocks.xsl"/>
+  <item href="merge_sups.xsl"/>
+  <item href="merge_spans.xsl"/>  
+</manifest>]]></programlisting>
+
+<para>This manifest simply indicates that four documents
+should be loaded and a sequence of documents
+returned by the XProc step Additional features are
+available to allow metadata to
+be stored with the document after loading and to
+allow documents to be processed with an XSLT
+stylesheet before being returned:</para>
+
+  <programlisting language="xml"><![CDATA[<item href="merge_spans.xsl"/>  
+
+<processed-item 
+  stylesheet="build-mapping-stylesheet.xsl">
+  <item xml:base="../../mapping/" href="efp.xml"/>
+</processed-item>
+  
+<item href="rewrite-para-numbers.xsl"/>
+
+<item href="merge_spans.xsl">
+  <meta name="merge-sup" value="false"/>
+</item>]]></programlisting>
+      <para>Finally, inclusion and grouping syntax is available to allow metadata items to be
+        included and to enable and disable items and groups.</para>
+    </section>
+    <section>
+      <title>Applying XProc to the problem</title>
+      <para>If we break down the problem into multiple stages we find that it can be viewed
+        as:</para>
+      <orderedlist>
+        <listitem>
+          <para>Load a sequence of XSLT stylesheets to be applied to a source document</para>
+        </listitem>
+        <listitem>
+          <para>Load a source document to be processed</para>
+        </listitem>
+        <listitem>
+          <para>Thread the source document through the XSLT files</para>
+        </listitem>
+        <listitem>
+          <para>Return the final output</para>
+        </listitem>
+      </orderedlist>
+      <section>
+        <title>Loading the manifest</title>
+        <para>The XProc specification provides for 31 required steps and 10 optional steps.
+          Additionally, custom steps can be written. An XProc step is an operation on (generally)
+          one or more XML documents resulting in one more XML documents. The two major stages
+          identified above map to custom XProc steps. </para>
+        <para>XProc operates on documents and sequences of documents in much the same way as XSLT
+          operates on nodes and sequences of nodes. This feature allows us to create an XProc step
+          which reads a configuration file, loads the documents referenced in that file and return a
+          sequence of files as the result </para>
+        <programlisting language="xml">
+&lt;p:declare-step <co linkends="co-txt-declare-step" xml:id="co-declare-step"/>
+  xmlns:p="http://www.w3.org/ns/xproc"
+  xmlns:ccproc=
+  "http://www.corbas.co.uk/ns/xproc/steps"
+  type="ccproc:load-sequence-from-file" 
+  name="load-sequence-from-file">
+
+  &lt;p:input port="source" primary="true"/><co linkends="co-txt-input" xml:id="co-input"/>
+  &lt;p:output port="result" primary="true" 
+    sequence="true">
+    &lt;p:pipe port="result" step="load-iterator"/>
+  &lt;/p:output><co linkends="co-txt-output" xml:id="co-output"/>
+
+  &lt;p:for-each name="load-iterator"><co linkends="co-txt-iteration" xml:id="co-iteration"/>
+
+    &lt;p:output port="result" primary="true">
+      &lt;p:pipe port="result" step="load-doc">
+
+    &lt;p:iteration-source select="/data:manifest/*">
+      &lt;p:pipe port="source" 
+      step="load-sequence-from-file"/>
+    &lt;/p:iteration-source>
+
+    &lt;p:variable name="href" 
+      select="p:resolve-uri(/data:item/@href, 
+			p:base-uri(/data:item))"/>
+
+    &lt;p:load name="load-doc">
+      &lt;p:with-option name="href" select="$href"/>
+    &lt;/p:load>
+
+  &lt;/p:for-each>
+
+&lt;/p:declare-step>
+
+</programlisting>
+        <calloutlist>
+          <callout xml:id="co-txt-declare-step" arearefs="co-declare-step">
+            <para>A custom step in XProc is created using <markup>p:declare-step</markup></para>
+          </callout>
+          <callout xml:id="co-txt-input" arearefs="co-input">
+            <para>In this context the <markup>p:input</markup> statement declares an input. The
+                <markup>primary</markup> attribute is used to indicate that this is the primary
+              input to the step (it will connect automatically and acts as the default XPath
+              context).</para>
+          </callout>
+          <callout xml:id="co-txt-output" arearefs="co-output">
+            <para>The <markup>p:output</markup> statement declares an output. The output of the step
+              is the output of the substep called <emphasis role="bold">load-manifest</emphasis>. We
+              also indicate that it returns a sequence of documents.</para>
+          </callout>
+          <callout xml:id="co-txt-iteration" arearefs="co-iteration">
+            <para>This substep loops over items in the input document, resolves the URI against the
+              document itself and then loads the file.</para>
+          </callout>
+        </calloutlist>
+        <para>This step (simplified from real-world code) shows the basic features of the XProc
+          environment. In order to load the files listed in the manifest file, we use the manifest
+          as an input document, use XPath to locate and resolve the URIs and then load them using
+          the built-in <markup>p:load</markup> step. The <markup>p:load</markup> step returns an XML
+          document, the loop returns a sequence of them. This is used as the custom step output.
+          Once this code has been saved, we can import it and use it as it were a built-in step.
+          This is one of the great advantages of working with XProc — the ability to extend
+          functionality and reuse high level operations. This step alone provides us with the
+          ability to list the transformations applicable to a document (or set of documents) and
+          laod them. </para>
+      </section>
+      <section>
+        <title>Processing the manifest</title>
+        <para>In order to process a source document and convert it to XHTML, it is necessary to
+          apply the sequence of stylesheets loaded by the step we previous described. This initially
+          presented some challenges when we considered implementing it in XProc. There is nothing in
+          the XProc specification that would allow a document to be threaded through a sequence of
+          stylesheets. Therefore, it was necessary to define a custom step.</para>
+        <para>Jostein Jacobsen suggested an approach using recursion and Romain Deltour provided a
+          simple implementation which forms the basis of the step we wrote. We can approach the
+          problem indirectly. Given a document and a sequence of stylesheets the task can be broken
+          down into repeated application of a simpler task: apply the first stylesheet in a sequence
+          to a document and then apply the same approach to the output and the next document.</para>
+        <para>This is relatively simple in XProc and the custom step model allows us to hide the
+          complexity of the process in a simple appearing interface. </para>
+
+        <programlisting language="xml"><![CDATA[
+<p:declare-step 
+  xmlns:p="http://www.w3.org/ns/xproc"
+  xmlns:ccproc=
+    "http://www.corbas.co.uk/ns/xproc/steps"
+  name="threaded-xslt" 
+  type="ccproc:threaded-xslt">
+  
+  <p:input port="source" sequence="false" 
+    primary="true"/>
+  
+  <p:input port="stylesheets" 
+    sequence="true"/>
+      
+  <p:output port="result" primary="true" 
+    sequence="true">
+    <p:pipe port="result" 
+      step="determine-recursion"/>
+  </p:output>
+    
+  <!-- Split of the first transformation from 
+       the sequence -->
+  <p:split-sequence name="split-stylesheets" 
+    initial-only="true" test="position()=1">
+    <p:input port="source">
+      <p:pipe port="stylesheets" 
+        step="threaded-xslt"/>
+    </p:input>
+  </p:split-sequence>
+  
+  <!-- How many of these are left? We actually 
+       only care to know  if there are *any* 
+       hence the limit. -->
+  <p:count name="count-remaining-transformations" 
+    limit="1">      
+    <p:input port="source">
+      <p:pipe port="not-matched" 
+        step="split-stylesheets"/>
+    </p:input>
+  </p:count>
+  
+  
+  <!-- run the stylesheet/ -->
+  <p:xslt name="run-single-xslt">
+    <p:input port="stylesheet">
+      <p:pipe port="matched" 
+        step="split-stylesheets"/>
+    </p:input>
+    <p:input port="source">
+      <p:pipe port="source" 
+        step="threaded-xslt"/>
+    </p:input>
+    <p:input port="parameters">
+      <p:empty/>
+    </p:input>
+  </p:xslt>
+  
+  
+  <!-- If there are any remaining stylesheets 
+       recurse. The primary input is the result of 
+       our XSLT and the remaining sequence from 
+       split-transformations above will be the 
+       stylesheet sequence  -->
+  <p:choose name="determine-recursion">
+    
+    <p:xpath-context>
+      <p:pipe port="result" 
+        step="count-remaining-transformations"/>
+    </p:xpath-context>
+   
+    
+    <!-- If we have any transformations
+         remaining recurse -->
+    <p:when test="number(c:result)>0">
+      
+      <p:output port="result" sequence="true">
+        <p:pipe port="result" 
+          step="run-single-xslt"/>
+        <p:pipe port="result" 
+          step="continue-recursion"/>
+      </p:output>
+      
+      <ccproc:threaded-xslt-impl 
+        name="continue-recursion">
+        
+        <p:input port="stylesheets">
+          <p:pipe port="not-matched" 
+            step="split-stylesheets"/>
+        </p:input>
+        
+        <p:input port="source">
+          <p:pipe port="result" 
+            step="run-single-xslt"/>
+        </p:input>
+        
+      </ccproc:threaded-xslt-impl>
+      
+    </p:when>
+    
+    <!-- Otherwise, pass the output of our 
+         transformation back as the result -->
+    <p:otherwise>
+      
+      <p:output port="result" sequence="true">
+        <p:pipe port="result" 
+          step="terminate-recursion"/>
+      </p:output>
+      
+      <p:identity name="terminate-recursion">
+        <p:input port="source">
+          <p:pipe port="result" 
+            step="run-single-xslt"/>
+        </p:input>
+      </p:identity>
+      
+    </p:otherwise>
+    
+  </p:choose>
+  
+</p:declare-step>]]></programlisting>
+
+        <para>The listing above is a simplified version of the step in the framework. In addition to
+          processing content with XSLT, the framework version of the code supports XSLT parameters
+          and debug output.</para>
+        <para>This step allows us to emulate the process of iterating and threading using recursion.
+          Each call to the step processes the output of the preceding steps as input using the first
+          stylesheet in the sequence. If the sequence is not empty after the first has been
+          consumed, then the step calls itself using the output as the input document for the next
+          call and the tail of the stylesheet sequence.</para>
+
+        <para>The power of the XProc <markup>p:declare-step</markup> statement is again demonstrated
+          here. The relatively complex processing of the sequence of stylesheets can be hidden
+          behind a simple interface:</para>
+
+        <programlisting language="xml"><![CDATA[
+<ccproc:threaded-xslt 
+  name="thread-content">
+  <p:input port="source">
+    <p:document href="my-doc.xml"/>
+  </p:input>
+  <p:input port="stylesheets">
+    <p:pipe port="result" step="load-stylesheets"/>
+  </p:input>
+</ccproc:threaded-xslt>
+]]></programlisting>
+
+      </section>
+
+      <section>
+        <title>A complete pipeline</title>
+        <para>In order to appreciate the power of the XProc approach to building pipelines, we must
+          examine the final pipeline code. </para>
+
+        <programlisting language="xml"><![CDATA[
+<p:declare-step 
+  xmlns:p="http://www.w3.org/ns/xproc"
+  xmlns:ccproc=
+   "http://www.corbas.co.uk/ns/xproc/steps"
+  version="1.0" name="process-doc">
+
+  <p:input port="manifest"/>
+  <p:input port="source"/>
+  <p:output port="result">
+    <p:pipe port="result" step="run-stylesheets"/>
+  </p:output>
+
+  <p:import href="load-sequence-from-file.xpl"/>
+  <p:import href="threaded-xslt.xpl"/>
+
+  <!-- load the stylesheets -->
+  <ccproc:load-sequence-from-file 
+    name="load-transformations">
+    <p:input port="source">
+      <p:pipe port="manifest" step="process-doc"/>
+    </p:input>
+  </ccproc:load-sequence-from-file>
+
+  <!-- run it through the stylesheets 
+    in the manifest -->
+  <ccproc:threaded-xslt name="run-stylesheets">
+    <p:input port="source">
+      <p:pipe port="result" step="process-doc"/>
+    </p:input>
+    <p:input port="stylesheets">
+      <p:pipe port="result" 
+        step="load-transformations"/>
+    </p:input>
+  </ccproc:threaded-xslt>
+
+</p:declare-step>]]></programlisting>
+
+
+        <para>The final pipeline chains together the two custom pipelines and allows a user process
+          a document using the progressive transformation framework. The model of chaining and
+          layering steps used by XProc allows for high levels of modularity and reuse. The
+          combination of XSLT and XProc provides and elegant solution to the problem of reliable
+          conversion from Microsoft Word to useful structured XML.</para>
+
+      </section>
+
+
+    </section>
+  </section>
+  <section>
+    <title>Conclusions</title>
+    <para>Processing Word (or other complex XML sources) can be challenging using conventional
+      single stylesheet or Ant driven approaches. The majority of the XSLT code required is quite
+      generic. However, the requirements imposed by varying style information on the Word document
+      make it impossible to design a stylesheet that can both cope with all situations and be
+      maintained. Therefore, an combination approach of using progressive enhancement and careful
+      metaprogramming techniques provides a poweverful mechanism for building generic processing
+      tools. XProc provides a valuable and elegant environment in which to build the systems
+      required to chain transformations agains one or more files together. </para>
+    <para>All of the code discussed in this paper is available from our Github repositories at <link
+        xlink:href="https://github.com/Corbas/xproc-tools"
+        >https://github.com/Corbas/xproc-tools</link> and <link
+        xlink:href="https://github.com/Corbas/mapping-tools"
+        >https://github.com/Corbas/mapping-tools</link>. The code presented here is a simplified
+      version of that held in the repositories.</para>
+    <para>We have implemented this code as the basis of a conversion pipeline at LexisNexis which
+      has been used to successfully convert 49.000 legal precedents from RTF to a proprietory XML
+      format. The only made was to replace the single input document with the results of a directory
+      traversal. We believe that this demonstrats the validity of both the approach and
+      implementation.</para>
+    <section>
+      <title>Issues with XProc</title>
+      <formalpara>
+        <title>Chaining steps can be opaque</title>
+        <para>The default input and outputs of a step and their relationship to other steps are not
+          clear. Explicit input and output definitions are simpler to use but are complex. In the
+          examples in this paper we have avoided the use of implicit inputs and outputs because they
+          do not add to code clarity and they are generally of little use as soon as steps with
+          multiple inputs or outputs are used. We believe that the implicit default mechanism is
+          valuable and would prefer to see a mechanism for simplifying the definition of all inputs
+          and outputs.</para>
+      </formalpara>
+      <formalpara>
+        <title>Iteration</title>
+        <para>The ability to iterate over a sequence of steps would be a great advantage to
+          processing XProc pipelines. The <markup>xsl:iterate</markup> statement added to XSLT 3
+          could provide a useful template. A new compound step allowing iteration over content with
+          the ability to wire inputs to outputs would reduce the need for recursion and mitigate the
+          risk that a complex pipeline could cause memory issues.</para>
+      </formalpara>
+      <formalpara>
+        <title>Memory</title>
+        <para>The pipeline can be very memory intensive. We have seen XProc pipelines using over
+          10GB of memory because each document is held for the duration of the script. There does
+          not appear to be any mechanism by which an XProc processor can determine when a document
+          is no longer required by the pipeline. The addition of some mechanism which would allow
+          the pipeline implementer to indicate that a document is no longer required which go some
+          way to resolving the problem.</para>
+      </formalpara>
+    </section>
+  </section>
+
+</article>

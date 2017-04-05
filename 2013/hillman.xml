@@ -1,0 +1,505 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-18" version="5.0">
+
+    <info xmlns:xlink="http://www.w3.org/1999/xlink">
+
+        <title>Practice what we Preach</title>
+
+        <authorgroup>
+
+            <author>
+                <personname>
+                    <firstname>Tomos</firstname>
+                    <surname>Hillman</surname>
+                </personname>
+                <personblurb>
+                    <para>Tom is the business owner of the OUP datamodels used to capture structured text including books and legal materials.</para>
+                </personblurb>
+                <affiliation>
+                    <jobtitle>Senior XML Data Engineer</jobtitle>
+                    <orgname>Oxford University Press</orgname>
+                </affiliation>
+                <email>tomos.hillman@oup.com</email>
+            </author>
+
+            <author>
+                <personname>
+                    <firstname>Richard</firstname>
+                    <surname>Pineger</surname>
+                </personname>
+                <personblurb>
+                    <para>Richard is a freelance technical writer and consultant in the DITA XML
+                          semantic architecture.</para>
+                </personblurb>
+                <affiliation>
+                    <orgname>Tech Doc Direct Limited</orgname>
+                </affiliation>
+                <email>richard.pineger@techdocdirect.com</email>
+            </author>
+
+        </authorgroup>
+
+        <abstract>
+            <para>This case study describes how we use in-house XML skills and the DITA XML semantic
+                architecture to present high-volumes of many-layered technical instructions to the
+                typesetters who capture our XML for publishing.</para>
+        </abstract>
+
+    </info>
+
+    <section xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>Capturing variety in XML</title>
+        <para>OUP content types include academic monographs, textbooks, encyclopediae, journals, reported law cases and legislation. They also include bilingual and monolingual dictionaries, but we're not covering those today.</para>
+        <para>We capture each of these content types to a suite of our own modularised DTD data
+            models. The content architecture used for the DTDs allows for abstraction and re-use of
+            content and processes that use XML for publishing.</para>
+        <para>Content is captured to XML from manuscripts and (retrospectively) from our back
+            catalogue by typesetters, and these typesetters need instructions.</para>
+        <para>OUPs advantage in the publishing world is the quality of our academic authors;
+            however, this means that we must accept what is sometimes bespoke content with a
+            disorganised structure with, for instance, special features like custom marginalia and
+            themed boxes.</para>
+        <para>The original instructions, called Text Capture Instructions (TCIs) were written as a
+            suite of 20-30 Word documents, some specific to products and titles, others specific to
+            core DTD structures that are referenced from the product specific documents. In short,
+            complex, confusing and difficult to maintain and navigate.</para>
+    </section>
+    <section xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>Challenges caused by the instructions</title>
+        <para>To reiterate, we had multiple documents with a confusing document hierarchy and
+            precedence of instructions which typesetters needed to relate to a separately maintained
+            hierarchy of DTDs before they could press the first key on a manuscript XML file.</para>
+        <para>Our maintenance of the instructions was complex with multiple Data Engineers accessing several storage locations in MS SharePoint to retrieve,version, and track the documents. So the web of documents lacked consistency, contained conflicting instructions, and where instructions were replicated in more than one place, caused partial updates to instructions.</para>
+        <para>It's fair to say that the audience, the typesetters, were confused. The documents
+            didn't always even target them as the audience. Many instructions carried descriptive
+            passages that were only useful for Data Engineers and DTD maintenance, leaving the
+            capturer scratching their head.</para>
+        <para>Also the language used had started out as passive and uncertain, "sometimes, normally,
+            generally, should, would, might" were used in virtually every sentence. Ironically, this
+            use of language was at least reasonably consistent as generations of Data Engineers
+            fitted with each other's style. But it didn't help the typesetter to know that a
+            structure "should be" captured and sometimes left them thinking, "who by?"</para>
+        <para>Worse still, for Data Engineers used to precision and certainty, there really was no
+            effective way of automating QA of updates to the instructions.</para>
+        <para>A team of XML engineers using MS Word? It never made sense... it was time to fix this
+            so we hired an XML technical author... Richard</para>
+    </section>
+    <section xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>The DITA XML solution</title>
+        <para>Technical writing changed in the last 30 years. The web and related technologies like
+            online help means that we no longer want to lock our content into long linear documents
+            as promoted by MS Word or even, dare I say it, DocBook XML. We want the freedom to
+            collaborate and have team members each create small chunks of information like you see
+            in help systems and on websites. Sure, many customers still expect a nice manual with
+            their product or instrument, but we can build those out of chunks. The new kid in town
+            is called <quote>component content management</quote> and when you combine it with
+                <quote>single-sourcing</quote> - the ability to publish to multiple channels, you
+            have solutions that are infinitely more flexible and open to automation. Practically
+            speaking, this means keeping a database of XML topics, mixing and matching them into
+            books, websites, help systems and publishing them through XSL. </para>
+        <para>Conveniently, and separately, <quote>single-sourcing</quote> is also the track that
+            the publishing industry has been pursuing over the same time frame.</para>
+        <para>In the technical communications world, one solution came out of IBM 10 or 12 years ago
+            in the form of a set of DTDs called the Darwinian Information Typing Architecture
+            (DITA) <biblioref linkend="paper-18_dita"/>. </para>
+        <para>IBM, at one time the largest publisher in the world, had made great progress with the
+            study of what constituted quality technical information, and the capture of semantic
+            information with the content. What they needed was a new scheme for capturing this
+            modular, semantic content, tying it together and publishing to multiple channels. They
+            also needed to do this in an extensible way that meant they could capture new semantic
+            content in a dynamic way, that is, capture the semantic immediately  and configure the
+            global teams and publishing engines later. Capture the right content and the rest can
+            follow. An approach that saved them millions - I'm sure Tom can verify the effort
+            required to change a single attribute on a traditional publishing DTD. And that effort
+            obviously translates to cost; and for global organizations, that can represent great
+            deal of cost.</para>
+        <para>But DITA is more than just a single-sourcing solution, it is a methodology, a paradigm, an ethos, that promotes quality in technical communications. It focusses on the audience and their goals. It promotes minimalism and clear thinking (and therefore clear writing) by removing; the <quote>shoulds</quote>, the <quote>woulds</quote>, unnecessary tense changes, passive constructions, and superfluous clutter. It structures information around tasks and tells the reader <emphasis>what to do</emphasis> instead of building knowledge so that they can <emphasis>work it out</emphasis> for themselves. It provides the <quote>minimum effective dose</quote> and no more, which makes it efficient to use although it can take longer to write. As <personname>Blaise Pascal</personname> explained (translated from the original French), <quote>I'm sorry for the length of this letter, I didn't have time to write a shorter one.</quote></para>
+        <para>So, hopefully you're now sold on the idea of DITA XML and want to investigate further.
+            Fortunately, you can. IBM open-sourced the whole scheme in about 2001, including DTDs
+            and an Open Toolkit publishing engine, DITA-OT <biblioref linkend="paper-18_dita-open-toolkit"/>.</para>
+        <para>My project at the OUP can be described simply: I converted their instructions into
+            DITA XML in three passes over 4 months. <itemizedlist>
+                <listitem>
+                    <para>First I rewrote the headings in the Word documents and tagged all the
+                        semantic content using MS Word styles</para>
+                </listitem>
+                <listitem>
+                    <para>Next I used Eliot Kimber's excellent word2dita conversion from the DITA4Publishers Open Toolkit plug-in <biblioref linkend="paper-18_dita-for-publishers"/>. The word2dita XSL converts MS Office-Open XML (OOXML) into a ditamap and dita topics by referencing an XML mapping file. It creates the semantic nesting that is absent in office documents and can even capture complex constructs such as definition lists and images with captions within figures</para>
+                </listitem>
+                <listitem>
+                    <para>Finally, I worked through in the DITA XML semantic markup and combined and
+                        rewrote the 2000+ raw topics into 1300 focussed, definite instructions for
+                        typesetters.</para>
+                </listitem>
+            </itemizedlist></para>
+        <para>Each topic is stored in an XML file with the extension <filename>.dita</filename> and
+            these are tied together into a publication using a ditamap XML file. The topic XML
+            structure is very simple and contains only semantic elements with no layout or style
+            information. The map XML structure is very simple allowing relatively easy manipulation
+            of maps and referenced topics with XSL.</para>
+        <para>Obviously I worked with Tom through the project to automate global changes and
+            incorporate as many data integration features as we could. Tom will tell you about some
+            of those now.</para>
+    </section>
+    <section xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>Further benefits from XML technologies</title>
+        <subtitle>Writing and validating XML examples in XML</subtitle>
+        <para>Since there are so many potential ways in which we can leverage our team's XML expertise with DITA, we leave compiling a complete list (if such a thing is possible!) as an exercise for the reader.  Examples range from improvements at quite a low level (e.g. version control on topics through SVN keywords) to sophisticated XML processing (e.g. XSLT transforms or delivery options for global changes).</para>
+        <para>Instead we will concentrate on one particular issue: example instances of XML.</para>
+        <para>The particular problem is that an example will normally include contextual mark-up that isn't directly illustrating the main subject. If the data-model or capture rules change, it's difficult or impossible to find every instance of the change in all examples across the entire data set.</para>
+        <para>A secondary issue was identified in the way in which the code examples are written. Styling the examples by adding <code>@outputclass</code> attribute values to every angled bracket, attribute name or value, processing instruction etc. was an obvious time sink.</para>
+        <para>Our proposed solution was to write the examples in XML, validate them using NVDL <biblioref linkend="paper-18_nvdl"/>, then convert them into a DITA shared resource where each example can be referenced and reused dynamically.</para>
+        <section>
+            <title>Combining example document types with NVDL</title>
+            <para>I created a schema for a wrapper XML format to contain multiple examples from the different OUP datamodels.</para>
+            <para>Creating the schema had some challenges because of OUP's current use of DTDs for our datamodels: <orderedlist>
+                    <listitem>
+                        <para>OUP DTDs have limited namespace support</para>
+                    </listitem>
+                    <listitem>
+                        <para>The editor's implementation of NVDL doesn't support DTDs</para>
+                    </listitem>
+                </orderedlist>These were overcome:<orderedlist>
+                    <listitem>
+                        <para>By use of NVDL <code>context</code> to change <code>mode</code> based on element name in the wrapper XML format</para>
+                    </listitem>
+                    <listitem>
+                        <para>By converting DTDs to schema.</para>
+                    </listitem>
+                </orderedlist></para>
+            <para>NVDL allows separate validation at the level of the wrapper format as well as the contained OUP XML examples:</para>
+            <itemizedlist>
+                <listitem>
+                    <para>Validation in the wrapper layer ensures higher level aspects such as the uniqueness of id attributes.</para>
+                </listitem>
+                <listitem>
+                    <para>Validation in the contained layer ensures that each example conforms to the relevant data-model.</para>
+                </listitem>
+            </itemizedlist>
+            <example>
+                <title>XML Examples Sample</title>
+                <programlistingco>
+                    <areaspec>
+                        <area xml:id="paper-18_eg.line.2" coords="2"/>
+                        <area xml:id="paper-18_eg.line.4" coords="4"/>
+                        <area xml:id="paper-18_eg.line.5" coords="5"/>
+                    </areaspec>
+                    <programlisting linenumbering="numbered" startinglinenumber="1" language="xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;?xml-model href="Examples/examples.nvdl" type="application/xml" schematypens="http://purl.oclc.org/dsdl/nvdl/ns/structure/1.0"?&gt;
+&lt;x:examples xmlns:x="http://schema.oup.com/dita/examples"&gt;
+  &lt;x:example id="OUP_Law_Reports_431_singapore01"&gt;
+    &lt;x:OxDTD&gt;&lt;disclaimer&gt;
+  &lt;p&gt;Decision © Singapore Academy of Law under exclusive licence from the Government of Singapore. The Academy reserves all rights in the content, which may not be reproduced without the Academy's written permission.&lt;/p&gt;
+&lt;/disclaimer&gt;&lt;/x:OxDTD&gt;
+  &lt;/x:example&gt;
+&lt;/x:examples&gt;</programlisting>
+                    <calloutlist>
+                      <callout arearefs="paper-18_eg.line.2">
+                            <para>Line 2: associates the NVDL schema</para>
+                        </callout>
+                      <callout arearefs="paper-18_eg.line.4">
+                            <para>Line 4: includes the unique ID which will be used by DITA as a key.</para>
+                        </callout>
+                      <callout arearefs="paper-18_eg.line.5">
+                            <para>Line 5: the OxDTD element is used by the NVDL engine to choose which validation to apply.</para>
+                        </callout>
+                    </calloutlist>
+                </programlistingco>
+            </example>
+            <example>
+                <title>NVDL Sample</title>
+                <programlistingco>
+                    <areaspec>
+                      <areaset xml:id="paper-18_nvdl.examples.validate" linkends="paper-18_nvdl.co.1">
+                            <area xml:id="paper-18_nvdl.line.10" coords="10"/>
+                            <area xml:id="paper-18_nvdl.line.20" coords="20"/>
+                        </areaset>
+                        <area xml:id="paper-18_nvdl.line.11" coords="11"/>
+                        <area xml:id="paper-18_nvdl.line.14" coords="14"/>
+                        <area xml:id="paper-18_nvdl.line.21" coords="21"/>
+                    </areaspec>
+                    <programlisting linenumbering="numbered" startinglinenumber="1" language="xml">&lt;rules
+  xmlns="http://purl.oclc.org/dsdl/nvdl/ns/structure/1.0"
+  xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0"
+  xmlns:x="http://schema.oup.com/dita/examples"
+  xmlns:sch="http://www.ascc.net/xml/schematron"
+  startMode="examples"
+  &gt;
+  &lt;mode name="examples"&gt;
+    &lt;namespace ns="http://schema.oup.com/dita/examples"&gt;
+      &lt;validate schema="examples.rng"&gt;
+        &lt;context path="OxDTD"&gt;
+          &lt;mode&gt;
+            &lt;anyNamespace&gt;
+              &lt;validate schema="schema/OxDTD/OxDTD.xsd"/&gt;
+              &lt;attach useMode="unwrap"/&gt;
+            &lt;/anyNamespace&gt;
+          &lt;/mode&gt;
+        &lt;/context&gt;
+        &lt;/validate&gt;
+      &lt;validate schema="examples.sch"&gt;
+        &lt;context path="OxDTD" useMode="allow"/&gt;
+      &lt;/validate&gt;
+    &lt;/namespace&gt;
+    &lt;anyNamespace&gt;
+      &lt;reject/&gt;
+    &lt;/anyNamespace&gt;
+  &lt;/mode&gt;
+  &lt;mode name="unwrap"&gt;
+    &lt;namespace ns="http://schema.oup.com/dita/examples"&gt;
+      &lt;unwrap/&gt;
+    &lt;/namespace&gt;
+  &lt;/mode&gt;
+  &lt;mode name="allow"&gt;
+    &lt;anyNamespace&gt;
+      &lt;allow/&gt;
+    &lt;/anyNamespace&gt;
+  &lt;/mode&gt;
+&lt;/rules&gt;</programlisting>
+                    <calloutlist>
+                      <callout xml:id="paper-18_nvdl.co.1" arearefs="paper-18_nvdl.examples.validate">
+                            <para>Lines 10, 20: The wrapper format is defined as the RelaxNG schema 'examples.rng' and a schematron file 'examples.sch'.  The former defines the model, the latter enforces ID uniqueness.</para>
+                        </callout>
+                      <callout arearefs="paper-18_nvdl.line.11">
+                            <para>Line 11: defines a change of context when the <code>OxDTD</code> element is encountered</para>
+                        </callout>
+                      <callout arearefs="paper-18_nvdl.line.14">
+                            <para>Line 14: defines which data-model to use to validate the contained XML</para>
+                        </callout>
+                      <callout arearefs="paper-18_nvdl.line.21">
+                            <para>Line 21: excludes the contained XML from the schematron validation</para>
+                        </callout>
+                    </calloutlist>
+                </programlistingco>
+            </example>
+        </section>
+        <section>
+            <title>Code highlighting in DITA XML using XSLT</title>
+            <para>DITA doesn't contain semantic elements for all the constituent parts of an XML example although it does include phrase <code>ph</code> elements and an <code>outputclass</code> attribute that transforms to a CSS class in all the HTML-based outputs.</para>
+            <para>A (remarkably simple) XSL script converts from wrapper format to a dita topic with shared code-highlighted code blocks.</para>
+            <para>The DITA XML architecture provides a reuse mechanism using a system of content references to other files using keys (stored in the map) and element <code>id</code> attributes. To include an example in a topic, the Data Engineer simply adds the <code>codeblock</code> element with a <code>conkeyref</code> attribute that points via the key to the <code>codeblock/@id</code>  in the examples topic.</para>
+            <para>We also added the classes and output classes to a CSS file and used an <code>@import</code> CSS statement in the editor CSS to style the examples consistently in the Oxygen <biblioref linkend="paper-18_oxygen"/> author view and HTML output formats.</para>
+            <figure>
+                <title>Generated syntax highlighting in the editor:</title>
+                <mediaobject>
+                    <imageobject>
+                        <imagedata fileref="images/paper-18/OUP_Law_Reports_TCI_topic_4_3_1.png"/>
+                    </imageobject>
+                </mediaobject>
+            </figure>
+            <figure>
+                <title>Generated syntax highlighting in the output format:</title>
+                <mediaobject>
+                    <imageobject>
+                        <imagedata fileref="images/paper-18/Instructions-Google-Chrome.png"/>
+                    </imageobject>
+                </mediaobject>
+            </figure>
+            <example>
+                <title>XSL Listing</title>
+                <programlisting linenumbering="numbered" language="xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xd="http://www.oxygenxml.com/ns/doc/xsl" xmlns:x="http://schema.oup.com/dita/examples" exclude-result-prefixes="xs xd x" version="2.0"&gt;
+  &lt;xd:doc scope="stylesheet"&gt;
+    &lt;xd:desc&gt;
+      &lt;xd:p&gt;&lt;xd:b&gt;Created on:&lt;/xd:b&gt; Feb 19, 2013&lt;/xd:p&gt;
+      &lt;xd:p&gt;&lt;xd:b&gt;Author:&lt;/xd:b&gt; TFJH&lt;/xd:p&gt;
+      &lt;xd:p&gt;&lt;xd:b&gt;Last Modified:&lt;/xd:b&gt; TFJH, 2013-02-19&lt;/xd:p&gt;
+      &lt;xd:p&gt;This stylesheet creates a shared repository of dita code examples from a validated input source.&lt;/xd:p&gt;
+    &lt;/xd:desc&gt;
+  &lt;/xd:doc&gt;
+
+  &lt;xd:doc scope="component"&gt;
+    &lt;xd:desc&gt;
+      &lt;xd:p&gt;&lt;xd:b&gt;Last Modified:&lt;/xd:b&gt; TFJH, 2013-02-19&lt;/xd:p&gt;
+      &lt;xd:p&gt;output parameters specify DTD declarations etc&lt;/xd:p&gt;
+    &lt;/xd:desc&gt;
+  &lt;/xd:doc&gt;
+  &lt;xsl:output doctype-public="-//OASIS//DTD DITA Topic//EN" doctype-system="topic.dtd" encoding="UTF-8"/&gt;
+
+  &lt;xd:doc scope="component"&gt;
+    &lt;xd:desc&gt;
+      &lt;xd:p&gt;&lt;xd:b&gt;Last Modified:&lt;/xd:b&gt; TFJH, 2013-02-19&lt;/xd:p&gt;
+      &lt;xd:p&gt;The root template creates the DITA superstructure.&lt;/xd:p&gt;
+    &lt;/xd:desc&gt;
+  &lt;/xd:doc&gt;
+  &lt;xsl:template match="/"&gt;
+    &lt;topic id="topic_jys_5gr_fj"&gt;
+      &lt;title&gt;Common code examples&lt;/title&gt;
+      &lt;body&gt;
+        &lt;xsl:apply-templates/&gt;
+      &lt;/body&gt;
+    &lt;/topic&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xd:doc scope="component"&gt;
+    &lt;xd:desc&gt;
+      &lt;xd:p&gt;&lt;xd:b&gt;Last Modified:&lt;/xd:b&gt; TFJH, 2013-02-19&lt;/xd:p&gt;
+      &lt;xd:p&gt;Each x:example element represents a new codeblock.&lt;/xd:p&gt;
+    &lt;/xd:desc&gt;
+  &lt;/xd:doc&gt;
+  &lt;xsl:template match="x:example"&gt;
+    &lt;codeblock id="{@id}"&gt;
+     &lt;xsl:apply-templates/&gt;
+    &lt;/codeblock&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xd:doc scope="component"&gt;
+    &lt;xd:desc&gt;
+      &lt;xd:p&gt;&lt;xd:b&gt;Last Modified:&lt;/xd:b&gt; TFJH, 2013-02-19&lt;/xd:p&gt;
+      &lt;xd:p&gt;Kick off code conversion when encountering a wrapper element.&lt;/xd:p&gt;
+    &lt;/xd:desc&gt;
+  &lt;/xd:doc&gt;
+  &lt;xsl:template match="x:OxDTD"&gt;
+    &lt;xsl:apply-templates mode="code"/&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xd:doc scope="component"&gt;
+    &lt;xd:desc&gt;
+      &lt;xd:p&gt;&lt;xd:b&gt;Last Modified:&lt;/xd:b&gt; TFJH, 2013-02-19&lt;/xd:p&gt;
+      &lt;xd:p&gt;General handling of elements within code blocks&lt;/xd:p&gt;
+    &lt;/xd:desc&gt;
+  &lt;/xd:doc&gt;
+  &lt;xsl:template match="*" mode="code"&gt;
+    &lt;ph outputclass="XmlFurniture"&gt;&amp;lt;&lt;/ph&gt;&lt;ph outputclass="ElementName"&gt;&lt;xsl:value-of select="name()"/&gt;&lt;/ph&gt;
+    &lt;xsl:apply-templates select="@*" mode="code"/&gt;
+    &lt;ph outputclass="XmlFurniture"&gt;&amp;gt;&lt;/ph&gt;
+    &lt;xsl:apply-templates select="node() except @*" mode="code"/&gt;
+    &lt;ph outputclass="XmlFurniture"&gt;&amp;lt;/&lt;/ph&gt;&lt;ph outputclass="ElementName"&gt;&lt;xsl:value-of select="name()"/&gt;&lt;/ph&gt;&lt;ph outputclass="XmlFurniture"&gt;&amp;gt;&lt;/ph&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xd:doc scope="component"&gt;
+    &lt;xd:desc&gt;
+      &lt;xd:p&gt;&lt;xd:b&gt;Last Modified:&lt;/xd:b&gt; TJFH, 2013-02-19&lt;/xd:p&gt;
+      &lt;xd:p&gt;General handling of attributes on elements&lt;/xd:p&gt;
+    &lt;/xd:desc&gt;
+  &lt;/xd:doc&gt;
+  &lt;xsl:template match="@*" mode="code"&gt;
+    &lt;xsl:text&gt; &lt;/xsl:text&gt;&lt;ph outputclass="AttributeName"&gt;&lt;xsl:value-of select="name()"/&gt;&lt;/ph&gt;&lt;ph outputclass="XmlFurniture"&gt;=&amp;quot;&lt;/ph&gt;&lt;ph outputclass="AttributeValue"&gt;&lt;xsl:value-of select="."/&gt;&lt;/ph&gt;&lt;ph outputclass="XmlFurniture"&gt;&amp;quot;&lt;/ph&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xd:doc scope="component"&gt;
+    &lt;xd:desc&gt;
+      &lt;xd:p&gt;&lt;xd:b&gt;Last Modified:&lt;/xd:b&gt; TFJH, 2013-02-19&lt;/xd:p&gt;
+      &lt;xd:p&gt;General handling of text nodes in code&lt;/xd:p&gt;
+    &lt;/xd:desc&gt;
+  &lt;/xd:doc&gt;
+  &lt;xsl:template match="text()" mode="code"&gt;
+    &lt;xsl:value-of select="."/&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xd:doc scope="component"&gt;
+    &lt;xd:desc&gt;
+      &lt;xd:p&gt;&lt;xd:b&gt;Last Modified:&lt;/xd:b&gt; TFJH, 2013-02-19&lt;/xd:p&gt;
+      &lt;xd:p&gt;General handling of comments in code&lt;/xd:p&gt;
+    &lt;/xd:desc&gt;
+  &lt;/xd:doc&gt;
+  &lt;xsl:template match="comment()" mode="code"&gt;
+    &lt;ph outputclass="Comment"&gt;&amp;lt;--&lt;xsl:value-of select="."/&gt;--&amp;gt;&lt;/ph&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xd:doc scope="component"&gt;
+    &lt;xd:desc&gt;
+      &lt;xd:p&gt;&lt;xd:b&gt;Last Modified:&lt;/xd:b&gt; TFJH, 2013-02-19&lt;/xd:p&gt;
+      &lt;xd:p&gt;General handling of PIs in code&lt;/xd:p&gt;
+    &lt;/xd:desc&gt;
+  &lt;/xd:doc&gt;
+  &lt;xsl:template match="processing-instruction()" mode="code"&gt;
+    &lt;ph outputclass="PI"&gt;&amp;lt;?&lt;xsl:value-of select="name()"/&gt;&lt;xsl:text&gt; &lt;/xsl:text&gt;&lt;xsl:value-of select="."/&gt;?&amp;gt;&lt;/ph&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xd:doc scope="component"&gt;
+    &lt;xd:desc&gt;
+      &lt;xd:p&gt;&lt;xd:b&gt;Last Modified:&lt;/xd:b&gt; TJFH, 2013-02-19&lt;/xd:p&gt;
+      &lt;xd:p&gt;Recursion templates to ensure all elements and attributes match&lt;/xd:p&gt;
+    &lt;/xd:desc&gt;
+  &lt;/xd:doc&gt;
+  &lt;xsl:template match="node()|@*" mode="#default"&gt;
+    &lt;xsl:apply-templates select="node()|@*" mode="#current"/&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</programlisting>
+            </example>
+        </section>
+        <section>
+            <title>Remaining challenges and developments</title>
+            <formalpara>
+                <title>DTD/Schema support</title>
+                <para>The implementation of NVDL <biblioref linkend="paper-18_nvdl"/> in Oxygen <biblioref linkend="paper-18_oxygen"/> lacks support for DTD validation so we used trang to produce schema based versions. Any updates to the DTDs will require a re-transformation to update the schemas.</para>
+            </formalpara>
+            <para>In the short term, we can mitigate by adding this as an automated part of our release process. In the long term we hope to migrate our datamodels to a compliant schema format.</para>
+            <formalpara>
+                <title>Example excerpts and highlighting.</title>
+                <para>Each example must be a complete, valid XML instance.  This means examples will sometimes contain elements and structures that do not directly relate to the example have to be captured.  Consider as an example an IDREF reference to a different part of the document structure!</para>
+            </formalpara>
+            <para>One potential approach would be to mix elements from the wrapper format among the example data-model. These would be stripped out for validation, but in place to highlight, selectively include or exclude ranges of the example.</para>
+            <formalpara>
+                <title>XML and Doctype declarations</title>
+                <para>XML and Doctype declarations would invalidate the data if included verbatim in examples.  However it should be straightforward to add options to the wrapper format which can be used to recreate them.</para>
+            </formalpara>
+            <formalpara>
+                <title>Rule based validation</title>
+                <para>At the moment OUP use a proprietary format for our rule based validation (XML Probe) <biblioref linkend="paper-18_xmlprobe"/>. When we move to an NVDL compliant format (viz. Schematron) <biblioref linkend="paper-18_schematron"/>, the system will become far more powerful.</para>
+            </formalpara>
+        </section>
+    </section>
+    <section xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>Conclusion</title>
+        <para>One of the major selling points of XML is that it promises reuse not only of data but also of skills.  Sometimes it's easy to forget that we can apply these advantages to our own day to day work, such as documentation, as well as the XML which is our product.</para>
+        <para>We found that any technology that's available for the wider use of XML can introduce opportunities when you decide to use XML with your own processes.</para>
+        <para>Those principles of reuse are mirrored on a conceptual level with the guidelines introduced by DITA.</para>
+        <para>We hope that we've shown that there are opportunities to not only produce or process XML, but to use XML ourselves: to practice what we preach.</para>
+    </section>
+
+    <bibliography xmlns:xlink="http://www.w3.org/1999/xlink">
+      <title>References</title>
+
+      <biblioentry xml:id="paper-18_dita" xreflabel="[1]">
+        <abbrev>1</abbrev>
+        <productname>Darwin Information Typing Architecture</productname>
+        <acronym>DITA</acronym>
+        <biblioid class="uri">http://docs.oasis-open.org/dita/v1.2/os/spec/DITA1.2-spec.html</biblioid>
+      </biblioentry>
+
+      <biblioentry xml:id="paper-18_dita-open-toolkit" xreflabel="[2]">
+        <abbrev>2</abbrev>
+        <productname>DITA Open Toolkit</productname>
+        <biblioid class="uri">http://dita-ot.sourceforge.net/</biblioid>
+      </biblioentry>
+
+      <biblioentry xml:id="paper-18_dita-for-publishers" xreflabel="[3]">
+        <abbrev>3</abbrev>
+        <productname>DITA for publishers</productname>
+        <biblioid class="uri">http://dita4publishers.sourceforge.net/</biblioid>
+      </biblioentry>
+
+      <biblioentry xml:id="paper-18_nvdl" xreflabel="[4]">
+        <abbrev>4</abbrev>
+        <productname>Namespace-based Validation Dispatching Language</productname>
+        <acronym>NVDL</acronym>
+        <biblioid class="uri">http://www.nvdl.org/</biblioid>
+      </biblioentry>
+
+      <biblioentry xml:id="paper-18_oxygen" xreflabel="[5]">
+        <abbrev>5</abbrev>
+        <productname>
+          Oxygen XML Editor
+        </productname>
+        <orgname>SyncRO Soft SRL</orgname>
+        <biblioid class="uri">http://www.oxygenxml.com/</biblioid>
+      </biblioentry>
+
+      <biblioentry xml:id="paper-18_xmlprobe" xreflabel="[6]">
+        <abbrev>6</abbrev>
+        <productname>XMLProbe</productname>
+        <orgname>Griffin Brown Digital Publishing Ltd.</orgname>
+        <biblioid class="uri">http://www.xmlprobe.com</biblioid>
+      </biblioentry>
+
+      <biblioentry xml:id="paper-18_schematron" xreflabel="[7]">
+        <abbrev>7</abbrev>
+        <productname>Schematron</productname>
+        <biblioid class="uri">http://www.schematron.com</biblioid>
+      </biblioentry>
+
+    </bibliography>
+
+</article>

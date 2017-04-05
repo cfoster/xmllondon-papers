@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-27" version="5.0" xml:lang="en">
+    <info xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>Frameless for XML - The Reactive Revolution</title>
+
+        <authorgroup>
+          <author>
+            <personname>
+              <firstname>Robbert</firstname>
+              <surname>Broersma</surname>
+            </personname>
+              <email>robbert@frameless.io</email>
+              <uri>http://frameless.io/</uri>
+              <affiliation>
+                  <orgname>Frameless</orgname>
+              </affiliation>
+          </author>
+          <author>
+            <personname>
+              <firstname>Yolijn</firstname>
+              <surname>van der Kolk</surname>
+            </personname>
+              <email>yolijn@frameless.io</email>
+              <uri>http://frameless.io/</uri>
+              <affiliation>
+                  <orgname>Frameless</orgname>
+              </affiliation>
+          </author>
+        </authorgroup>
+
+        <abstract>
+          <para>What would the web look like with functional reactive templates driven by functional reactive query expressions?</para>
+
+          <para>Lots of recent innovative developments are significant steps towards faster and more manageable web development, but to really improve our lives by leaps and bounds we must take a step back and consider the requirements for unleashing all this power to front-end developers that aren't fluent in JavaScript.</para>
+
+          <para>What would happen if we throw Angular expressions, React's virtual DOM and Reactive Extensions (Rx) in a mix? What if we use a declarative syntaxes like XSLT and XPath to compile an instruction set for this engine? What if we can reason about the instructions that make up your website and automatically build minimal and optimized modules?</para>
+
+          <para>It's uneconomical to obtain optimal performance for most projects you're working on, there are just too many sides to it: asynchronous tasks, web workers, parallel computations, lazily loading modules, reducing file size, splitting HTML/CSS/JS into modules, combining modules again to reduce HTTP requests, minification, atomic DOM updates, only rendering what's visible, only calculating what is being rendered, only re-calculating what has changed...</para>
+
+          <para>But we must do better, also because performance is very much about economic inclusiveness. Smaller web pages are essential to those using internet in (remote) areas over slow 2.5G mobile networks, where wireless data charges are high and every CPU cycle counts when you're using a $25 dollar smartphone.</para>
+
+          <para>When we've got a reactive template solution in place we can start thinking about using some of the kilobytes we've saved and some of the CPU cycles to add ubiquitous support for unsexy inclusive technologies such as accessibility, Unicode, localization, and security.</para>
+        </abstract>
+    </info>
+
+<section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Introduction</title>
+        <para>Templates are at the core of most web pages. Historically templates are processed server side, but increasingly additional content is provided with the servers only sending the raw data and scripts from the web page implementing templates to present it.</para>
+
+        <para>Conditionally showing validation warnings next to form inputs. A list of autocomplete suggestions. The latest tweets. Showing the number of unread e-mails between parentheses after "Inbox", or not anymore when the last unread mail is opened.</para>
+
+        <para>The output of any template is essentially limited to the data that can be targeted using the query language. When an advanced query language is not a significant part of a template engine, complex selecting and filtering must occur in a preprocessing step.</para>
+
+        <para>Frameless is created to simplify application development and is, due to its API, great for writing readable code.</para>
+
+        <para>Frameless is built on our own XSLT processor running in the browser. It includes a custom built reactive XPath query engine for simple, powerful querying that works across browsers. This way we are able to include useful features like <code>$variables</code> and allowing custom functions in XPath. The current beta release works in all modern browsers, but also works in hostile environments such as IE6 and Firefox 1.0.</para>
+
+        <para>We achieve resilience in platform support by employing extensive feature detection and never correlating the presence of a certain platform feature to a certain browser version. This way Frameless releases keep working when browsers with new features are introduced, and it will fallback to more basic platform APIs when methods or properties are removed or renamed.</para>
+
+        <para>Developers can quickly get up to speed with our template engine, because we provide all template instructions directly inside HTML pages, using HTML syntax. These templates consist of custom elements and attributes that instruct Frameless to conditionally show or repeat markup snippets. In addition to this we also support value templates inside <code>{</code> and <code>}</code> brackets for both attributes and text content.</para>
+</section>
+<section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Why we created Frameless</title>
+
+    <para>Three years ago we started the development of Frameless, because we felt the development of complex web applications really lacks  a solid basis. Browser differences, internationalization, scalability and security are recurring issues we think can and should be solved structurally and invisibly.</para>
+
+    <para>We wanted to be able to use templates directly in the HTML pages, rather then only in external files. While there is nothing wrong with external XSLT templates, we think there are some interesting advantages in being able to use them inline. When using a more basic syntax for XSLT, programming the templates will be more intuitive to front-end developers, while the resulting code is more readable and self explanatory than JavaScript would be.</para>
+
+    <para>XSLT and XPath from versions 2 and up provide very competitive feature sets, and are arguably more mature than the alternatives JavaScript libraries offer. That's why we chose to start development by implementing XSLT 2: designing for complex use cases can lead to a cleaner architecture than optimizing for simple use cases and later bolting on complexity.</para>
+
+    <para>By making the templates automatically react to changes in the data and to changing variables, implementing real-time user interfaces doesn't require writing extensive DOM-manipulation code anymore, drastically reducing development time and bugs.</para>
+
+    <para>Our mission is to create a framework that allows us to write web applications by functionally describing their flow and behavior, rather than describing what each browser needs to hear. We want to rely on the template renderer to resolve cross site scripting vulnerabilities and optimally render changes to the DOM.</para>
+</section>
+<section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Example: reactive filtering using full text search</title>
+
+    <para>Many user interfaces include search and autocomplete functionality, showing the results as-you-type. Using Frameless no additional code at all is needed to show these results in real time.</para>
+
+    <para>In the following example we'll implement finding a person from a list of contacts. First there is a form <code>&lt;input&gt;</code> that is bound to the <code>$query</code> variable. As the user is typing text into this form field, the <code>$query</code> becomes more specific and filters out all non-matching contacts. For all contacts that do match, we want to highlight the matching parts of that person's name.</para>
+
+    <para>Unicode decomposition of text is helpful in separating the diacritics from the letters, allowing comparison against the search query without taking account diacritics. However, not all characters in Latin script can be decomposed to A-Z. That's why we've added a "confusables" option, that uses the Unicode database to also match characters that look like the original Latin letters. This way you can find names such as "Sørensen" and "Đặng", names that normally wouldn't even show up in search results.</para>
+
+    <para>To provide more than just regular expression based string templates, we allow custom tokenizers for the <code>&lt;analyze-string&gt;</code> instruction. These custom templates could for example be used to implement syntax highlighting for code in documents like this very document, but in this case we're using the <code>full-text</code> tokenizer to highlight matches to the search query.</para>
+
+<programlisting>&lt;div class='contacts-app app'&gt;
+  &lt;div class='contacts-finder data-list-container'&gt;
+    &lt;div class='search data-list-search'&gt;
+      &lt;input type='text' placeholder='Search' ref='$query' id='contact-query'&gt;
+    &lt;/div&gt;
+    &lt;div id='contact-list' class='data-list' tabindex='0'&gt;
+      &lt;for-each select='$contacts[name contains text $query using diacritics insensitive using case insensitive using option confusables]' sort='(name/lastname, name/firstname)[1]'&gt;
+        &lt;div class='data-list-item' tabindex='0' focus-action='open-contact(.)'&gt;
+          &lt;analyze-string select='name/firstname' match='{$query}' tokenizer='full-text'&gt;
+            &lt;matching-substring&gt;
+              &lt;em&gt;{{.}}&lt;/em&gt;
+            &lt;/matching-substring&gt;
+            &lt;non-matching-substring&gt;{{.}}&lt;/non-matching-substring&gt;
+          &lt;/analyze-string&gt;
+          &lt;b&gt;
+            &lt;analyze-string select='name/lastname' match='{$query}' tokenizer='full-text'&gt;
+              &lt;matching-substring&gt;
+                &lt;em&gt;{{.}}&lt;/em&gt;
+              &lt;/matching-substring&gt;
+              &lt;non-matching-substring&gt;{{.}}&lt;/non-matching-substring&gt;
+            &lt;/analyze-string&gt;
+          &lt;/b&gt;
+        &lt;/div&gt;
+      &lt;/for-each&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</programlisting>
+
+  <mediaobject>
+    <imageobject>
+      <imagedata fileref="images/contact-search.png" width="100%"/>
+    </imageobject>
+  </mediaobject>
+
+
+</section>
+<section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Example: reactive grouping and sorting for interactive infographics</title>
+    <para>In this code sample we will write a couple of lines of code to create an overview of the tallest structures in the world, visually comparing their sizes to other tall structures in that country. First there is an XPath query that loads an external file, containing the data. Once the file is loaded, the rest of the query is executed.</para>
+
+    <para>All structures are grouped by country, and the countries are sorted by the name of the country in the current locale; English in this example. The next step is to create a line up of all tall structures, tallest structures first. Note also that for formatting the height a localization function is used to present the height in meters according to the customs of the locale.</para>
+
+<programlisting>&lt;for-each select="doc('buildings.xml')/buildings/structure[status = 'completed']" group-by="location/country" sort="localize-country(location/country)"&gt;
+  &lt;h2&gt;Tallest buildings: {{localize-country(current-grouping-key())}}&lt;/h3&gt;
+  &lt;div class="structures-chart" id="{current-grouping-key()}"&gt;
+    &lt;for-each select="current-group()" sort="height/meters" sort-order="descending" sort-data-type="number"&gt;
+      &lt;div class="structure"&gt;
+        &lt;div class="structure-content"&gt;
+          &lt;div class="structure-label"&gt;
+            &lt;p class="structure-name"&gt;{{name}} ({{year}})&lt;/p&gt;
+            &lt;p class="structure-height"&gt;{{format-length(height/meters, 'meter')}}&lt;/p&gt;
+          &lt;/div&gt;
+          &lt;img src="{silhouette/@href}" alt="building silhouette"/&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/for-each&gt;
+  &lt;/div&gt;
+&lt;/for-each&gt;</programlisting>
+
+  <mediaobject>
+    <imageobject>
+      <imagedata fileref="images/structures.png" width="100%"/>
+    </imageobject>
+  </mediaobject>
+
+
+</section>
+<section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Using Frameless in addition to NoSQL databases</title>
+
+    <para>Many organizations work hard to provide indiscriminate access to their websites, regardless of location, ethnicity, physical ability or economic status. In this regard, the coming years there is likely to be a shift towards "offline first" development, where a reliable internet connection is no longer assumed.</para>
+
+    <para>The offline first approach will prove to be very challenging because many kinds of complex computations that are usually conveniently performed by database servers, must be carried out entirely using just JavaScript.</para>
+
+    <para>In this area Frameless can be especially helpful bridging the gap between client and server capabilities, by providing the same technologies that are already in use on NoSQL servers such as MarkLogic and Zorba.</para>
+</section>
+<section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>The road ahead</title>
+
+    <para>Within the next couple of months Frameless will be ready for us to be used for building a product we have been long looking forward to: a modular word processor. We will also be working with partners who use Frameless for their own application development, and improving the framework where needed.</para>
+
+    <para>For example: because not all data can be made available as XML, XPath queries in Frameless can also be used for JSON. Frameless is currently mostly optimized for XML so we feel that in the next year an improvement of the current JSON support is in order.</para>
+
+    <para>In addition to things that already were on the roadmap, like extending the documentation with more code samples, and Node.js support (allowing you to render the same HTML templates both in the browser and server-side) we have concrete plans to improve localization and performance of Frameless web applications.</para>
+
+    <para>Not only do we want to provide text translations inside templates, we also want to implement Unicode CLDR modules for formatting dates, numbers, et cetera. And of course we think users should be able to switch to another locale instantly.</para>
+
+    <para>Unfortunately, with every feature we add the download size of Frameless will increase. That's why we're working towards a module system, so every project can only include the functionality it needs, resulting in even smaller JavaScript downloads.</para>
+</section>
+<section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Summary</title>
+
+    <para>Reactive HTML templates excel at reducing development time, by offering a simple and intuitive syntax while offering a very powerful query language to interactively group, sort and filter data. Combined with very user-centric technologies such as full text search and localization, nothing should stand in the way of you making the spiffy next generation of Wikipedia or Google Docs. <emphasis>Viva la revolución!</emphasis></para>
+</section>
+</article>

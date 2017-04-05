@@ -1,0 +1,800 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-2" version="5.0">
+  <info xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Parse Earley, Parse Often</title>
+    <subtitle>How to Parse Anything to XML</subtitle>
+    <author>
+      <personname>
+        <firstname>Steven</firstname>
+        <surname>Pemberton</surname>
+      </personname>
+      <affiliation>
+        <org>
+          <orgname>CWI, Amsterdam</orgname>
+        </org>
+      </affiliation>
+    </author>
+    <abstract>
+      <para>Invisible XML, ixml for short, is a generic technique for treating
+        any parsable format as if it were XML, and thus allowing any parsable
+        object to be injected into an XML pipeline. Based on the observation
+        that XML can just be seen as the description of a parse-tree, any
+        document can be parsed, and then serialised as XML. The parsing can also
+        be undone, thus allowing roundtripping.</para>
+      <para>This paper discusses issues around grammar design, and in particular
+        parsing algorithms used to recognise any document, and converting the
+        resultant parse-tree into XML, and gives a new perspective on a classic
+        algorithm.</para>
+    </abstract>
+  </info>
+
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Introduction</title>
+    <para>What if you could see everything as XML? XML has many strengths for
+      data exchange, strengths both inherent in the nature of XML markup and
+      strengths that derive from the ubiquity of tools that can process XML. For
+      authoring, however, other forms are preferred: no one writes CSS or
+      Javascript in XML.</para>
+
+    <para>It does not follow, however, that there is no value in representing
+      such information in XML. Invisible XML <xref linkend="paper-2_IXML1"/>
+      <xref linkend="paper-2_IXML2"/>, is a generic technique for treating any
+      (context-free) parsable document as if it were XML, enabling authors to
+      write in a format they prefer while providing XML for processes that are
+      more effective with XML content. There is really no reason why XML cannot
+      be more ubiquitous than it is.</para>
+
+    <para>Ixml is based on the observation that XML can just be seen as the
+      description of a parse-tree, and so any document can be parsed, and
+      serialised as XML.</para>
+
+    <para>Thus can a piece of CSS such as</para>
+
+    <programlisting language="css">body {
+  color: blue;
+  font-weight: bold;
+}</programlisting>
+
+    <para>with ixml be read by an XML system as</para>
+
+    <programlisting language="xml">&lt;css&gt;
+  &lt;rule&gt;
+    &lt;selector&gt;body&lt;/selector&gt;
+    &lt;block&gt;
+      &lt;property&gt;
+        &lt;name&gt;color&lt;/name&gt;
+        &lt;value&gt;blue&lt;/value&gt;
+      &lt;/property&gt;
+      &lt;property&gt;
+        &lt;name&gt;font-weight&lt;/name&gt;
+        &lt;value&gt;bold&lt;/value&gt;
+      &lt;/property&gt;
+    &lt;/block&gt;
+  &lt;/rule&gt;
+&lt;/css&gt;</programlisting>
+
+    <para>or as</para>
+
+    <programlisting language="xml">&lt;css&gt;
+  &lt;rule&gt;
+    &lt;selector&gt;body&lt;/selector&gt;
+    &lt;block&gt;
+      &lt;property name="color" value="blue"/&gt;
+      &lt;property name="font-weight" value="bold"/&gt;
+    &lt;/block&gt;
+  &lt;/rule&gt;
+&lt;/css&gt;</programlisting>
+
+    <para>The choice is yours. Similarly an arithmetic expression such as</para>
+
+    <programlisting>a×(3+b)</programlisting>
+
+    <para>can be read as</para>
+
+    <programlisting language="xml">&lt;expr&gt;
+  &lt;prod&gt;
+    &lt;letter&gt;a&lt;/letter&gt;
+    &lt;sum&gt;
+      &lt;digit&gt;3&lt;/digit&gt;
+      &lt;letter&gt;b&lt;/letter&gt;
+    &lt;/sum&gt;
+  &lt;/prod&gt;
+&lt;/expr&gt;</programlisting>
+
+    <para>and a URL such as</para>
+
+    <programlisting>http://www.w3.org/TR/1999/xhtml.html</programlisting>
+
+    <para>could be read as</para>
+
+    <programlisting language="xml">&lt;uri&gt;
+  &lt;scheme&gt;http&lt;/scheme&gt;
+  &lt;authority&gt;
+    &lt;host&gt;
+      &lt;sub&gt;www&lt;/sub&gt;
+      &lt;sub&gt;w3&lt;/sub&gt;
+      &lt;sub&gt;org&lt;/sub&gt;
+    &lt;/host&gt;
+  &lt;/authority&gt;
+  &lt;path&gt;
+    &lt;seg&gt;TR&lt;/seg&gt;
+    &lt;seg&gt;1999&lt;/seg&gt;
+    &lt;seg&gt;xhtml.html&lt;/seg&gt;
+  &lt;/path&gt;
+&lt;/uri&gt;</programlisting>
+
+    <para>Previous presentations on ixml have centred on the basics, the design
+      of grammars, and round-tripping back to the original form. This paper
+      discusses a suitable parsing algorithm, and gives a new perspective on a
+      classic algorithm.</para>
+
+  </section>
+
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Parsing</title>
+    <para>Parsing is a process of taking an essentially linear form, recognising
+      the underlying structure, and transforming the input to a form that
+      expresses that structure. The fact that the resulting structure is
+      represented by a tree means that converting it to XML is a relatively
+      simple matter.</para>
+
+    <para>There are many parsing algorithms with different properties such as
+      speed, run-time complexity, and space usage <xref linkend="paper-2_AHO"/>. One of
+      the most popular is LL1 parsing; in particular, the "1" in this name
+      refers to the fact that you can parse based only on the knowledge of the
+      next symbol in the input, thus simplifying parsing.</para>
+    <para>Consider the following example of a grammar describing a simple
+      programming language.</para>
+    <para>A grammar consists of a number of 'rules', each rule consisting, in
+      this notation, of a name of the rule, a colon, and a definition describing
+      the structure of the thing so named, followed by a full stop. The
+      structure can consist of one or more 'alternatives', in this notation
+      separated by semicolons. Each alternative consists of a sequence of
+      'nonterminals' and 'terminals' separated by commas. Nonterminals are
+      defined by subsequent rules; terminals, enclosed in quotes, are literal
+      characters that have to be matched in the input.</para>
+
+    <programlisting>program: block.
+block: "{", statements, "}".
+statements: statement, ";", statements; empty.
+statement: if statement; while statement;
+           assignment; call; block.
+if statement: "if", condition, "then", statement,
+               else-option.
+else-option: "else", statement; empty.
+empty: .
+while statement: "while", condition, "do",
+                 statement.
+assignment: variable, "=", expression.
+call: identifier, "(", parameters, ")".
+parameters: expression, parameter-tail; empty.
+parameter-tail: ",", expression, parameter-tail;
+                empty.</programlisting>
+
+    <para>This grammar is almost but not quite LL1. The problem is that the
+      rules 'assignment' and 'call' both start with the same symbol (an
+      identifier), and so you can't tell which rule to process just by looking
+      at the next symbol.</para>
+
+    <para>However, the language is LL1. This can be shown by combining and
+      rewriting the rules for assignment and call:</para>
+
+    <programlisting>statement: if statement; while statement;
+           assignment-or-call; block.
+assignment-or-call: identifier, tail.
+tail: assignment-tail; call-tail.
+assignment-tail: "=", expression.
+call-tail: "(", parameters, ")".</programlisting>
+
+    <para>Now the decision on which rule to use can be taken purely based on the
+      next symbol.</para>
+
+    <para>One of the reasons that LL1 parsing is popular, is that it is easy to
+      translate it directly to a program. For instance:</para>
+
+    <programlisting language="pemberton-earley">procedure program = { block; }
+procedure block = { expect("{"); statements;
+                    expect("}")}
+procedure statements = {
+  if nextsym in statement-starters
+  then {
+    statement;
+    expect(";");
+    statements;
+  }
+}
+procedure statement = { 
+  if nextsym="if" then ifstatement;
+  else if nextsym="while" then whilestatement;
+  else if nextsym=identifier
+    then assignment-or-call;
+  else if nextsym="{" then block;
+  else error("syntax error");
+}</programlisting>
+
+    <para>etc. (This example is much simplified from what an industrial-strength
+      parser would do, but demonstrates the principles).</para>
+
+    <para>However, rather than writing the parser as code, you can just as
+      easily write what could be seen as an interpreter for a grammar. For
+      instance:</para>
+
+    <programlisting language="pemberton-earley">procedure parserule(alts) = {
+  if (some alt in alts has nextsym in starters(alt))
+    then parsealt(alt);
+  else if (some alt in alts has empty(alt)
+    then do-nothing;
+  else error("syntax error");
+}
+procedure parsealt(alt) = {
+  for term in alt do {
+    if nonterm(term) then parserule(def(term));
+    else expectsym(term);
+  }
+}</programlisting>
+
+    <para>One disadvantage of LL1 parsing is that no rule may be left-recursive.
+      For instance, if the rule for 'statements' above were rewritten as</para>
+
+    <programlisting language="pemberton-earley">statements: statements, statement, ";"; empty.</programlisting>
+
+    <para>this could not be parsed using LL1. It is easy to see why if you
+      convert this to code, since the procedure would be:</para>
+
+    <programlisting language="pemberton-earley">procedure statements = {
+  if nextsym in statement-starts {
+    statements;
+    statement;
+    expect (";");
+  }
+}</programlisting>
+
+    <para>in other words, it would go into an infinite recursive loop. In the
+      case of a statement list, there is no problem with expressing it as a
+      right-recursive rule. However, there are cases where it matters. For
+      example, with subtraction:</para>
+
+    <programlisting language="pemberton-earley">subtraction: number; subtraction, "-", number.</programlisting>
+
+    <para>If we rewrite this as</para>
+
+    <programlisting language="pemberton-earley">subtraction: number; number, "-", subtraction.</programlisting>
+
+    <para>then an expression such as</para>
+
+    <programlisting>3-2-1</programlisting>
+
+    <para>would mean in the first case</para>
+
+    <programlisting>((3-2)-1)</programlisting>
+
+    <para>and in the second</para>
+
+    <programlisting>(3-(2-1))</programlisting>
+
+    <para>which has a different meaning.</para>
+
+    <para>To overcome this problem, grammars that are to be parsed with LL1
+      methods must have a notation to express repetition. For instance:</para>
+
+    <programlisting language="pemberton-earley">statements: (statement, ";")*.
+subtraction: number, ("-", number)*.</programlisting>
+
+    <para>which can be translated to procedures like this:</para>
+
+    <programlisting language="pemberton-earley">procedure subtraction = {
+  number;
+  while (nextsym="-") do {
+    skipsym;
+    number;
+  }
+}</programlisting>
+
+    <para>Another disadvantage of LL1 and related techniques is that there has
+      to be an initial lexical analysis phase, where 'symbols' are first
+      recognised and classified. If not, then the level of terminal symbols that
+      are available to the parser are the base characters, such as letters and
+      digits, etc., meaning that for instance if the next character is an "i"
+      you can't tell if that starts an identifier, or the word "if".</para>
+
+    <para>Finally, a problem with these techniques is the need to understand the
+      LL1 conditions, express a grammar in such a way that they are satisfied,
+      and the need to have a checker that determines if the grammar indeed
+      satisfies the conditions before using it <xref linkend="paper-2_LL1"/>
+      <xref linkend="paper-2_GRAMMAR"/>.</para>
+
+  </section>
+
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>General Parsing</title>
+
+    <para>To summarise the advantages of LL1 parsing: it is fast, its run-time
+      complexity is low, proportional only to the length of the input, and it is
+      easy to express as a program.</para>
+
+    <para>However the disadvantages are that it can only handle a certain class
+      of restricted languages, it requires the author of a grammar to understand
+      the restrictions and rewrite grammars so that they match, and it requires
+      a lexical pre-processing stage.</para>
+
+    <para>To overcome these disadvantages we have to consider more general
+      parsing techniques.</para>
+
+    <para>One classic example is that of Earley <xref linkend="paper-2_EARLEY"/>, which
+      can parse any grammar, for any language. (There is actually one
+      restriction, that the language is context-free, but since we are only
+      using grammars that express context-free languages, the issue doesn't
+      apply here).</para>
+
+    <para>Although the Earley algorithm is well-known, it is apparently
+      less-often used. One reason this may be so is because the run-time
+      complexity of Earley is rather poor in the worst case, namely O(n³).
+      However, what potential users who are put off by this number do not seem
+      to realise is that it is a function of the language being parsed, and not
+      the method itself. For LL1 grammars, Earley is also O(n), just like pure
+      LL1 parsers.</para>
+
+    <para>So what does Earley do?</para>
+  </section>
+
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Pseudo-parallelism</title>
+    <para>Modern operating systems run programs by having many simultaneously in
+      store simultaneously (242 on the computer this text is being written on),
+      and allocating brief periods of time (a fraction of a second) to each in
+      turn. A program once allocated a slot is allowed to run until it reaches
+      the end of its execution, its time allocation runs out, or the program
+      asks to do an operation that can't be immediately satisfied (such as
+      accessing the disk). Programs that are ready to run are added to one or
+      more queues of jobs, and at the end of the next time slot a program is
+      selected from the queues, based on priority, and then allowed to run for
+      the next slot. Because the time slots are so short by human measure, this
+      approach gives the impression of the programs running simultaneously in
+      parallel.</para>
+    <para>Earley operates similarly. Just as the example earlier, it is an
+      interpreter for grammars, with the exception that when a rule is selected
+      to be run, all of its alternatives are queued to run 'in parallel'. When
+      an alternative is given a slot, it is allowed to do exactly one task, one
+      of:</para>
+    <itemizedlist>
+      <listitem>
+        <para>note that it has nothing more to do and restart its parent (that
+          is, terminating successfully)</para>
+      </listitem>
+      <listitem>
+        <para>start a new nonterminal process (and wait until that completes
+          successfully)</para>
+      </listitem>
+      <listitem>
+        <para>match a single terminal (and requeue itself)</para>
+      </listitem>
+      <listitem>
+        <para>note that it cannot match the next symbol, and effectively
+          terminate unsuccessfully.</para>
+      </listitem>
+    </itemizedlist>
+
+    <para>The queue contains each task with the position in the input that it is
+      at. The queue is ordered on input position, so that earlier input
+      positions get priority. In this way only a small part of the input stream
+      needs to be present in memory.</para>
+
+    <para>There is one other essential feature: when a rule starts up, its name
+      and position is recorded in a trace before being queued. If the same rule
+      is later started at the same position, it is not queued, since it is
+      either already being processed, or has already been processed: we already
+      know or will know the result of running that task at that position. This
+      has two advantages: one is pure optimisation, since the same identical
+      process will never be run twice; but more importantly, this overcomes the
+      problem with infinite recursion that we saw with LL1 parsers.</para>
+
+    <para>To take an example, suppose the rule <code>statement</code> is being
+      processed at the point in the input where we have the text</para>
+
+    <programlisting>a=0;</programlisting>
+
+    <para>Processing <code>statement</code> mean that its alternatives get
+      queued: namely <code>if statement</code>, <code>while statement</code>,
+        <code>assignment</code>, <code>call</code>, and
+      <code>block</code>.</para>
+
+    <para>With the exception of <code>assignment</code> and <code>call</code>,
+      all of these fail immediately because the first symbol in the input fails
+      to match the initial item in the alternative.</para>
+
+    <para>Assignment and call both have as first item '<code>identifier</code>'.
+        <code>Identifier</code> gets queued (once) and succeeds with the input
+      'a', so both alternatives get requeued. Since the next symbol is '=',
+        <code>call</code> fails, and <code>assignment</code> gets requeued (and
+      eventually succeeds).</para>
+  </section>
+
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>The structure of tasks</title>
+    <para>Each task that gets queued has the following structure:</para>
+    <itemizedlist>
+      <listitem>
+        <para>The name of the rule that this alternative is a part of (e.g.
+          statement);</para>
+      </listitem>
+      <listitem>
+        <para>The position in the input that it started;</para>
+      </listitem>
+      <listitem>
+        <para>The position that it is currently at;</para>
+      </listitem>
+      <listitem>
+        <para>The list of items in the alternative that have so far been
+          successfully parsed, with their start position;</para>
+      </listitem>
+      <listitem>
+        <para>The list of items still to be processed.</para>
+      </listitem>
+    </itemizedlist>
+    <para>When a task is requeued, its important parts are its current position,
+      and the list of items still to be processed. If the list of items still to
+      be processed is empty, then the task has completed, successfully.</para>
+  </section>
+
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Earley</title>
+
+    <para>So now with these preliminaries behind us, let us look at the Earley
+      parser (here expressed in ABC <xref linkend="paper-2_ABC"/>):</para>
+
+    <programlisting language="pemberton-abc">HOW TO PARSE input WITH grammar:
+INITIALISE
+START grammar FOR start.symbol grammar AT start.pos
+WHILE more.tasks:
+ TAKE task
+ SELECT:
+  finished task:
+   CONTINUE PARENTS task
+  ELSE:
+   PUT next.symbol task, position task IN sym, pos
+   SELECT:
+    grammar nonterminal sym:
+     START grammar FOR sym AT pos
+    sym starts (input, pos): \Terminal, matches
+     RECORD TERMINAL input FOR task
+     CONTINUE task AT (pos incremented (input, sym))
+    ELSE:
+     PASS \Terminal, doesn't match</programlisting>
+
+    <para>So let us analyse this code line-by-line:</para>
+
+    <programlisting language="pemberton-abc">START grammar FOR start.symbol grammar AT start.pos</programlisting>
+
+    <para>All grammars have a top-level start symbol, such as
+        <code>program</code> for the example programming language grammar. This
+      line adds all the alternatives of the rule for the start symbol to the
+      queue.</para>
+
+    <programlisting language="pemberton-abc">WHILE more.tasks:</programlisting>
+
+    <para>While the queue of tasks is not empty, we loop through the following
+      steps.</para>
+
+    <programlisting language="pemberton-abc">TAKE task</programlisting>
+
+    <para>Take the first task from the queue.</para>
+
+    <programlisting language="pemberton-abc">SELECT:</programlisting>
+
+    <para>There are two possibilities: the rule has nothing more to do, and so
+      terminates successfully, or there are still symbols to process.</para>
+
+    <programlisting language="pemberton-abc">finished task:
+  CONTINUE PARENTS task</programlisting>
+
+    <para>The task has nothing more to do, so all the parents of this task (the
+      rules that initiated it) are requeued.</para>
+
+    <programlisting language="pemberton-abc">ELSE:</programlisting>
+
+    <para>Otherwise this task still has to be processed.</para>
+
+    <programlisting language="pemberton-abc">PUT next.symbol task, position task IN sym, pos</programlisting>
+
+    <para>We take the next symbol (terminal or nonterminal) that still has to be
+      processed, and the current position in the input we are at.</para>
+
+    <programlisting language="pemberton-abc">SELECT:</programlisting>
+
+    <para>The next symbol is either a nonterminal or a terminal.</para>
+
+    <programlisting language="pemberton-abc">grammar nonterminal sym:
+  START grammar FOR sym AT pos</programlisting>
+
+    <para>The symbol is a nonterminal, so we queue all its alternatives to be
+      processed at the current position.</para>
+
+    <para>Otherwise it is a terminal:</para>
+
+    <programlisting language="pemberton-abc">sym starts (input, pos): \Terminal, matches
+  RECORD TERMINAL input FOR task
+  CONTINUE task AT (pos incremented (input, sym))</programlisting>
+
+    <para>If the symbol matched the input at the current position, then we
+      record the match in the trace, and requeue the current task after
+      incrementing its position past the matched characters.</para>
+
+    <programlisting language="pemberton-abc">ELSE:
+  PASS</programlisting>
+
+    <para>Finally, it was a terminal, but didn't match the next symbol in the
+      input, and so the task doesn't get requeued, and so effectively terminates
+      (unsuccessfully).</para>
+
+  </section>
+
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+
+    <title>The Trace</title>
+
+    <para>The result of a parse is the trace, which is the list, for all
+      positions in the input where a task was (re-)started, of the tasks that
+      were (re-)started there. This is the list that is used to prevent
+      duplicate tasks being started at the same position, but also effectively
+      records the results of the parse.</para>
+
+    <para>So for instance, here is an example trace for the very first position
+      in the input (before dealing with any input characters), for the example
+      grammar:</para>
+
+    <programlisting>program[1.1:1.1]: | block
+block[1.1:1.1]: | "{" statements "}" </programlisting>
+
+    <para>Two rules have been started, one for program, and consequently one for
+      block.</para>
+
+    <para>The positions have been recorded as
+        <code>line-number.character-number</code>, and here represent the
+      position where we started from, and the position up to which we have
+      processed for this rule, in this case, both of them
+      <code>1.1</code>.</para>
+
+    <para>After the colon are two lists, the items in the respective rule that
+      have already been processed (none yet in this case), and the items still
+      to be processed, the two separated in this output by a vertical
+      bar.</para>
+
+    <para>In parsing a very simple program, namely <code>{a=0;}</code>, after
+      parsing the first opening brace, this will be in the trace:</para>
+
+    <programlisting>block[1.1:1.2]: "{"[:1.2] | statements "}"</programlisting>
+
+    <para>signifying that we have parsed up to position 1.2, and that we have
+      parsed the open brace, which ends at 1.2.</para>
+
+    <para>Later still, after we have parsed the semicolon we will find in the
+      trace</para>
+
+    <programlisting>block[1.1:1.6]: "{"[:1.2] statements[:1.6] | "}"</programlisting>
+
+    <para>which signifies we have matched the opening brace up to position 1.2,
+      something that matches 'statements' up to 1.6, and there only remains a
+      closing brace to match.</para>
+
+    <para>And finally at the end, we will find</para>
+
+    <programlisting>block[1.1:2.1]: "{[:1.2] statements[:1.6] "}[:2.1] </programlisting>
+
+    <para>which since the 'to do' list is empty signifies a successful parse
+      from position 1.1 to 2.1.</para>
+
+    <para>Since it is only completed (sub-)parses that we are interested in,
+      here is the complete trace of all successful sub-parses for the program
+        <code>{a=0;}</code>:</para>
+
+    <programlisting>1.1
+1.2
+  empty[1.2:1.2]: | 
+  statements[1.2:1.2]: empty[:1.2] | 
+1.3
+  identifier[1.2:1.3]: "a"[:1.3] | 
+  variable[1.2:1.3]: identifier[:1.3] | 
+1.4
+1.5
+  assignment[1.2:1.5]: variable[:1.3] "="[:1.4] expression[:1.5] | 
+  statement[1.2:1.5]: assignment[:1.5] | 
+  expression[1.4:1.5]: number[:1.5] | 
+  number[1.4:1.5]: "0"[:1.5] | 
+1.6
+  statements[1.2:1.6]: statement[:1.5] ";"[:1.6] statements[:1.6] | 
+  empty[1.6:1.6]: | 
+  statements[1.6:1.6]: empty[:1.6] | 
+2.1
+  block[1.1:2.1]: "{"[:1.2] statements[:1.6] "}"[:2.1] | 
+  program[1.1:2.1]: block[:2.1] |</programlisting>
+
+  </section>
+
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Serialising the Parse Tree</title>
+
+    <para>So the task of serialising the trace, is one of looking at the list in
+      the trace for the last position in the input for a successful parse for
+      the top level symbol of the grammar, and working from there
+      downwards:</para>
+
+    <programlisting language="pemberton-abc">SERIALISE start.symbol grammar
+          FROM &lt;start position&gt; TO &lt;end position&gt;</programlisting>
+
+    <para>where the procedure SERIALISE looks like this:</para>
+
+    <programlisting language="pemberton-abc">HOW TO SERIALISE name FROM start TO end:
+  IF SOME task IN trace[end] HAS
+    (symbol task = name AND finished task AND
+     start.position task = start): 
+    WRITE "&lt;", name, "&gt;"
+    CHILDREN
+    WRITE "&lt;/", name, "&gt;"
+CHILDREN: 
+  PUT start IN newstart
+  FOR (sym, pos) IN done task: 
+    SELECT: 
+      terminal sym: WRITE sym
+      ELSE: 
+        SERIALISE sym FROM newstart TO pos
+    PUT pos IN newstart</programlisting>
+
+    <para>For our example program, this will produce:</para>
+
+    <programlisting language="xml">&lt;program&gt;
+  &lt;block&gt;{&lt;statements&gt;
+      &lt;statement&gt;
+        &lt;assignment&gt;
+          &lt;variable&gt;
+            &lt;identifier&gt;a&lt;/identifier&gt;
+          &lt;/variable&gt;=&lt;expression&gt;
+            &lt;number&gt;0&lt;/number&gt;
+          &lt;/expression&gt;
+        &lt;/assignment&gt;
+      &lt;/statement&gt;;&lt;statements&gt;
+        &lt;empty/&gt;
+      &lt;/statements&gt;
+    &lt;/statements&gt;}&lt;/block&gt;
+&lt;/program&gt;</programlisting>
+
+    <para>The simple task of adapting this to the exact needs of ixml as
+      described in earlier papers is left as an exercise for the reader.</para>
+
+  </section>
+
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Conclusion</title>
+
+    <para>The power of XML has been the simple and consistent representation of
+      data, allowing widespread interoperability.</para>
+
+    <para>What ixml shows is that with a simple front-end, XML can be made even
+      more powerful by making all parsable documents accessible to the XML
+      pipeline.</para>
+  </section>
+
+  <bibliography xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>References</title>
+    <biblioentry xml:id="paper-2_IXML1" xreflabel="[1]">
+      <abbrev>1</abbrev>
+      <title>Invisible XML</title>
+      <biblioid class="doi">10.4242/BalisageVol10.Pemberton01</biblioid>
+      <author>
+        <personname>
+          <firstname>Steven</firstname>
+          <surname>Pemberton</surname>
+        </personname>
+      </author>
+      <bibliomisc>Presented at Balisage: The Markup Conference</bibliomisc>
+      <publisher>
+        <publishername>Balisage</publishername>
+      </publisher>
+      <address>Montréal, Canada</address>
+      <pubdate>August 6 - 9, 2013</pubdate>
+    </biblioentry>
+    <biblioentry xml:id="paper-2_IXML2" xreflabel="[2]">
+      <abbrev>2</abbrev>
+      <title>Data just wants to be (format) neutral</title>
+      <biblioid class="uri">http://archive.xmlprague.cz/2016/files/xmlprague-2016-proceedings.pdf#page=121</biblioid>
+      <pagenums>109-120</pagenums>
+      <author>
+        <personname>
+          <firstname>Steven</firstname>
+          <surname>Pemberton</surname>
+        </personname>
+      </author>
+      <publisher>
+        <publishername>XML Prague</publishername>
+      </publisher>
+      <address>Prague, Czech Republic</address>
+      <pubdate>2016</pubdate>
+    </biblioentry>
+    <biblioentry xml:id="paper-2_AHO" xreflabel="[3]">
+      <abbrev>3</abbrev>
+      <title>The Theory of Parsing, Translation, and Compiling</title>
+      <biblioid class="isbn">ISBN 0139145567</biblioid>
+      <author>
+        <personname>
+          <firstname>Alfred</firstname>
+          <honorific>V</honorific>
+          <surname>Aho</surname>
+        </personname>
+      </author>
+      <author>
+        <personname>
+          <firstname>Jeffrey</firstname>
+          <honorific>D</honorific>
+          <surname>Ullman</surname>
+        </personname>
+      </author>
+      <publishername>Prentice-Hall</publishername>
+      <pubdate>1972</pubdate>
+    </biblioentry>
+    <biblioentry xml:id="paper-2_LL1" xreflabel="[4]">
+      <abbrev>4</abbrev>
+      <title>Grammar Tools</title>
+      <biblioid class="uri">http://www.cwi.nl/~steven/abc/examples/grammar.html</biblioid>
+      <author>
+        <personname>
+          <firstname>Steven</firstname>
+          <surname>Pemberton</surname>
+        </personname>
+      </author>
+      <pubdate>1991</pubdate>
+    </biblioentry>
+    <biblioentry xml:id="paper-2_GRAMMAR" xreflabel="[5]">
+      <abbrev>5</abbrev>
+      <title>A Syntax Improving Program</title>
+      <biblioid class="doi">10.1093/comjnl/11.1.31</biblioid>
+      <author>
+        <personname>
+          <firstname>J</firstname>
+          <honorific>M</honorific>
+          <surname>Foster</surname>
+        </personname>
+      </author>
+      <publisher>
+        <publishername>Computer Journal</publishername>
+      </publisher>
+      <volumenum>11</volumenum>
+      <issuenum>1</issuenum>
+      <pagenums>31-34</pagenums>
+      <pubdate>1967</pubdate>
+    </biblioentry>
+    <biblioentry xml:id="paper-2_EARLEY" xreflabel="[6]">
+      <abbrev>6</abbrev>
+      <title>An Efficient Context-Free Parsing Algorithm</title>
+      <biblioid class="doi">10.1145/362007.362035</biblioid>
+      <author>
+        <personname>
+          <firstname>Jay</firstname>
+          <surname>Earley</surname>
+        </personname>
+      </author>
+    </biblioentry>
+    <biblioentry xml:id="paper-2_ABC" xreflabel="[7]">
+      <abbrev>7</abbrev>
+      <title>The ABC Programmer's Handbook</title>
+      <biblioid class="isbn">ISBN 0-13-000027-2</biblioid>
+      <author>
+        <personname>
+          <firstname>Leo</firstname>
+          <surname>Geurts</surname>
+        </personname>
+      </author>
+      <author>
+        <personname>
+          <firstname>Lambert</firstname>
+          <surname>Meertens</surname>
+        </personname>
+      </author>
+      <author>
+        <personname>
+          <firstname>Steven</firstname>
+          <surname>Pemberton</surname>
+        </personname>
+      </author>
+      <publishername>Prentice-Hall</publishername>
+      <pubdate>1990</pubdate>
+    </biblioentry>
+  </bibliography>
+</article>

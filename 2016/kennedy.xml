@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-19" version="5.0" xml:lang="en">
+<info xmlns:xl="http://www.w3.org/1999/xlink">
+<title>Pioneering XML-first Workflows for Magazines</title>
+
+      <author>
+        <personname>
+          <firstname>Dianne</firstname>
+          <surname>Kenneddy</surname>
+        </personname>
+        <email>dkennedy@idealliance.org</email>
+        <affiliation>
+          <orgname>Idealliance</orgname>
+        </affiliation>
+      </author>
+
+<keywordset>
+	<keyword>magazine publishing</keyword>
+	<keyword>PRISM metadata</keyword>
+	<keyword>content-based publishing</keyword>
+	<keyword>design-based publishing</keyword>
+	<keyword>RDF</keyword>
+	<keyword>XML authoring</keyword>
+	<keyword>HTML5</keyword>
+	<keyword>AMP Project</keyword>
+	<keyword>metadata</keyword>
+</keywordset>
+
+<abstract>
+	<para>
+	Most of the publishing world has long embraced the value of structuring content using SGML/XML in the form of DocBook, DITA or any number of vertical, standardized publishing markup schemes. Yet those who publish magazines have stubbornly remained in a world where page-layout-based workflows predominate.  While this remains true today, for the first time magazine publishers are flirting with a change to their traditional publishing workflow that would employ XML-first content creation.  In this session you will gain an understanding of the two worlds of publishing, why magazine publishers have been so reluctant to embrace XML technologies and the emerging trends that may bring magazine publishers into the XML publishing domain.
+	</para>
+</abstract>
+</info>
+
+<section xmlns:xl="http://www.w3.org/1999/xlink">
+<title>Introduction</title>
+<para>In the early 1980's, when publishing moved from linotype to computer assisted composition, the publishing world was split into two different and distinct worlds.  These worlds, content-based publishing and design-based publishing, adopted different tool sets, different workflows and have clearly different philosophies.</para>
+<section>
+<title>Content-Based Publishing</title>
+<para>The world of "content-based" publishing includes technical publishing, reference publishing, educational publishing and many more kinds of publishing where delivering the content is the whole point of publishing.  Content-based publications are often quite lengthy, being made up of hundreds and often thousands of pages of highly structured content. Technical publishing encompasses technical documentation such as maintenance and operational technical manuals and has the clear purpose of communicating content.  Reference publishing such as legal publishing, financial reports and product information along with content that is assembled from databases such as course catalogs, racing forms and even television show guides is also content-based publishing.</para>
+<para>Publishers with large volumes of structured content have often adopted publishing tools and systems based on <emphasis>ISO 8879: SGML</emphasis> and later on W3C’s XML markup language.  Content can be created in XML first and stored in XML content management systems that are modeled on the XML document structure.  Content can then be assembled from the XML content repositories and the layout and styling are commonly automated through the use of high-speed computerized pagination engines.  In the world of content-based publishing, content formatting is simply a way to make the content more easily digestible.  Content-based publishing is characterized by applying style sheets, templates or scripted composition algorithms designed to enable a reader to quickly access and understand the information in lengthy publications. </para>
+<note><para>My background was firmly in the world of content-based publishing.  In the mid 1980's I worked for Datalogics and participated in the first working SGML-based composition systems for the United States Air Force.  Later I participated in the CALS SGML document design efforts, chaired the SAE J2008 SGML design work and participated with the Air Transport Association in the design of the ATA 100 SGML tag set.  At that time I believed that all content could be structured in a standardized way.  But in 2003, when I came to Idealliance I was shocked to find out that a whole different world of publishing existed; one where content was not structured and where organizations firmly resisted the mere idea of standardizing structures that made up a magazine.</para></note>
+</section>
+<section>
+<title>Design-Based Publishing</title>
+<para>A second and very different world of publishing is "design-based" publishing.  Most magazines fall into this category along with highly designed books such as cookbooks, travel books and other "coffee table" books.  When design comes first, the art director usually develops the concept and design before any content is created.  For magazines, using standard style sheets that give each issue the same look month after month simply would not do.  Articles within a magazine issue often have their own unique design as well.  And because design comes first, content structures cannot be effectively standardized.  Hence, very few publishers of design-based publications have adopted "XML-first" workflows.  And in fact, until recently, very few members of this community employed XML as a publication source at all.</para>
+</section>
+</section>
+
+<section xmlns:xl="http://www.w3.org/1999/xlink">
+<title>Metadata for Magazines</title>
+<para>Even though magazine publishers firmly resisted any pressure to standardize the content and data structures within their publications, they did respond to the pressures to develop mechanisms that would enable them to manage content assets and produce publication products more efficiently.  Urgency to develop a standard, technical infrastructure increased as strategists began to predict that content distribution would likely shift from print to the Web and to new digital platforms in the near future. At the same time the W3C was developing XML, a separate W3C initiative, focusing on descriptive metadata, known as RDF (Resource Description Framework) <xref linkend="paper-19_rdfLink"/>, caught the interest of magazine publishers.</para>
+<para>In late 1999, magazine publishers and their content technology partners came together as an Idealliance working group to standardize metadata to enable content/asset management.  Founders of PRISM included Linda Burman, a consultant to Idealliance and Ron Daniel, a technologist who also served as co-chair for the Dublin Core Data Model Working Group <xref linkend="paper-19_dcLink"/> and an active participatant in the W3C RDF effort.  Since it's founding the PRISM Working Group has included representatives from over 80 organizations and more than 250 individuals.  The concept behind PRISM was simple. Since the magazine community could not standardize the structures that make up an article, they would focus on defining standard metadata vocabularies that could provide a techincial infrastructure for magazine content.</para>
+<para>Work on the first version of PRISM, Publishing Requirements for Industry Standard Metadata, began in 1999 and PRISM Version 1.0 <xref linkend="paper-19_prism1Link"/> was published in 2001.  Initially the scope of PRISM was metadata for print-based periodicals. PRISM was built upon, and extends the Dublin Core metadata set. PRISM employs Dublin Core publishing metadata fields where appropriate and defines additional metadata specific to periodical publications.</para>
+<para>In 2008 PRISM 2.0 was published. This was the first major revision to PRISM and the scope of PRISM descriptive metadata was expanded to include both print and online periodical content. PRISM 2.0 <xref linkend="paper-19_prism2Link"/> provided a number of additional special-purpose metadata vocabularies modularized by namespace.  This allowed each publisher or user to select the modules that fit their unique business requirements.  PRISM 2.0 included periodical metadata (prism:), image metadata (pim:), recipe metadata (prm:), crafts metadata (pcm:), usage rights metadata (pur:) and contract management metadata (pcmm:) <xref linkend="paper-19_taxonomyLink"/>.</para>
+<para>In addition to publishing standard metadata sets, or taxonomies, the PRISM Working Group has developed over 40 controlled vocabularies <xref linkend="paper-19_cvLink"/> including vocabularies for periodical content types, article genres, content presentation types, issue types, publishing frequency types, role types for creators and contributors . . . </para>
+<para>Strange as it might seem, PRISM V1.0 was developed without a specific use case in mind.  At the time we envisioned that PRISM may be instantiated using either RDF or XML and used for many purposes.  Three years after release of PRISM, magazine publishers developed the first industry use case for PRISM.  The use case was to deliver magazine articles to aggregators following publication of the magazine or newsletter. The use case, known as the <emphasis>PRISM Aggregator Message,</emphasis> or PAM, required the use of PRISM metadata along with encoding of article text in XHTML.  In the years after publication of PAM <xref linkend="paper-19_pamLink"/>, most magazine publishers in the US came to use it as the standard format to deliver content to their aggregation business partners. </para>
+<para>It is important to understand that generating PAM XML was, and remains, a post publication process.  The magazine publishing workflow is typically focused on the production of the print product.  Once the PDF is produced and sent to the printers, the source is either converted or rekeyed into the PAM XML message format to deliver to aggregators. In addition to sending articles to aggregators, some publishers began to use PAM as an archive format as well.  Time, Inc., for example, invested in the conversion of all previously published Time Magazine content into PAM in order to establish a content archive to serve as an editorial research database. It seemed that while most magazine publishers came to value XML-encoded content, they were still trappped in their traditional design-first workflows.</para>
+</section>
+<section xmlns:xl="http://www.w3.org/1999/xlink">
+<title>The Impact of the iPad</title>
+<para>A potential sea change for magazines and other design-based publications came in 2010 with the launch of the iPad.  Suddenly publishers were called on to deliver their publications digitally instead of exclusively in print.  Until this point, design-based publications were still able to cost justify their labor-intensive design-based publication process because their print revenues supported the expense.  But the launch of the iPad meant producing well designed publications, not only in print, but on a growing number of digital devices with different resolutions, aspect ratios and sizes. This was tremendously challenging and expensive.  Idealliance members launched the nextPub Council to develop a strategy for the efficient cross platform publishing of magazine content in the fall of 2010. After a six month study the nextPub Council recommended that magazine publishers shift to an XML-First publishing model. To support this move, Idealliance extended PRISM to develop the <emphasis>PRISM Source Vocabulary</emphasis>, or PSV <xref linkend="paper-19_psvLink"/>. The PSV tagline was "The Source is the Solution."  The PSV  XML schema employed PRISM / Dublin Core publishing metadata along with semantic HTML5 for rendering on tablets and mobile devices.</para> 
+<para>Once again, the tradition of design-first publishing prevented the fulfillment of the vision to create magazine source content in XML.  In part the reason was institutional.  It was very difficult to convince the art directors managing magazine production to move to a content-centric workflow.  The move to XML content creation for magazines was also limited by the publishing tools available at the time and the skill set of the editorial and production staff.  Since the predominant publishing tools used by magazine publishers were page layout based, i.e. design oriented, and the investment in them was so great, most magazine publishers opted to remain with design-based content creation workflows.  And instead of creating articles in XML, magazine publishers simply decided to repurpose their layouts as page replicas (PDFs or page images) on tablets, thus protecting their tradition of uniquely crafted, high-quality publishing design and layout.</para>
+<para>It is important to understand that publishing print replicas of magazines on tablets was generally a disappointment.  Once the novelty of interactivity wore off, an ongoing readership could not be maintained.  And publishers never figured out how to make a profit on tablet-based magazine content.  As new, smaller tablets came to market, presenting print-size pages on small screens became a serious issue for readers as well.</para>
+
+</section>
+
+
+<section xmlns:xl="http://www.w3.org/1999/xlink">
+<title>Mobile Comes of Age</title>
+<para>Today, more than 5 years after the impact of the iPad on the magazine marketplace, a new disruptive force, even more significant than tablets, is demanding that design-based publishers finally shift to XML-first workflows. That force is the rapid shift toward content consumption on smart phones along with the increasing demand for "360 degree" or "integrated access" to magazine content across media platforms, digitally and in print. Today's readers will no longer accept a frustrating, slow, clunky digital reading experience. As a result major US publishers are beginning to shift away from presentation of page replicas and toward HTML5-based viewing technologies.  And because presentation speed is becoming increasingly critical, the lightweight <emphasis>Accelerated Mobile Pages</emphasis> project (AMP) <xref linkend="paper-19_ampLink"/> is gaining traction.</para>
+</section>
+<section xmlns:xl="http://www.w3.org/1999/xlink">
+<title>Developing a Magazine Authoring Schema</title>
+<para>As new tools to author structured magazine content come to market, magazine publisher's still have to decide on an authoring schema.  Since the industry has invested so much in organizing their content using PRISM metadata that seems to be a natural fit.  But again the issue comes down to the correct authoring schema.  Some initial work has been done on that front.</para>
+<para>In the summer of 2014, usability testing was conducted using the PSV schema.  This schema was designed to store source magazine article metadata and text in semantic HTML5.  At first glance, it seemed a natural fit.  But usability testing quickly lead to the conclusion that a robust archive format was not ideal for authoring.  The HTML5 model offered just too many options that most authors would not use, and in fact had a severe impact on the usability of the schema.  </para>
+<para>For the next iteration, Idealliance tested a schema that allowed for key fields of PRISM metadata along with a simplified version of HTML5 that contained only those elements that an author was likely to use.  In order to test this iteration of the authoring schema, we utlized an MSWord plugin from Ictect <xref linkend="paper-19_ictectLink"/> that had been specially configured to support this version of the schema.  Several rounds of testing with the schema led to further modifications.</para>
+<para>The work to develop a magazine authoring schema by Idealliance is ongoing.  New metadata fields to embed licensing terms such as content expiration dates and geographic display access are being added.  AMP enablement is being studied as well.  Ongoing work can be tracked on the Idealliance PRISM website <xref linkend="paper-19_prismWebLink"/></para>
+</section>
+
+
+  <bibliography xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <biblioentry xml:id="paper-19_rdfLink" xreflabel="[1]">
+      <abbrev>1</abbrev>
+      <title>RDF</title>
+      <publishername>Wikipedia, The Free Encyclopedia</publishername>
+      <biblioid class="uri">https://en.wikipedia.org/wiki/Resource_Description_Framework</biblioid>
+    </biblioentry>
+	
+	<biblioentry xml:id="paper-19_dcLink" xreflabel="[2]">
+      <abbrev>2</abbrev>
+      <title>Dublin Core</title>
+      <publishername>Wikipedia, The Free Encyclopedia</publishername>
+      <biblioid class="uri">https://en.wikipedia.org/wiki/Dublin_Core</biblioid>
+    </biblioentry>
+	
+	    <biblioentry xml:id="paper-19_prism1Link" xreflabel="[3]">
+      <abbrev>3</abbrev>
+      <title>PRISM V1.0</title>
+      <publishername>Idealliance, Inc.</publishername>
+      <biblioid class="uri">http://www.prismstandard.org/specifications/1.0/prism1.0.htm</biblioid>
+    </biblioentry>
+	
+	<biblioentry xml:id="paper-19_prism2Link" xreflabel="[4]">
+      <abbrev>4</abbrev>
+      <title>PRISM V2.0</title>
+      <publishername>Idealliance, Inc.</publishername>
+      <biblioid class="uri">http://www.prismstandard.org/specifications/2.0/</biblioid>
+    </biblioentry>
+	
+	<biblioentry xml:id="paper-19_taxonomyLink" xreflabel="[5]">
+      <abbrev>5</abbrev>
+      <title>PRISM Taxonomies</title>
+      <publishername>Idealliance, Inc.</publishername>
+      <biblioid class="uri">http://www.idealliance.org/specifications/prism-metadata-initiative/prism/specifications/taxonomies</biblioid>
+    </biblioentry>
+	
+	<biblioentry xml:id="paper-19_cvLink" xreflabel="[6]">
+      <abbrev>6</abbrev>
+      <title>PRISM Controlled Vocabulary Specification V3.0</title>
+      <publishername>Idealliance, Inc.</publishername>
+      <biblioid class="uri">http://www.prismstandard.org/specifications/3.0/PRISM_CV_Spec_3.0.htm</biblioid>
+    </biblioentry>
+	
+	<biblioentry xml:id="paper-19_pamLink" xreflabel="[7]">
+      <abbrev>7</abbrev>
+      <title>PRISM Aggregator Message Guide</title>
+      <publishername>Idealliance, Inc.</publishername>
+      <biblioid class="uri">http://www.prismstandard.org/specifications/3.0/PAM_Guide_2.2.htm</biblioid>
+    </biblioentry>
+	
+	<biblioentry xml:id="paper-19_psvLink" xreflabel="[8]">
+      <abbrev>8</abbrev>
+      <title>PRISM Source Vocabulary Specification</title>
+      <publishername>Idealliance, Inc.</publishername>
+      <biblioid class="uri">http://www.prismstandard.org/specifications/psv/1.0/</biblioid>
+    </biblioentry>
+	
+	<biblioentry xml:id="paper-19_ampLink" xreflabel="[9]">
+      <abbrev>9</abbrev>
+      <title>Accelerated Mobile Pages Project</title>
+      <publishername>Google</publishername>
+      <biblioid class="uri">http://www.ampproject.org</biblioid>
+    </biblioentry>
+	
+	<biblioentry xml:id="paper-19_ictectLink" xreflabel="[10]">
+      <abbrev>10</abbrev>
+      <title>Intelligent Content Architecture</title>
+      <publishername>Ictect, Inc.</publishername>
+      <biblioid class="uri">http://www.ictect.com</biblioid>
+    </biblioentry>
+	
+	<biblioentry xml:id="paper-19_prismWebLink" xreflabel="[11]">
+      <abbrev>11</abbrev>
+      <title>PRISM Website</title>
+      <publishername>Idealliance, Inc.</publishername>
+      <biblioid class="uri">http://www.prismstandard.org</biblioid>
+    </biblioentry>
+
+  </bibliography>
+
+</article>

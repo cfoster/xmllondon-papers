@@ -1,0 +1,671 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+
+<article xmlns="http://docbook.org/ns/docbook"
+  xmlns:xl="http://www.w3.org/1999/xlink" version="5.0"
+  xml:lang="en">
+  <info>
+    <title>Diaries of a desperate XProc Hacker</title>
+    <subtitle>Managing XProc dependencies with depify</subtitle>
+
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>James</firstname>
+          <surname>Fuller</surname>
+        </personname>
+        <email>jim.fuller@marklogic.com</email>
+        <affiliation>
+          <orgname>MarkLogic</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+
+    <keywordset>
+      <keyword>XML</keyword>
+      <keyword>XProc</keyword>
+      <keyword>XML Calabash</keyword>
+      <keyword>depify</keyword>
+    </keywordset>
+
+    <abstract>
+      <para> XProc <xref linkend="xproc-ref"/> is a powerful language providing a facade over many
+        XML technologies which can make managing that 'surface area' difficult. XProc v1.0 also
+        presents difficulties to the new user as it has a learning curve which forces developers to
+        learn many concepts before they can be productive in the language.</para>
+      <para> This paper identifies some of the sources of despair for todays Desperate XML Hacker
+        illustrates how XProc and depify <xref linkend="depify-com-ref"/>, a modest package manager
+        for XProc, can help make developing and maintaining XProc development easier.</para>
+    </abstract>
+
+  </info>
+
+
+  <section>
+    <title>Overview</title>
+    <para>For years in Perl, being known as a D.P.H. (desperate Perl Hacker) was a badge of honour
+      of sorts but looking back I am not certain this ever carried over to the XML domain.</para>
+
+    <figure xml:id="xkcd-regular-expressions">
+      <title>obligatory XKCD comic</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/regular_expressions.png" width="50%"/>
+        </imageobject>
+      </mediaobject> <!--
+      <caption>xkcd.com - http://xkcd.com/208/ <xref linkend="xkcd-ref"/></caption> -->
+    </figure>
+
+    <para>Granted XML may have the odd idiom (ex. Muenchian Method<xref linkend="muenchian-ref"/>)
+      but many of the core technologies are just too complex a powertool to fit into the concise one
+      liners we see in the healthy flora that grew up around
+      Perl<footnote><para>Perl - <link xl:href="http://en.wikipedia.org/wiki/Perl"/></para></footnote>
+      (with
+      sed<footnote><para>sed - <link xl:href="http://unixhelp.ed.ac.uk/CGI/man-cgi?sed"/></para></footnote>,
+      awk<footnote><para>awk - <link xl:href="http://unixhelp.ed.ac.uk/CGI/man-cgi?awk"/></para></footnote>, and friends)
+
+    </para>
+
+    <para>That’s not to say that the same kind of clever, smart and efficient solutions are not
+      possible, it’s just that they tend to occur in a different form and level then a dense and
+      opaque one liner.</para>
+
+    <para>What this paper’s focus is on is the Desperate XML Hacker’s similar plight, where acts of
+      desperation are employed when building, maintaining and creating software solutions that solve
+      real problems.</para>
+    <para>The term ‘Desperate’ is derived from the latin dēspērātus which has a number of
+      definitions; </para>
+    <itemizedlist mark="bullet">
+      <listitem><para>Being filled with, or in a state of despair; hopeless. I was so desperate at one
+        point, I even went to see a loan shark.</para></listitem>
+      <listitem><para>Without regard to danger or safety; reckless; furious.a desperate effort</para></listitem>
+      <listitem><para>Beyond hope; causing despair; extremely perilous; irretrievable. a desperate
+        disease; desperate fortune</para></listitem>
+      <listitem><para>Extreme, in a bad sense; outrageous.</para></listitem>
+      <listitem><para>Extremely intense. wikipedia definition</para></listitem>
+    </itemizedlist>
+    <para><emphasis>Wikitionary definition of 'Desperatus'</emphasis>
+      <xref linkend="wiki-def-desperation"/></para>
+
+    <para>These definitions apply to a D.X.H. employing acts of desperation in trying to get
+      something working. Seemingly bright, creative and smart programmers will try ‘anything’ to
+      transition from some current problem state, however reckless or outrageous at the most intense
+      hopeless and perilous times. </para>
+    <para>We introduce how XProc can transform a D.X.H. into a Delighted XProc Hacker (sic) and
+      illustrate concepts and related tools (like depify package management) which serve to reduce
+      an XML developers despair.</para>
+    <section>
+      <title>Why XProc</title>
+      <para>XML developers use a hodge podge of tools to control and orchestrate XML processing,
+        such as;</para>
+      <itemizedlist>
+        <listitem><para>Shell scripting (bash, etc)</para></listitem>
+        <listitem><para>Build tools (ant, make, etc)</para></listitem>
+        <listitem><para>XSLT</para></listitem>
+        <listitem><para>XML databases (via stored proc eg. XQuery)</para></listitem>
+        <listitem><para>Code (main class, SAX pipelines, etc …)</para></listitem>
+      </itemizedlist>
+
+      <para>Providing a simplified execution entry point is a good thing for users of a solution
+        though all of the above approaches have trade offs to consider. </para>
+      <para>Here are some adhoc observations of the most common forms of despair motivating an XML
+        developer to choose any of the above solutions to control their XML processing. </para>
+      <section>
+        <title>Adoption of a large set of dependencies and software </title>
+        <para>One informal measure of a programmer’s desperation is by the number of dependencies
+          they are willing to inherit into their project. </para>
+        <para>In the Perl world, there are plenty of examples of desperation on display when you
+          install a single innocent module with CPAN, only to watch in horror as it pulls down a few
+          hundred other CPAN modules with each of those modules in turn pulling down ever more
+          dependencies. </para>
+        <para>I do not claim to have a solution to minimise dependencies in your software but if
+          your language requires a lot of third party libraries and modules just to be useful, then
+          you need to ask yourself if the language is significantly abstracted to model and solve
+          problems that interest you. </para>
+        <para>While it is impossible to define a static limit to the number of dependencies, clearly
+          a developer should manage dependencies logically and strive to keep them to an absolute
+          minimum.</para>
+        <para>Modern package management systems provides developers the means to tame dependencies
+          but paradoxically this same capability makes it easy to accrete dependencies. </para>
+      </section>
+      <section>
+        <title>Not the right tool for the job</title>
+        <para>Using software not fit for purpose is a common desperate means to an end. </para>
+        <para>The canonical example is the usage of GNU make<footnote><para>GNU make - <link xl:href="http://www.gnu.org/software/make/"/></para></footnote>
+          with
+          Makefiles to control processing which has a distinct whiff of desperation just for the
+          fact that GNU make is a build tool and should not find itself as any part of your runtime
+          solution. </para>
+        <para>Make’s sweet siren call of recursive Makefile processing and conditional execution
+          based on a file’s timestamp value may seem reasonable at the time but problems quickly
+          mount up. GNU make chatty output (where in unix ‘silence is golden’ is the golden rule)
+          can unnerve users. However there are larger issues, for example, timestamps may seem like
+          a great way to conditionally process files but can be unreliable at scale (yes time can go
+          backwards). </para>
+        <para>Similarly, bending existing XML technologies, like XSLT or XQuery, to control your
+          solution’s processing presents many challenges. Any non-trivial processing scenario comes
+          with requirements that these technologies were never meant to handle and you will end up
+          doing contortions to address the gaps in functionality. </para>
+      </section>
+      <section>
+        <title>Java invocation adds a layer of abstraction</title>
+        <para>The java stack provides a mature and robust set of XML capabilities though often we
+          see solutions created with Java that must take care of the ‘feed and care for’ of the Java
+          VM. Users of a solution developed with Java must know how to invoke the underlying
+          technology from Java with attendant Java Main method, properties, jvm switches and
+          classpath. </para>
+        <para>The benefit of reuse with Java outweighs most of the negatives, though if you want
+          users to be able to cleanly and quickly use your XML processing solution one needs to
+          provide an entry point which is easy to invoke, abstracting away the complexity of the
+          invocation itself while providing sufficient configurability. </para>
+        <para>Often tools used during development, such as Java build tool Apache
+          Ant<footnote><para>Apache ANT - <link xl:href="http://en.wikipedia.org/wiki/Apache_Ant"/></para></footnote>,
+          provide end users a good enough ‘run wrapper’. Apache Ant is
+          a wonderful example of a tool applied far beyond its original intended purpose though
+          clearly it’s less then ideal to use a build tool to achieve this. </para>
+      </section>
+      <section>
+        <title>Hard to maintain </title>
+        <para>Makefiles or shell scripting have always been difficult to maintain but what if we
+          consider some higher order scripting language (Python, etc). </para>
+        <para>Faster code development is made possible with scripting languages because they take
+          care of complex sundries such as memory management and garbage collection but with power
+          comes well-known sacrifices like slower runtime performance. </para>
+        <para>Using a scripting language provides XML developers with great flexibility though also
+          comes with a few enigmas; </para>
+        <itemizedlist>
+          <listitem><para>Create bugs faster</para></listitem>
+          <listitem><para>Avoid or delay critical design decisions</para></listitem>
+          <listitem><para>Incrementally develop code to fulfil tactical needs</para></listitem>
+        </itemizedlist>
+
+        <para>There are some better designed scripting languages which help force the programmer to
+          make better upfront design decisions but there is no replacement to well considered up
+          front design. </para>
+        <para>Providing script run wrappers does not insulate you from the need to design and
+          maintain those wrappers. When presented between a choice between ‘hard to maintain’ versus
+          quick to develop its always best to choose the route that simplifies maintenance. </para>
+        <para>For many D.X.H. the act of maintenance seems like a task done far into the future,
+          though its been shown that the ability to easily refactor code is one route to successful
+          software <xref linkend="refactoring1-ref"/> and directly related to the design decisions
+          made today. </para>
+      </section>
+      <section>
+        <title>Not enough time</title>
+        <para>While no discipline can assume ‘unlimited time’ in fulfilling their required goals,
+          few have to calculate the intersection of the time dimension in as many challenging ways
+          as a programmer is commonly asked.</para>
+        <para>Many of the aforementioned approaches are chosen because they pre-exist, are already
+          being used or there is little time to properly assess the right way forward. In this
+          scenario, its easy to avoid ‘doing things the right way’ as there is can be no visible
+          impact on the end users usage.</para>
+        <para>Desperation due to time starvation forces the D.X.H. into the risky proposition of
+          building up significant technical debt for immediate gains today. Put another way, if the
+          D.X.H. has no time to choose and develop the right way, how will they ever have enough
+          time to develop doing it the wrong way?</para>
+      </section>
+      <section>
+        <title>Why XProc again ?</title>
+        <para>XProc reduces all the above forms of desperation transforming the D.X.H. into a
+          Delighted XProc Hacker. Its been designed from the ground up to be your default entry
+          point/run wrapper and controller to using XML technologies in processing pipelines. </para>
+        <para>While using XProc itself may come with some of its own acts of desperation, they pale
+          in significance compared to the issues brought on using the other approaches. XProc is a
+          domain specific language (DSL) designed to control your XML processing. Apart from hand
+          tuned, manually crafted code it’s the best thing for controlling your XML processing and
+          you should be using it today.</para>
+      </section>
+    </section>
+    <section>
+      <title>Why Dependency Management?</title>
+      <para>D.X.H. will already use package managers to manage their environments dependencies and
+        its highly likely they also use package managers
+        <footnote><para>Node Package Manager - <link xl:href="https://www.npmjs.com/"/></para></footnote>
+        <footnote><para>Maven Central Repository - <link xl:href="http://search.maven.org/"/></para></footnote>
+        <footnote><para>Bower - <link xl:href="http://bower.io/"/></para></footnote>
+        to manage language dependencies. </para>
+      <para>XProc presents a unique challenge for existing package managers as its primary extension
+        mechanism is in the definition of custom steps. A custom step can be created with pure XProc
+        or be implemented as an extension step to the underlying XProc processor. Custom steps will
+        need to include its step signature definition so it can be used as well as any ancillary
+        dependencies. </para>
+      <para>This approach to extension means that the core XProc language itself is spartan and
+        highly generic presenting challenges for new users attempting to do simple things. Often a
+        D.X.H. practices acts of desperation in learning XProc itself. </para>
+
+      <para>Take the following stylized XProc pipeline which processes a collection of XML files
+        with XSLT.</para>
+
+      <programlisting language="xml"><![CDATA[<p:pipeline>
+
+  <p:directory-list include-filter=".*\.xml$">
+    <p:with-option name="path" select="$testdir"/>
+  </p:directory-list>
+
+  <p:for-each>
+    <p:iteration-source
+      select="/c:directory/c:file"/>
+      <p:variable name="namein"
+                  select="/c:file/@name"/>
+      <p:load>
+        <p:with-option name="href"
+          select="concat($testdir, $namein)"/>
+      </p:load>
+      
+      <p:xslt>
+      ...
+      </p:xslt>
+      
+      <p:store>
+      ...
+      </p:store>
+  </p:for-each>
+</p:pipeline>]]></programlisting>
+
+      <para>Which forces the XProc author to learn many concepts before becoming useful.</para>
+      <itemizedlist>
+        <listitem><para>list files with p:directory-list</para></listitem>
+        <listitem><para>iterate with p:for-each</para></listitem>
+        <listitem><para>perform xslt step</para></listitem>
+        <listitem><para>save output with p:store step</para></listitem>
+      </itemizedlist>
+
+      <para>Future versions of XProc will make this particular scenario easier but serves as a good
+        example where a custom step could be developed to abstract away the complexity, as shown in
+        the following listing.</para>
+
+      <programlisting language="xml"><![CDATA[<p:pipeline>
+  <my:customXSLTProcessStep dir=".*\.xml$"
+    xslt="mystylesheet.xsl"/>
+</p:pipeline>]]></programlisting>
+      <para>Lastly, XProc needs to handle ancillary dependencies, such as an XSLT stylesheet or
+        XQuery module which have no convention in existing package management systems. Depify
+        attempts to provide simple transitive dependency analysis to pull down such dependencies to
+        satisfy custom XProc step need. </para>
+    </section>
+    <section>
+      <title>XML Calabash and depify solution</title>
+
+      <para>XML Calabash <xref linkend="xmlcalabash-ref"/> is the reference implementation for XProc
+        and is built using Java. </para>
+      <para>Depify <xref linkend="depify-com-ref"/> is a modest package management system, based on
+        a github repository which provides custom step dependency management for XML Calabash. It is
+        specifically designed to make it easy to develop and distribute custom steps built for
+        XML Calabash. Depify’s assumptions of usage of XProc with XML Calabash is a form of
+        ‘convention over configuration’.</para>
+      <para>XML Calabash extension step mechanism provides a reasonable set of defaults which can be
+        assumed by the package manager, making it easy to reuse and distribute custom steps when
+        building XProc solutions. </para>
+      <para>This is the route by which the D.X.H. transforms into the Delighted XProc Hacker.
+      </para>
+    </section>
+  </section>
+
+  <section>
+    <title>Technical</title>
+    <section>
+      <title>Architecture Overview</title>
+
+      <para>Depify has three components that comprises its high level architecture.</para>
+
+      <figure xml:id="depifyarch-ref">
+        <title/>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/depifyarch.jpg" width="50%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <itemizedlist>
+        <listitem><para>depify github
+          repo<footnote><para>Depify Packages github repo - <link xl:href="https://github.com/depify/depify-packages"/></para></footnote>
+           – contains metadata
+           containing details of your step implementation</para></listitem>
+        <listitem><para>depify
+          client<footnote><para>Download depify client - <link xl:href="https://github.com/depify/depify-client/releases"/></para></footnote>
+           – client written with XProc
+          that communicates with depify github repo and pulls down and installs custom
+          steps</para></listitem>
+        <listitem><para>depify website <xref linkend="depify-com-ref"/> - searchable interface for
+          discovering new custom steps</para></listitem>
+      </itemizedlist>
+      
+      
+      <para>We will describe the detail of a depify package in the following section.</para>
+
+      <para> The architectural components XML Calabash employs at runtime to achieve custom extension
+        steps are as follows; </para>
+      <figure xml:id="xmlcalabasharch-ref">
+        <title/>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/xmlcalabasharch.jpg" width="50%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>A jar that works by just dropping onto XML Calabash classpath is elegant as the extension
+        step can be distributed using existing distribution mechanisms (ex. gradle with maven)
+        though depify provides the additional advantage of configuration which allows the step to be
+        immediately usable in an XProc pipeline.</para>
+    </section>
+    <section>
+      <title>Points of Interest</title>
+      <para>There is not enough scope for this paper to go into deep technical detail of every
+        component though I've presented a few highlights below.</para>
+      <section>
+        <title>depify github repo</title>
+        <para>The depify github repo contains metadata that represent each depify package with new
+          packages added as the result of a pull request.</para>
+        <para>The following is an example of metadata that must be defined for a package to be
+          usable by depify.</para>
+        <programlisting language="xml"><![CDATA[<depify xmlns="https://github.com/depify"
+  name="xmlcalabash-ext-step-java"
+  version="1.0"
+  repo-uri="https://github.com/xquery/xmlcalabash-ext-step-java"
+  keep-fresh="true">
+  <title>xmlcalabash-ext-step-java</title>
+  <desc>example impl of xproc extension step library, in java, for XML Calabash.</desc>
+  <license type="?"/>
+  <author id="xquery">Jim Fuller</author>
+  <website>https://github.com/xquery/calabash-java-step-example</website>
+  <xproc version="1.0"
+      ns="http://example.org/xmlcalabash/steps"
+      jar="example-library-ext.jar/example-library-ext.jar"
+      library-uri="!/example-library.xpl">
+      <!--catalog name="urn:example-library" jar="example-library-ext.jar" uri="/example-library.xpl"/-->
+  </xproc>
+</depify>]]></programlisting>
+        <para>The depify package metadata format is described with a
+          schema<footnote><para>Depify Metadata Schema - <link xl:href="https://github.com/depify/depify-packages/blob/master/etc/depify.rng"/></para></footnote>
+          and minimally must define a custom step's canonical name,
+          version and repo uri.</para>
+        <para>It is possible to provide a zip archive for repo-uri attribute value but it is
+          preferred to provide a github repo that contains the custom step. Depify leverages
+          github’s release features to be able to retrieve specific versions of a package. </para>
+        <para>With every new commit to the repo a travis
+          build<footnote><para>Depify Packages Travis - <link xl:href="https://travis-ci.org/depify/depify-packages"/></para></footnote>
+          takes care of generating the public package
+          repository. </para>
+      </section>
+      <section>
+        <title>depify client</title>
+        <para>The depify client provides a command line interface for installing and removing depify
+          packages. </para>
+        <programlisting>depify help
+depify 1.0 | copyright (c) 2015 Jim Fuller | see https://github.com/depify
+
+ usage: depify [install|remove|list|info|search|xproc|catalog|library|upgrade|help] [package name] [package version]"
+
+ install package
+ >depify install xprocdoc
+
+ remove package
+ >depify remove xprocdoc
+
+ info package
+ >depify info xprocdoc
+
+ list installed packages
+ >depify list
+
+ search all packages
+ >depify search xproc
+
+ generate xmlresolver catalog
+ >depify catalog
+
+ generate xproc library
+ >depify library
+
+ reinstall all packages
+ >depify install
+
+ initialize .depify
+ >depify init mypackage 1.0
+
+ upgrade depify client
+ >depify upgrade
+
+ help with depify client
+ >depify help
+
+</programlisting>
+        <para>Depify is itself written in XProc and ships with latest version of XML Calabash, you
+          may also integrate it into your own XProc pipelines.</para>
+        <programlisting language="xml"><![CDATA[
+<depify:depify>
+  <x:option name="command" select="'install'"/>
+  <x:option name="package" select="'xmlcalabash-ext-step-java'"/>
+  <x:option name="version" select="'1.0'"/>
+  <x:option name="app_dir" select="'.'"/>
+  <x:option name="app_dir_lib" select="'lib'"/>
+</depify:depify>        
+]]>
+</programlisting>
+      </section>
+      <section>
+        <title>depify.com</title>
+        <para>With every new commit to depify package repository a searchable website, depify.com
+            <xref linkend="depify-com-ref"/> is updated. </para>
+        <para>Depify.com is published to its associated github pages and leverages the use
+          Saxon-CE<footnote><para>Saxon CE - <link xl:href="http://www.saxonica.com/ce/index.xml"/></para></footnote>
+          
+         to deliver all functionality. </para>
+      </section>
+      <section>
+        <title>XML Calabash extension mechanisms</title>
+        <para>To implement a step in XML Calabash one needs to</para>
+        <itemizedlist>
+          <listitem><para>define a class that inherits DefaultStep and lives in package as a separate
+            jar</para></listitem>
+          <listitem><para>define annotations that represent step name and namespace</para></listitem>
+        </itemizedlist>
+        <programlisting language="java">package com.example.library;
+
+import com.xmlcalabash.library.DefaultStep;
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XMLCalabash;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.util.TreeWriter;
+
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
+import com.xmlcalabash.runtime.XAtomicStep;
+
+@XMLCalabash(
+name = "ex:hello-world",
+type = "{http://example.org/xmlcalabash/steps}hello-world")
+
+public class HelloWorld extends DefaultStep {
+  private WritablePipe result = null;
+
+  public HelloWorld(XProcRuntime runtime,
+                    XAtomicStep step) {
+    super(runtime,step);
+  }
+
+  public void setOutput(String port,
+                        WritablePipe pipe) {
+    result = pipe;
+  }
+  
+  public void reset() {
+    result.resetWriter();
+  }
+  
+  public void run() throws SaxonApiException {
+    super.run();
+    
+    TreeWriter tree = new TreeWriter(runtime);
+    tree.startDocument(step.getNode().getBaseURI());
+    tree.addStartElement(XProcConstants.c_result);
+    tree.startContent();
+    tree.addText("Hello World");
+    tree.addEndElement();
+    tree.endDocument();
+    result.write(tree.getResult());
+  }
+}</programlisting>
+
+        <para>The jar containing the compiled java custom step you will need to include the XProc
+          library that defines the custom step's signature.</para>
+
+        <programlisting>
+M Filemode      Length  Date         Time      File
+- ----------  --------  -----------  --------  -----------------------------------------------------
+  drwxr-xr-x         0   8-Mar-2015  10:43:38  META-INF/
+  -rw-r--r--       843   8-Mar-2015  10:43:38  META-INF/MANIFEST.MF
+  drwxr-xr-x         0   8-Mar-2015  10:43:38  com/
+  drwxr-xr-x         0   8-Mar-2015  10:43:38  com/example/
+  drwxr-xr-x         0   8-Mar-2015  10:43:38  com/example/library/
+  -rw-r--r--      2062   8-Mar-2015  10:43:38  com/example/library/HelloWorld.class
+  drwxr-xr-x         0   8-Mar-2015  10:43:38  META-INF/annotations/
+  -rw-r--r--        31   8-Mar-2015  10:43:38  META-INF/annotations/com.xmlcalabash.core.XMLCalabash
+  -rw-r--r--       294  19-Feb-2015  15:41:00  example-library.xpl
+- ----------  --------  -----------  --------  -----------------------------------------------------
+                  3230                         9 files
+</programlisting>
+
+        <para>This library just contains the step signature declaration.</para>
+        <programlisting language="xml"><![CDATA[<p:library version="1.0"
+  xmlns:p="http://www.w3.org/ns/xproc"
+  xmlns:c="http://www.w3.org/ns/xproc-step"
+  xmlns:ex="http://example.org/xmlcalabash/steps">
+
+  <p:declare-step type="ex:hello-world">
+    <p:output port="result"/>
+  </p:declare-step>
+  
+</p:library>]]></programlisting>
+        <para>There already exists many XML Calabash java extension steps, all available for
+          installation by depify today.</para>
+        <itemizedlist>
+          <listitem><para>xmlcalabash1-asciidoctor</para></listitem>
+          <listitem><para>xmlcalabash1-xmlunit</para></listitem>
+          <listitem><para>xmlcalabash1-xcc</para></listitem>
+          <listitem><para>xmlcalabash1-rdf</para></listitem>
+          <listitem><para>xmlcalabash1-print</para></listitem>
+          <listitem><para>xmlcalabash1-plantuml</para></listitem>
+          <listitem><para>xmlcalabash1-metadata-extractor</para></listitem>
+          <listitem><para>xmlcalabash1-mathml-to-svg</para></listitem>
+          <listitem><para>xmlcalabash1-ditaa</para></listitem>
+          <listitem><para>xmlcalabash1-deltaxml</para></listitem>
+        </itemizedlist>
+
+      </section>
+    </section>
+    <!--
+    <section>
+      <title>Demonstration</title>
+      <section>
+        <title>Using depify with XML Calabash</title>
+        <para/>
+      </section>
+      <section>
+        <title>Developing and distributing your own XML Calabash custom step</title>
+        <para/>
+      </section>
+      <section>
+        <title>XML Calabash custom step distribution with Maven</title>
+        <para/>
+      </section>
+    </section>
+    -->
+  </section>
+
+  <section>
+    <title>Summary</title>
+    <para>The usage of XML Calabash with depify leverages the development and distribution of custom
+      step libraries.</para>
+    <para>Unsurprisingly, enabling XProc's primary extension mechanism makes XProc itself easier to
+      use.</para>
+    <para>Additionally, developing XML Calabash custom steps allows for distribution with
+      pre-existing deployment mechanisms (maven central repository).</para>
+  </section>
+
+  <bibliography>
+    <biblioentry xml:id="xproc-ref">
+      <abbrev>1</abbrev>
+      <title>XProc</title>
+      <subtitle>An XML Pipeline Language</subtitle>
+      <pubdate>11th May 2010</pubdate>
+      <publisher>
+        <publishername>World Wide Web Consortium (W3C)</publishername>
+      </publisher>
+      <biblioid class="uri">http://www.w3.org/TR/xproc/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="depify-com-ref">
+      <abbrev>2</abbrev>
+      <title>depify.com</title>
+      <biblioid class="uri">http://depify.com/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="xkcd-ref">
+      <abbrev>3</abbrev>
+      <title>Regular Expressions (This work is licensed under a Creative Commons
+        Attribution-NonCommercial 2.5 License.)</title>
+      <publishername>xkcd.com</publishername>
+      <biblioid class="uri">http://xkcd.com/208</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="wiki-def-desperation">
+      <abbrev>4</abbrev>
+      <title>definition of 'desperatus'</title>
+      <publishername>Wiktionary, The Free dictionary</publishername>
+      <biblioid class="uri">http://en.wiktionary.org/wiki/desperatus#Latin</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="xmlcalabash-ref">
+      <abbrev>5</abbrev>
+      <title>XML Calabash</title>
+      <subtitle>An implementation of XProc: An XML Pipeline Language.</subtitle>
+      <biblioid class="uri">http://xmlcalabash.com/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="muenchian-ref">
+      <abbrev>6</abbrev>
+      <title>Muenchian grouping method</title>
+      <publisher>
+        <publishername>Wikipedia</publishername>
+      </publisher>
+      <biblioid class="uri">http://en.wikipedia.org/wiki/XSLT/Muenchian_grouping</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="refactoring1-ref">
+      <abbrev>20</abbrev>
+      <title>A case study on the impact of refactoring on quality and productivity in an agile team </title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Raimund</firstname>
+            <surname>Moser</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Pekka</firstname>
+            <surname>Abrahamsson</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Witold</firstname>
+            <surname>Pedrycz</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Alberto</firstname>
+            <surname>Sillitti</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Giancarlo</firstname>
+            <surname>Succi</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>Springer Berlin Heidelberg</publishername>
+      <biblioid class="uri">http://www.researchgate.net/profile/Giancarlo_Succi/publication/221200711_A_Case_Study_on_the_Impact_of_Refactoring_on_Quality_and_Productivity_in_an_Agile_Team/links/0046351f7fbd1e7a41000000.pdf</biblioid>
+    </biblioentry>
+
+  </bibliography>
+</article>

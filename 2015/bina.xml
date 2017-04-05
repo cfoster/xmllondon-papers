@@ -1,0 +1,621 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?oxygen RNGSchema="http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng" type="xml"?>
+<article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink"
+  version="5.0">
+
+  <!-- Copyright (c) 2015 Syncro Soft Ltd. All rights reserved. -->
+  
+  <info>
+    <title>Magic URLs in an XML Universe</title>
+    <authorgroup>
+      <author>
+        <personname><firstname>George</firstname>
+          <surname>Bina</surname></personname>
+        <email>george@oxygenxml.com</email>
+        <uri>http://www.oxygenxml.com</uri>
+        <personblurb>
+          <para>George Bina is one of the founders of Syncro Soft, the company that develops
+              <productname>oXygen XML Editor</productname>. He has more 15 years experience in
+            working with XML and related technologies including <acronym>XML</acronym> related
+            projects, oXygen <acronym>XML</acronym> Editor and participation in open source
+            projects.</para>
+        </personblurb>
+        <affiliation>
+          <orgname>Syncro Soft / oXygen XML Editor</orgname>
+          <address><street>Fermei 42</street>
+<postcode>200782</postcode> <city>Craiova</city>
+<country>Romania</country></address>
+        </affiliation>
+      </author>
+    </authorgroup>
+    <abstract>
+      <para>XML is an ideal format for structured content but we need to accept that are also other
+        formats that can encode information in a structured way. We can try to get everyone to use
+        XML but that may not be always possible for various reasons. Now it is possible to
+        dynamically unify different formats by converting all content to XML simply by pointing to
+        that content though a "magic" URL that performs this conversion on the fly.</para>
+      <para>We experimented with creating URLs to convert from various formats to XML, including
+        Java classes and JavaDoc files, Excel and Google Sheet spreadsheets, Markdown and HTML, CSV
+        files, etc. A major advantage of this approach is that it works immediately with any
+        URL-aware application and allows to extend single source publishing across formats in a
+        transparent way.</para>
+    </abstract>
+    <keywordset>
+      <keyword>XML</keyword>
+      <keyword>dynamic conversion</keyword>
+      <keyword>URL</keyword>
+      <keyword>DITA</keyword>
+      <keyword>Markdown</keyword>
+      <keyword>Excel</keyword>
+      <keyword>CSV</keyword>
+      <keyword>SVG</keyword>
+      <keyword>HTML</keyword>
+      <keyword>Java</keyword>
+      <keyword>Javadoc</keyword>
+    </keywordset>
+  </info>
+  <sect1>
+    <title>The problem</title>
+    <para>If you need to write a tutorial for an SDK in DITA, then there is already some information
+      available inside the source code - let's consider that to be Java in this example - so we can
+      have comments inside the Java source code describing different methods or fields from each
+      Java class, return values, possible exceptions and so on. It is not easy to reuse this
+      information outside the basic copy and paste type of reuse. One possibility will be to
+      generate JavaDoc documentation and link to that from DITA, but then again, any reference
+      inside the DITA code, like the syntax for a method needs to be recoded and duplicated in
+      DITA.</para>
+    <para>This problem appears also if you receive a spreadsheet from accounting and you need to use
+      that information in a solution proposal and in many other situations.</para>
+    <para>It is not possible to have developers write in DITA, the Javadoc documentation is needed
+      to work within IDEs, when a user tries to insert a method they will be assisted by the IDE
+      showing the description of that method. So, it is not possible in the real word to have a
+      single common language for everything, we need to accept that there are multiple formats for
+      information available and we need to look into possibilities to make them work easily
+      together.</para>
+  </sect1>
+  <sect1>
+    <title>The idea</title>
+    <para>If we look more closely, it is not the actual format, but the degree of structure that
+      matters, if we want to be able to process information. And Java source code with its comments
+      is a very structured language so it can be reliably converted automatically to a different
+      format.</para>
+    <para>In general, any reference to a resource is done though a URL. For example, an HTTP URL has
+      the following format:</para>
+    <programlisting>http://user:password@www.example.com/path/to/file.ext?param1=val1&amp;param2=val2</programlisting>
+    <para>where we can identify</para>
+    <variablelist>
+      <varlistentry>
+        <term>http</term>
+        <listitem>
+          <para>The URL scheme / access protocol</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>user:password</term>
+        <listitem>
+          <para>Credentials</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>www.example.com</term>
+        <listitem>
+          <para>Server location</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>path/to/file.ext</term>
+        <listitem>
+          <para>Resource path</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>param1=val1&amp;param2=val2</term>
+        <listitem>
+          <para>Parameters with some specified values</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>Even in the case of an HTTP URL, the resource part may not represent what it is actually
+      returned when the URL is read, the resource may be a script that does some processing,
+      depending on the suplied parameters. Other example URLs:<itemizedlist>
+        <listitem>
+          <para><code>file:/path/to/file.dita</code>
+          </para>
+        </listitem>
+        <listitem>
+          <para><code>http://server/cgi?file=file.dita </code></para>
+        </listitem>
+        <listitem>
+          <para><code>https://server/path/to/file.dita </code></para>
+        </listitem>
+        <listitem>
+          <para><code>ftp://server/path/to/file.dita </code></para>
+        </listitem>
+        <listitem>
+          <para><code>zip:URL!/path/to/file.dita </code></para>
+        </listitem>
+      </itemizedlist></para>
+    <para>In general, the URL has a URL scheme or protocol and the rest of the URL is protocol
+      dependent. As we can see in the <code>zip</code> URL example, the rest of the URL may contain
+      also another URL and in this case it is clear that the access to a resource does not imply
+      only reading the content of that resource and returning it, in this case the resource is
+      extracted from the ZIP archive, so a conversion process takes place from the ZIP encoded
+      form.</para>
+    <para>Because all references to resources are done though URLs and URLs can encode information
+      and decode that when reading, we can think for example that a Java class encodes a DITA topic
+      and when we read that though a <code>java2dita</code> URL, we get back the DITA topic.</para>
+  </sect1>
+  <sect1>
+    <title>URLs in Java</title>
+    <para>Java has a pluggable system for URL support, one can register a URL handler for a URL
+      scheme, that is a Java class that implements a specific interface, and that Java class handles
+      the parsing of the URL syntax for that URL scheme/protocol as well as how content should be
+      read from or written to that resource.</para>
+    <para>Thus, if we register a URL handler class that can convert from Java to DITA for the
+        <code>java2dita</code> URL scheme, then we can use URLs starting with
+        <code>java2dita:/</code> to point to a Java class and when we read from that URL, the
+      control will be given to our registered URL handler that will provide a stream from where DITA
+      content will be read, representing the dynamic conversion of the Java source code to a DITA
+      topic.</para>
+    <para>The same can be imagined for any type of conversion from one format to another - as long
+      as there is enough structural information to have this conversion possible in an automatic
+      way. </para>
+    <para>But, instead of registering a protocol scheme for each conversion we can also register a
+      single URL scheme, <code>convert</code>, and use the syntax of the convert URLs to control the
+      actual conversion process.</para>
+  </sect1>
+  <sect1>
+    <title>The <code>convert</code> URLs</title>
+    <para>We define the convert URLs to have the following syntax:</para>
+    <programlisting>convert:/pipelineStepN/.../pipelineStep1!/targetContentURL</programlisting>
+    <figure>
+      <title>Simple conversion pipeline </title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/simplePipeline.png" scalefit="1" scale="75"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>where we can identify</para>
+    <variablelist>
+      <varlistentry>
+        <term>convert</term>
+        <listitem>
+          <para>The URL scheme / protocol</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>pipelineStepN</term>
+        <listitem>
+          <para>Information for the conversion step N, applied on the output of conversion step
+            N-1</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>…</term>
+        <listitem>
+          <para>and so on …</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>pipelineStep1</term>
+        <listitem>
+          <para>Information for the first conversion step, applied on the target URL</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>targetContentURL</term>
+        <listitem>
+          <para>A URL pointing to a resource whose content will be passed though the conversion
+            pipeline formed by the conversion steps</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>This allows us to apply different conversion steps on a resource, also identified by a
+      URL, the target URL, and the result when the convert URL is read will be the dynamic
+      conversion of the resource content though the specified conversion steps.</para>
+    <para>We can generalize this to support also writing, that happens when we change the content of
+      the URL and we want to save. For that we can specify also a reverse pipeline, with similar
+      conversion steps as the pipeline that converts from the target URL but this time the
+      conversions are performed in the other direction, from the URL content to the target URL. The
+      content to be saved will be the input of the first reverse step, and so on, and the output of
+      the last reverse step will be the new content of the target URL.</para>
+
+    <programlisting>convert:/reverseStep1/.../reverseStepM/pipelineStepN/.../pipelineStep1!/targetContentURL</programlisting>
+    
+    <figure>
+      <title>Complete conversion pipeline</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/completePipeline.png" scalefit="1" scale="75"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>Using such a URL we can transparently round-trip from one format to another, from the
+      target URL format to our URL format and back.</para>
+    <para>Each pipeline step starts with <code>processor=processingStep</code> if it is a step
+      representing part of the direct conversion pipeline and with
+        <code>rprocessor=processingStep</code> if it is a conversion step part of the reverse
+      conversion pipeline. This is followed by parameters specific to that processing step,
+      specified as <code>paramName=paramValue</code> and separated by <code>;</code> as separator
+      character.</para>
+    <para>To proof this concept, we implemented a Java URL handler for the convert protocol and as
+      basic processing steps we implemented:<itemizedlist>
+        <listitem>
+          <para>XSLT</para>
+        </listitem>
+        <listitem>
+          <para>XQuery </para>
+        </listitem>
+        <listitem>
+          <para>Java</para>
+        </listitem>
+        <listitem>
+          <para>JavaScript</para>
+        </listitem>
+        <listitem>
+          <para>Excel to XML </para>
+        </listitem>
+        <listitem>
+          <para>JSON to XML </para>
+        </listitem>
+        <listitem>
+          <para>HTML to XHTML </para>
+        </listitem>
+        <listitem>
+          <para>Wrap text into an XML element</para>
+        </listitem>
+      </itemizedlist></para>
+    <sect2>
+      <title>XSLT conversion step</title>
+      <para>The XSLT conversion step allows to apply an XSLT stylesheet on the input and send the
+        result of the XSLT processing to the output. The processor name is <code>xslt</code> and as
+        parameters we have:<variablelist>
+          <varlistentry>
+            <term>ss</term>
+            <listitem>
+              <para>This identifies the XSLT stylesheet to be applied on the input</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>[any other parameter name]</term>
+            <listitem>
+              <para>Optional parameters can be specified other than <code>ss</code>, they will be
+                transmitted as XSLT parameters to the XSLT stylesheet</para>
+            </listitem>
+          </varlistentry>
+        </variablelist></para>
+      <example>
+        <title>Sample XSLT step</title>
+        <programlisting>processor=xslt;ss=urn:processors:convert.xsl;p1=v1</programlisting>
+        <para>This specifies that the XSLT stylesheet identified by
+            <code>urn:processors:convert.xsl</code> should be applied on the input received by this
+          processing step and the result of the transformation should go to the output, either as
+          the result of the convert URL, in case this is the last step of a direct conversion
+          pipeline or as the result of the target URL, if this is the last step of a reverse
+          conversion pipeline, or to the input of the next step in the pipeline. A parameter with
+          the name <code>p1</code> will be set for the transformation and it will have the value
+            <code>v1</code>.</para>
+      </example>
+    </sect2>
+    <sect2>
+      <title>XQuery conversion step</title>
+      <para>The XQuery conversion step is similar to the XSLT one, but it allows to apply an XQuery
+        script on the input instead of an XLST script. The processing name is <code>xquery</code>
+        and as parameters we have:<variablelist>
+          <varlistentry>
+            <term>ss</term>
+            <listitem>
+              <para>This identifies the XQuery script to be applied on the input</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>[any other parameter name]</term>
+            <listitem>
+              <para>Optional parameters can be specified other than ss, they will be transmitted as
+                parameters to the XQuery script</para>
+            </listitem>
+          </varlistentry>
+        </variablelist></para>
+      <example>
+        <title>Sample XQuery step</title>
+        <programlisting>processor=xquery;ss=urn:processors:convert.xquery;p1=v1</programlisting>
+        <para>This specifies that the XQuery script identified by
+            <code>urn:processors:convert.xquery</code> should be applied on the input received by
+          this processing step and the result of the XQuery execution should go to the output. A
+          parameter with the name <code>p1</code> will be set for the transformation to the value
+            <code>v1</code>.</para>
+      </example>
+    </sect2>
+    <sect2>
+      <title>Java conversion step</title>
+      <para>The Java conversion step allows to apply processing specified in a Java class on the
+        input and the result of the Java processing will be sent to the output. The processing name
+        is <code>java</code> and as parameters we have<variablelist>
+          <varlistentry>
+            <term>jars</term>
+            <listitem>
+              <para>A comma separated list of libraries that will be added to the class path</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>ccn</term>
+            <listitem>
+              <para>Identifies the conversion class name, as a fully qualified Java class
+                name</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>[any other parameter name]</term>
+            <listitem>
+              <para>Optional parameters can be specified other than <code>jars</code> and
+                  <code>ccn</code>, they will be transmitted as properties for the Java
+                conversion</para>
+            </listitem>
+          </varlistentry>
+        </variablelist></para>
+      <para>The conversion class needs to have a constructor without parameters and a method with
+        the following signature:<programlisting language="java"><![CDATA[public void convert(
+  String systemID, 
+  String originalSourceSystemID, 
+  InputStream is, 
+  OutputStream os, 
+  LinkedHashMap<String, String> properties) 
+throws IOException]]></programlisting></para>
+      <example>
+        <title>Sample Java step</title>
+        <programlisting>processor=java;jars=urn:processors:jars;ccn=j.to.xml.JavaToXML</programlisting>
+        <para>This specifies that the Java class <code>j.to.xml.JavaToXML</code> will be applied for
+          the conversion process, and that the folder identified by <code>urn:processors:jars</code>
+          will be added to the class path.</para>
+      </example>
+    </sect2>
+    <sect2>
+      <title>JavaScript conversion step</title>
+      <para>The JavaScript conversion step allows to apply processing specified in a JavaScript
+        method on the input and the result of the processing will be sent to the output. The
+        processing name is <code>js</code> and as parameters we have<variablelist>
+          <varlistentry>
+            <term>js</term>
+            <listitem>
+              <para>Points to the JavaScript file</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>fn</term>
+            <listitem>
+              <para>Identifies the method name that should be invoked for conversion, method that
+                must take a string as an argument and return a string</para>
+            </listitem>
+          </varlistentry>
+        </variablelist></para>
+      <example>
+        <title>Sample JavaScript step</title>
+        <programlisting>processor=js;js=urn:processors:md.js;fn=convertExternal</programlisting>
+        <para>This specifies that the JavaScript method <code>convertExternal</code> from the
+            <code>urn:processors:md.js</code> script file will be applied for the conversion
+          process.</para>
+      </example>
+    </sect2>
+    <sect2>
+      <title>Excel to XML conversion step</title>
+      <para>The Excel conversion step converts an excel sheet to an XML form that can then be easily
+        processed further with XSLT towards your desired final format. The processing name is
+          <code>excel</code> and as parameter we have<variablelist>
+          <varlistentry>
+            <term>sn</term>
+            <listitem>
+              <para>This identifies the sheet name</para>
+            </listitem>
+          </varlistentry>
+        </variablelist></para>
+      <example>
+        <title>Sample XSLT step</title>
+        <programlisting>processor=excel;sn=test</programlisting>
+        <para>This specifies that the sheet with the name test should be converted to XML.</para>
+      </example>
+    </sect2>
+    <sect2>
+      <title>JSON to XML conversion step</title>
+      <para>The JSON conversion step converts JSON to XML. The processing name is <code>json</code>
+        and it does not have any parameters.</para>
+      <example>
+        <title>Sample JSON step</title>
+        <programlisting>processor=json</programlisting>
+      </example>
+    </sect2>
+    <sect2>
+      <title>HTML to XHTML conversion step</title>
+      <para>The HTML conversion step converts HTML to XHTML. The processing name is
+          <code>xhtml</code> and it does not have any parameters.This is a very useful conversion
+        step as it allows us to process HTML content further with XSLT and XQuery.</para>
+      <example>
+        <title>Sample HTML conversion to XHTML step</title>
+        <para><code>processor=xhtml</code></para>
+      </example>
+    </sect2>
+    <sect2>
+      <title>Wrap text conversion step</title>
+      <para>The wrap conversion steps helps putting an XML tag around text content so it can be
+        further processed with XML-aware processing steps, like XSLT and XQuery. The processing name
+        is <code>wrap</code> and as parameter we have<variablelist>
+          <varlistentry>
+            <term>rn</term>
+            <listitem>
+              <para>Optional, specifies the root name, by default that will be
+                <code>wrapper</code>.</para>
+            </listitem>
+          </varlistentry>
+        </variablelist></para>
+      <para>This is useful if we want to take advantage of the RexExp support in XSLT 2.0 for
+        example in a following conversion step.</para>
+      <example>
+        <title>Sample wrap step</title>
+        <para><code>processor=wrap</code></para>
+        <para>This specifies that the input should be placed within an XML element called
+            <code>wrapper</code> (the default element name).</para>
+      </example>
+    </sect2>
+  </sect1>
+  <sect1>
+    <title>URL aliases</title>
+    <para>Using an XML catalog we can easily implement simple aliases for a more complex convert
+      protocol syntax. For example with a mapping like in the following code fragment we can
+      simplify the URL syntax to the point that authors can just type it in:</para>
+    <programlisting language="xml"><![CDATA[<rewriteURI uriStartString="excel2dita:/" rewritePrefix="convert:/processor=xslt;ss=urn:processors:e2d.xsl/processor=excel;sn=sample!/"/>]]></programlisting>
+    <para>This allows us to write a convert URL that bundles together multiple processing steps, and
+      maybe also reverse processing steps, in case of a URL supporting round-tripping, as a single
+      new protocol followed by a pointer to the target resource:</para>
+    <example>
+      <title>Short URL for Excel to DITA conversion</title>
+      <para><code>excel2dita:/urn:files:sample.xls</code></para>
+    </example>
+    <para>The XML Catalog can be also used to define URN names pointing to different locations where
+      we have files used in these URLs either as target files or files used in the conversion
+      processes:</para>
+    <programlisting language="xml">&lt;rewriteURI uriStartString="urn:files:" rewritePrefix="resources/"/> 
+&lt;rewriteURI uriStartString="urn:processors:" rewritePrefix="processors/"/></programlisting>
+  </sect1>
+  <sect1>
+    <title>Sample conversion pipelines</title>
+    <para>Here we have a few sample conversion pipelines that can be assembled as convert URLs and
+      used though an alias. These cover some common use cases.</para>
+    <sect2>
+      <title>Excel to DITA</title>
+      <para>We apply two processing steps, Excel to XML using the <code>excel</code> processing step
+        and XML to DITA topic using the <code>xslt</code> processing step:</para>
+      <programlisting>convert:/proc=xslt;ss=excel2d.xsl/proc=excel;sn=sample!/urn:files/sample.xls</programlisting>
+      <para>By defining <code>excel2dita</code> as alias for </para>
+      <programlisting>convert:/proc=xslt;ss=excel2d.xsl/proc=excel;sn=sample!</programlisting>
+      
+      <para>we will be able to write the same URL as:</para>
+      <programlisting>excel2dita:/urn:files/sample.xls</programlisting>
+      <para>This allows us to reuse as DITA tables the spreadsheet tables and we can take advantage
+        of the computations automatically done in Excel. Also, we have true single sourcing, if the
+        spreadsheet file changes we automatically see the changes in our DITA content.</para>
+    </sect2>
+    <sect2>
+      <title>Google Sheets to DITA</title>
+      <para>Google sheets allows to access a spreadsheet content as HTML, so we can apply an HTML to
+        XHTML conversion using the <code>xhtml</code> processing step and then use two XSLT
+        stylesheets though <code>xslt</code> steps to filter the information that we want to convert
+        to DITA and to transform that to a DITA topic.</para>
+      <para>By defining as alias
+          for
+        
+        <programlisting>convert:/processor=xslt;ss=urn:processors:h2d.xsl/processor=xslt;ss=urn:processors:googleSheets2dita.xsl/processor=xhtml!/</programlisting>
+        
+        the
+          <code>gs2dita:/</code> prefix, we can easily express URLs that bring Google sheets as DITA
+        just by specifying the target URL after this prefix</para>
+      <programlisting>gs2dita:/https://docs.google.com/spreadsheets/d/[...docid...]/edit?usp=sharing</programlisting>
+      <para>This provides a very simple way to enable people to collaborate on creating the table
+        information, using the Google Drive shared editing functionality and being able to include
+        the up-to-date information automatically in a DITA processing workflow.</para>
+    </sect2>
+    <sect2>
+      <title>HTML to DITA</title>
+      <para>This is a more generic conversion, as we do not make any assumptions on the HTML input.
+        We accomplish this with two processing steps, the first will convert HTML to XHTML using the
+          <code>xhtml</code> processor, and then we use the <code>xslt</code> processor to apply an
+        XHTML to DITA conversion.</para>
+      <para>An example URL looks like this</para>
+      <programlisting>convert:/proc=xslt;ss=h2d.xsl/proc=xhtml!/urn:files/care.html</programlisting>
+      <para>But it can be reduced to </para>
+      <programlisting>html2dita:/urn:files/care.html</programlisting>
+      
+      <para>by defining an alias in the XML Catalog.</para>
+    </sect2>
+    <sect2>
+      <title>Markdown to DITA</title>
+      <para>Markdown source files can be already available from developers and it may be useful to
+        be able to include them in your DITA workflow. We can setup a pipeline that converts
+        Markdown to HTML using JavaScript, HTML to XHTML and then XHTML to DITA using XSLT. A full
+        convert URL with these pipeline steps like this</para>
+      <programlisting>convert:/processor=xslt;ss=urn:processors:h2d.xsl/processor=xhtml/processor=js;js=urn:processors:pagedown%2FMarkdown.Converter.js;fn=convertExternal!/urn:files/sample.md</programlisting>
+      <para>can be shortened to <code>md2dita:/urn:files/sample.md</code> using an XML Catalog to
+        define an alias for the more complex convert URL.</para>
+    </sect2>
+    <sect2>
+      <title>XML Schema to DITA</title>
+      <para>XML Schema to DITA topic can be easily converted though XSLT, so we can package that as
+        a convert URL like</para>
+      <programlisting>convert:/processor=xslt;ss=urn:proc:xsdToTopic.xsl!/urn:files/personal.xsd</programlisting>
+      <para>or in the short form it can be <code>xsd2dita:/urn:files/personal.xsd</code>. This
+        allows to easily integrate basic XML Schema documentation into a DITA-based project. </para>
+    </sect2>
+    <sect2>
+      <title>Java to DITA</title>
+      <para>Back to our initial problem, API documentation, we can get Java source code to DITA
+        using a processing pipeline that converts the Java source to an XML format using some
+        processing implemented in a Java class, then we convert to DITA using XSLT.</para>
+      <programlisting>convert:/processor=xslt;ss=urn:processors:javaToTopic.xsl/processor=java;jars=urn:processors:jars;ccn=j.to.xml.JavaToXML!/urn:files:WSAuthorEditorPage.java</programlisting>
+      <para>with the equivalent short form </para>
+      <para><code>java2dita:/urn:files:WSAuthorEditorPage.java</code>.</para>
+    </sect2>
+    <sect2>
+      <title>Javadoc to DITA</title>
+      <para>JavaDoc does more processing and records additional information about Java components,
+        for example it can contain information about where a component is used so it may be
+        interesting to have also this information available from DITA. Because JavaDoc is HTML, we
+        can setup a conversion pipeline that normalizes the HTML to XHTML, then converts XHTML to
+        DITA:</para>
+      <programlisting>convert:/proc=xslt;ss=urn:proc:jdToTopic.xsl/proc=xhtml/!/urn:files:ButtonEditor.html"</programlisting>
+      <para>or the short form</para>
+      <para><code>javadoc2dita:/urn:files:ButtonEditor.html</code></para>
+      <para>Publish DITA conversion of Javadoc to PDF </para>
+    </sect2>
+    <sect2>
+      <title>Custom XML to SVG</title>
+      <para>If we have a set of values in an XML file, we can easily get them as a graphic, by
+        generating an SVG as a convert URL</para>
+      <programlisting>convert:/processor=xslt;ss=urn:processors:sales.xsl!/urn:files:sales.xml</programlisting>
+      <para>Using this method we can publish graphs which dynamically change depending on the values
+        found in the original source.</para>
+    </sect2>
+    <sect2>
+      <title>DITA Map to Schematron</title>
+      <para>Another interesting example is related to an intelligent style guide, that encodes
+        business rules within the style guide prose. By default a transformation converts that to
+        Schematron, but instead of that we can just point to the style guide through a magic URL
+        that will bring a Schematron schema.</para>
+    </sect2>
+    <sect2>
+      <title>Round-tripping CSV to DITA and back</title>
+      <para>For CSV we implement round-tripping by providing both a direct conversion pipeline, from
+        CSV to DITA and a reverse conversion pipeline, from a DITA topic to a CSV file. We then add
+        a mapping in the catalog to be able to refer to these convert URLs though a simple
+          <code>csv2dita</code> protocol:</para>
+      <programlisting language="xml">&lt;rewriteURI uriStartString="csv2dita:/" rewritePrefix="convert:/rprocessor=xslt;ss=urn:processors:dita2csv.xsl/processor=xslt;ss=urn:processors:csvtext2dita.xsl/processor=wrap!/"/></programlisting>
+      <para>When a CSV file is read through a <code>csv2dita</code> URL, the processing applied is a
+        wrapping of the CSV in and XML element done with the <code>wrap</code> processor and then
+        that is passed though the <filename>csvtext2dita.xsl</filename> stylesheet which will return
+        a DITA topic containing a table with all the CSV data. When the resource is saved, the
+        reverse conversion pipeline is executed, the content of the DITA document being sent to the
+          <filename>dita2csv.xsl</filename> stylesheet and the output of this transformation will be
+        stored in the CSV file.</para>
+      <para>The round-tripping support can be very useful also to edit a document as a slightly
+        different version in terms of markup, allowing basically to perform a transformation before
+        editing and a transformation before saving. For example, if a document makes havy use of
+        attributes, these can be transformed to elements when the document is read and then, after
+        it is changed, when the document is about to be saved, the elements representing atribute
+        information will be transformed back to attributes.</para>
+    </sect2>
+  </sect1>
+  <sect1>
+    <title>Conclusions</title>
+    <para>The idea of using URLs to dynamically convert content back and forth between different
+      formats is very simple and in the same time very powerful. It seamlessly brings together
+      different formats in a single publishing framework, and allows any processing flow based on
+      URLs to automatically handle the references to resources that otherwise were incompatible to
+      the supported format.</para>
+    <para>This is a generic approach that allows to make any type of automatic conversion dynamic,
+      allowing us to implement true single sourcing across multiple formats.</para>
+    <para>The DITA specific examples mentioned here are made available also in a project published
+      on GitHub at</para>
+    <para><uri>https://github.com/oxygenxml/dita-glass</uri>
+    </para>
+    <para>so you can experiment with these type of conversions or use them as a starting point if
+      you want to try your own ideas.</para>
+  </sect1>
+</article>

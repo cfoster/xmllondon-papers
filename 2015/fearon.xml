@@ -1,0 +1,809 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink"
+  version="5.0">
+  <info>
+    <title>Streamlining XML Authoring Workflows</title>
+    <abstract>
+      <para>When preparing XML content for publication, even small-scale projects can involve many
+        people at different stages in the process; the process itself will often repeat several
+        times. It follows that an XML review and approval workflow should allow everyone to
+        contribute to the process at various stages; this is often critical to the quality and
+        timeliness of the end-product.</para>
+      <para>This paper explores ideas on how XML document merge features can allow contributors and
+        reviewers to, when necessary, work concurrently on content within an XML authoring workflow.
+        A 'proof of concept' application called XMLFlow is used as a vehicle to demonstrate some of
+        these ideas; some detail on the design and implementation of this proof of concept is also
+        covered here.</para>
+    </abstract>
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Phil</firstname>
+          <surname>Fearon</surname>
+        </personname>
+        <affiliation>
+          <orgname>DeltaXML</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+  </info>
+
+  <sect1>
+    <title>Sequential and Concurrent Editing Workflows</title>
+    <para>In its simplest form, there are two ways that updates can be made to document content:
+      sequentially or concurrently. Sequential updates (where each contributor updates content in
+      turn) sit easily within a conventional editing chain. With concurrent updates, several people
+      edit a copy of the content at the same time, a 'merge' process is then required to incorporate
+      all changes back into a single copy. <figure>
+        <title>Sequential updates: each contributor edits the document in turn.</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/pp-check-in-out.svg" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <figure>
+        <title>Concurrent updates: each contributor edits a copy of the document in the same
+          time-frame.</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/pp-branch-and-merge.png" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+    </para>
+    <para>So which is the preferred way to update documents, sequentially or concurrently?
+      Sequential updates seem at first to be the more obvious solution for many cases. This approach
+      does however impose significant restrictions including:</para>
+    <para>
+      <itemizedlist>
+        <listitem>
+          <para>Requires a locking mechanism to prevent conflicting changes being made to the same
+            document.</para>
+        </listitem>
+        <listitem>
+          <para>Contributors need network access to a central copy of the document.</para>
+        </listitem>
+        <listitem>
+          <para>If contributors are unavailable they hold up the entire editing chain.</para>
+        </listitem>
+        <listitem>
+          <para>The correct positioning of people within the editing chain is often critical.</para>
+        </listitem>
+      </itemizedlist>
+    </para>
+    <para>Given the above restrictions for sequential editing, even when this is the preferred
+      workflow, support for occasional concurrent editing provides additional flexibility when it is
+      needed.</para>
+  </sect1>
+  <sect1>
+    <title>Current Systems</title>
+    <sect2>
+      <title>XML Authoring</title>
+      <para>In general, XML authoring systems provide good support for sequential editing workflows,
+        for example by providing tracked changes for multiple authors and document locking features.
+        Few of these system however provide specific support for concurrent working; one possible
+        reason for this is the perception that document merge is time consuming and error prone. The
+        counter to this perception is that XML documents with well-defined semantics are
+        particularly suited to merging as their formal structure minimizes potential conflict, this
+        also allows complex changes to be broken down into parts that are much easier to understand
+        and manage. </para>
+    </sect2>
+    <sect2>
+      <title>Software Development</title>
+      <para>With few examples of support for concurrent working in XML authoring systems, it is
+        useful to look in other areas outside of this field. One example is in the 'branch and
+        merge' system used frequently as part of a software development cycle. Here, version control
+        systems such as Git and Mercurial provide built in tools to support development of code on
+        different branches, these branches can then be merged with each other or merged back on to
+        the main branch. </para>
+      <para>When developing the proof of concept described in this paper, inspiration was sought
+        from the merge tools found in software version control systems. A decision was made however
+        (rightly or wrongly) to tackle the issue from a new viewpoint; this was due both to
+        differences in the type of content being merged and perceived differences in the typical
+        preferences of end-users. Another significant factor in this decision is that the goal for
+        the proof of concept is to allow up to ten documents to be merged at a time, software merge
+        tools are typically restricted to just three versions of the code (including the common
+        ancestor), where side-by-side views are more effective. A layout diagram for a typical code
+        merge tool is shown below: <figure>
+          <title>The layout of a typical code merge tool using side-by-side views</title>
+          <mediaobject>
+            <imageobject>
+              <imagedata fileref="images/pp-mergetool.svg" width="100%" />
+            </imageobject>
+          </mediaobject>
+        </figure>
+      </para>
+    </sect2>
+  </sect1>
+  <sect1>
+    <title>Proof of Concept Design</title>
+    <para>The proof of concept application, XMLFlow, was developed to be an experimental front-end
+      for rendering the result of a document merge using DeltaXML's DITA Merge product. It has
+      however evolved to support a more complete XML authoring workflow with the merge capability
+      built in.</para>
+    <para>With integrated document merge capability, this application now also allows us to explore
+      and demonstrate options to support concurrent document authoring workflows in a more general
+      way. The aim was to provide a solution that is fully functional so that all parts of the
+      workflow, except the actual editing, can be tested. It was decided not to include any editing
+      capability as this allows us to focus on the merge, review and approval part of the authoring
+      workflow, it also reduces development effort, and keeps the workflow flexible. Files uploaded
+      to XMLFlow are not encrypted and are sent and retrieved over a standard HTTP
+      connection.</para>
+    <note>
+      <para>XMLFlow's design is strongly influenced by experiences learnt in the formal document
+        review process for enterprise-scale projects. Here, even minor edits would need to be
+        recorded and approved. In this context, the absence of an editing capability in a review and
+        approval tool such as XMLFlow could actually be seen as a benefit.</para>
+    </note>
+    <sect2>
+      <title>High-level Architecture</title>
+      <para>The application uses a client-server architecture, all server-side functionality was
+        implemented in Java as a Java servlet; the 'client' is an HTML5/JavaScript single page web
+        application. The Saxon-CE XSLT 2.0 processor is used on the client for all significant HTML
+        and XML transforms. This architecture meets the need for the application to run on a wide
+        variety of operating systems.</para>
+      <figure>
+        <title>Breakdown of effort for development of the proof of concept.</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/pp-piechart.png" width="100%" />
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>The server performs two key roles: 1) it provides a remote file system for storing and
+        retrieving files, and 2) it provides the 'merge' service which invokes DeltaXML's DITA Merge
+        product. Apache Tomcat 8 is used as the web application server that hosts the Java servlets.
+        This, in combination with other Apache libraries provides the required multi-part HTTP POST
+        and WebSocket connectivity for the merge service</para>
+    </sect2>
+    <sect2>
+      <title>User Interface Style</title>
+      <para>For this type of application, effort spent on cosmetic changes to the user interfaces
+        should be minimised, yet the look and feel must still be good enough to avoid being a
+        distraction. To help with this, the BootStrap CSS framework was used, but with JavaScript
+        event-handling functionality removed - so XSLT-based event-handling (using Saxon-CE's
+        interactive extensions) could be used instead. The user interface for this web app was
+        designed from the outset to suit an Apple iPad tablet, desktop-specific features are also
+        included for cases when the app is run on laptops or desktops with a hardware
+        keyboard.</para>
+
+    </sect2>
+    <sect2>
+      <title>DITA XML Document Format</title>
+      <para>The principles demonstrated by XMLFlow apply to all structured XML document formats. The
+        DITA document format is used here simply because the DITA Merge product is integral to this
+        app (running server-side), and was DeltaXML's first product to support an n-way merge (more
+        are in the pipeline). The document view in the proof of concept provides basic styling for
+        most but not all DITA elements in the DITA topic, concept and reference document
+        types.</para>
+    </sect2>
+    <sect2>
+      <title>Proof of Concept Workflow</title>
+      <para>The proof of concept is built around an XML authoring workflow with three high-level
+        phases: edit, review/approve and publish. As already mentioned, the 'edit' phase is outside
+        scope here, the workflow therefore starts with a step for retrieving updated copies of a
+        baselined document from each of the contributors. The basic steps for the workflow are shown
+        below: <figure>
+          <title>Flow diagram for a typical XMLFlow workflow</title>
+          <mediaobject>
+            <imageobject>
+              <imagedata fileref="images/pp-workflow6.png" width="100%" />
+            </imageobject>
+          </mediaobject>
+        </figure>
+      </para>
+      <para>In this scenario, the 'document owner' initiates the process by launching the XMLFlow
+        web app in their browser and selecting the files to load, either by providing URLs or simple
+        drag and drop. </para>
+      <para>Once all files are uploaded into the client, they are shown in the Files list; here they
+        can be reordered and labelled with meaningful short names. Critically, the baselined
+        document must be located first in the file list, this is because of the way n-way merge
+        works: each updated document is first compared with its 'common ancestor', which is the
+        'baselined copy' in this case. </para>
+      <para>The document merge is started when the user presses the 'Merge' button in XMLFlow. Once
+        the merge operation is complete (which may take a few seconds), a 'working merge' document
+        is rendered in the document-view, with changes from all contributors highlighted. </para>
+      <para>Now there is a working merge, the review/approval phase can begin. The XMLFlow user can
+        select 'Approve' and 'Reject' modes, the corresponding action is then performed when the
+        user selects any change, this can be in the document-view, the attribute changes list-view
+        or the content-changes list-view. Affected changes are restyled to reflect whether they have
+        been accepted or rejected. </para>
+      <para>When all changes have been accepted or rejected the working merge is ready for
+        finalizing. The 'finalize' process works on a copy of the last version of the working merge,
+        it uses approval data embedded in the XML file to modify the content and attributes to
+        reflect the approval decisions. The embedded approval data is then removed so that the
+        finalized XML file is valid. This file is suitable to be used as the baseline for a further
+        workflow. The working merge can also be kept so that there is a record of the approval
+        process, a critical requirement in some situations. </para>
+      <note>
+        <para>The term 'baseline' is used a number of times in this document. This term is
+          frequently used in configuration management or project management processes, but can also
+          apply to more formal publishing processes. In this context, a new 'baseline' is created
+          each time a set of significant changes for a document are agreed at a certain stage in the
+          life-cycle of the document. A document may of course be part of a larger project which
+          will have its own baselines.</para>
+      </note>
+    </sect2>
+    <sect2>
+      <title>Identifying features in the workflow</title>
+      <para>To support a concurrent XML authoring workflow, the XMLFlow GUI design reflects the
+        following areas of functionality that were identified: <itemizedlist>
+          <listitem>
+            <para>File management</para>
+            <itemizedlist>
+              <listitem>
+                <para>Upload - DITA input files or a working merge</para>
+              </listitem>
+              <listitem>
+                <para>Label - add meaningful short labels for each file</para>
+              </listitem>
+              <listitem>
+                <para>Reorder - sort files, with the baselined file first</para>
+              </listitem>
+              <listitem>
+                <para>Store/Download - any file including working and finalized merge files</para>
+              </listitem>
+              <listitem>
+                <para>Merge - create a working merge file for review/approval</para>
+              </listitem>
+              <listitem>
+                <para>Finalize - create a finalized version from the working merge</para>
+              </listitem>
+              <listitem>
+                <para>Reset - clear all files ready for another merge</para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+          <listitem>
+            <para>Document change review</para>
+            <itemizedlist>
+              <listitem>
+                <para>Show changes inline in a document view</para>
+              </listitem>
+              <listitem>
+                <para>Show changes in vertical lists for:</para>
+                <itemizedlist>
+                  <listitem>
+                    <para>content</para>
+                  </listitem>
+                  <listitem>
+                    <para>attributes</para>
+                  </listitem>
+                </itemizedlist>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+          <listitem>
+            <para>Support approval states</para>
+            <itemizedlist>
+              <listitem>
+                <para>Accept</para>
+              </listitem>
+              <listitem>
+                <para>Reject</para>
+              </listitem>
+              <listitem>
+                <para>Defer</para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </itemizedlist>
+      </para>
+    </sect2>
+    <sect2>
+      <title>Document-view design</title>
+      <para>The document view was by far the most challenging part of the XMLFlow GUI design; a
+        number of different approaches were tried before settling on the current solution. The
+        document view is effectively an HTML div element with content generated by a client-side
+        XSLT transform on the result of the merge operation. In the relatively simple transform, XML
+        document elements are renamed to prevent conflict with HTML elements, new attributes are
+        also added to assist with CSS styling. </para>
+      <para>The problem here is to determine how to show the different types of changes made by
+        multiple users in a single view - without overloading the end-user with too much
+        information. In an n-way merge, there are three basic change types: 'add', 'delete' and
+        'modify'. A 'modify' type occurs when a word or phrase has been changed by one or more
+        contributors, if a modified word or phrase has been deleted by another contributor this is
+        still regarded as a 'modify' with an empty-string as the new value. Changes marked as
+        'modify' are presented as a choice of two or more mutually exclusive options, with selection
+        of the baselined text version being the first option.</para>
+      <figure>
+        <title>A first attempt at the document view: element tree and grid controls, with no WYSYWIG
+          styling </title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/pp-deltaenq.png" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <figure>
+        <title>The current evolution of the document view: element grid replaced by a simplified
+          WYSYWIG view </title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/pp-documentview.png" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>Red, green and blue foreground text colors are used in the document-view to indicate
+        delete, add and modify respectively. To distinguish between an element change and a text
+        change, square borders are added for elements and round borders for text. Similarly, in the
+        change list-view, square and round icons indicate element changes and text changes
+        respectively. To help differentiate between adds and deletes, the square borders for element
+        changes are dashed for deletes and supplemented by a shadow for adds. </para>
+      <para/>
+      <sect3>
+        <title>Nested changes</title>
+        <para>Nested changes occur when two or more contributors add an element that is broadly
+          similar in each case but has minor changes within it. For example, we have a nested change
+          if 'anna' and 'ben' and 'chris' add a section that aligns, but 'ben' deletes a paragraph
+          within the section, a further level of nesting occurs if 'chris' also added a phrase
+          within the paragraph.</para>
+        <para>In nested changes the baseline document (the common ancestor) is no longer within the
+          context. Without this context, it cannot be determined whether a nested change is an add
+          or a delete, it could be either depending on your viewpoint. In these cases, XMLFlow takes
+          the approach whereby a change type is never nested within a similar change type, thus a
+          change occurring within an add is always marked as a delete and vice-versa. This arbitrary
+          typing of nested changes is undesirable, but necessary without any further information
+          about why the same parent change was made by more than one contributor. </para>
+      </sect3>
+      <sect3>
+        <title>Styling of content</title>
+        <para>The original DITA XML is transformed into HTML span elements representing each
+          original DITA XML element, attributes are added to the span elements to indicate their
+          original type and allow them to be styled via CSS rules. In this way, CSS rules for the
+          attributes style tables, lists and headings and other block-level types, inline formatting
+          is also applied. </para>
+        <para>For this proof of concept advanced styling is not included, for example, multi-column
+          spans on table cells are not rendered properly and <code>conref</code> element references
+          are indicated by a simple placeholder. A style filter is normally applied to the view,
+          when this is switched off, content that is not normally rendered such as metadata and DITA
+          comments can be viewed.</para>
+        <figure>
+          <title>Simple WYSYWIG styling for DITA is provided through CSS rules</title>
+          <mediaobject>
+            <imageobject>
+              <imagedata fileref="images/pp-contentstyle.png" width="100%"/>
+            </imageobject>
+          </mediaobject>
+        </figure>
+        <para>XMLFlow's CSS styling of inline text changes works by exploiting attributes on wrapper
+          elements that are part of the DeltaV2 format output by the DITA Merge component, this
+          format is described later in this paper.</para>
+      </sect3>
+      <sect3>
+        <title>WYSYWIG Vs Code View</title>
+        <para>End-users often prefer a 'What You See Is What You Get' (WYSYWIG) view to a raw XML
+          view as this avoids the clutter and distraction of lots an angle-brackets and attributes.
+          Sometimes however, it is necessary to see the raw XML to fully understand the document
+          structure; ideally XMLFlow would include a code view, at this stage it does not, but it
+          does however reveal the XPaths for key element types when the view 'filter' is switched
+          off. An element tree-view can also help with understanding XML structure, this was present
+          in an early prototype but removed after feedback suggested it added too much clutter for
+          an end-user.</para>
+      </sect3>
+    </sect2>
+    <sect2>
+      <title>Content and attribute change lists</title>
+      <para>To supplement the document view, XMLFlow presents two lists, one for attribute changes
+        and one for content changes; these share the same tabbed view as the files list and are
+        reached via tab-buttons immediately above them. List items representing 'modify' changes (as
+        opposed to simple adds and deletes), are marked with an arrow to indicate they can be
+        expanded to show the list options. </para>
+    </sect2>
+    <sect2>
+      <title>Accept and Reject Modes</title>
+      <para>When XMLFlow is launched it is effectively in a 'Review' mode. That is, when a document
+        change is selected in the document-view, the content changes-list or the attribute
+        changes-list, the change is simply highlighted with information shown about the selected
+        change in other views. To switch to the 'Accept' or 'Reject' mode, the corresponding button
+        is pressed in the toolbar. A single button press switches mode for a one-off operation - two
+        presses are required to make the mode 'stick' for all further operations. An accept or
+        reject on a change is quickly backed-out from by pressing the change again. </para>
+      <para>A change is highlighted, both in the list-view and the document-view to show whether it
+        has been accepted or rejected. In list-views, accepted changes are shown with a red bar and
+        a cross, rejected changes with a green bar and a check-mark; for multi-choice changes (which
+        can't be rejected) the selected option is highlighted in blue and a check-mark. In document
+        views, borders are replaced by bars or symbols for block-level and inline changes
+        respectively; text is hidden for accepted deletes or rejected adds, text is shown for
+        accepted adds or an accepted multi-choice option.</para>
+      <sect3>
+        <title>User Experience</title>
+        <para>With a large number of document changes, it can be tedious for the reviewer to go
+          through and press on each change, the use of modes means that only one press is required
+          for each change. This could be improved further if a block of several changes in a list
+          could be accepted or rejected with a single click.</para>
+      </sect3>
+    </sect2>
+    <sect2>
+      <title>The Files Panel</title>
+      <para>All input and output files in XMLFlow are managed through the files panel; this
+        comprises a list of files at the top and a control panel below. Input files are either drag
+        and dropped from the desktop into the files panel or uploaded via a supplied URL. <figure>
+          <title>In the files panel, the control panel appears below the files list</title>
+          <mediaobject>
+            <imageobject>
+              <imagedata fileref="images/pp-listandcontrol.png" width="100%" />
+            </imageobject>
+          </mediaobject>
+        </figure>
+      </para>
+      <para>The labels bar is immediately above the tabbed panel hosting the files panel tab. When
+        the files panel is selected, the labels bar becomes editable. Each label is also shown in
+        the corresponding file item in the files list, along with the long filename.</para>
+      <para>Before starting a merge, at least three files are required, the first must be the common
+        ancester. All input files within the list can be sorted and labelled. Labels allow short
+        meaningful names to be ascribed to each file, these are also shown in the labels bar so that
+        labels are highlighted when a change associated with a label is selected. Any label in the
+        labels bar can also be selected to highlight all changes associated with the selected label. </para>
+      <para>All operations on files are managed through buttons on the control panel. The 'Merge'
+        button initiates a merge operation on the remote server, because this operation may take a
+        few seconds, merge progress is reported by highlighting a bar adjacent to each file item in
+        the list. Once the merge is complete a 'Working Merge' file item is added to the files list
+        and the merge result shown in the document view, ready for review and approval. </para>
+      <para>Pressing the 'Finalize' button produces a new 'Finalized DITA' item in the files list,
+        when this file item is selected, the finalized document can be seen in the document-view.
+        Once the finalize button is pressed it is disabled until all files are reset. This is
+        because if the user carried on with the working merge, further finalize operations are
+        performed automatically each time the 'Finalized DITA' file item is selected. </para>
+      <para>The 'Upload', 'Store' and 'Download' buttons are for managing files on the remote
+        server. All stored files are given a URL that includes a unique 'hard to guess' number
+        within the filename (e.g. 4392800660168831878), the URL appears in the header bar so it can
+        be easily copied to the clipboard; files can be retreived at a later time by anyone who
+        knows the URL.</para>
+    </sect2>
+  </sect1>
+  <sect1>
+    <title>Proof of Concept Implementation</title>
+    <para>XMLFlow is a single-page web application, with functionality split between the browser
+      client and the remote server. The server and client side implementation is described in the
+      following sections, for this paper the focus is on the client.</para>
+    <sect2>
+      <title>Server</title>
+      <para>The Server's role is to provide a set of high-level services for the client, no
+        application-specific logic is embedded in the server, allowing this to be used with an
+        entirely different front-end. The provided services are shown as reqeusts in the server
+        component diagram below:<mediaobject>
+          <imageobject>
+            <imagedata fileref="images/pp-serverroles.png" width="100%" />
+          </imageobject>
+        </mediaobject></para>
+      <para>The Apache Tomcat 8.0 web application server is used for hosting the proof of concept
+        server. All server side functionality is coded in Java to allow easy integration with the
+        DeltaXML DITA Merge component which has a Java API. The included Apache Commons FileUpload
+        component provides the required support for multi-file requests from the client conforming
+        to RFC 1867; this is compatible with the HTML5 FormData API used in the browser
+        client.</para>
+      <para>The support for the 'Merge Request' is the most significant feature of the server. This
+        allows the client application to make a single merge request that includes all the files to
+        be merged, along with a label for each file.</para>
+      <para>Because the Merge Request is handled by a standard HTTP Servlet request, only one
+        response can be made, when the merge operation completes (or fails). A merge operation on
+        all the files can take several seconds, thus another connection is therefore required to
+        keep the client informed of progress of the merge on each file. For this purpose, a
+        WebSocket connection is made by the client, the server side response is to invoke a special
+        handshake that binds the WebSocket connection with the HTTP Session. Java running in the
+        HTTP session can now send notifications to the client while it is still processing the merge
+        and thus holding the HTTP connection.</para>
+      <para>The simplified Java code below shows how, for each uploaded file, methods are called on
+        the DitaConcurrentMerge class, the <code>setAncestor</code> method is called for the first
+        file, all further files are added to the merge through the <code>addVersion</code> method
+        call. A WebSocket text message is sent to the client by a <code>sendMessage</code> method
+        call before and after call to the DITA Merge component. <programlisting language="java"><![CDATA[private void processFile(
+  FileItem item,
+  DitaConcurrentMerge ditaMerge) throws Exception {
+  // the short file label used as
+  // a version identifier
+  String fieldName = item.getFieldName();
+  String fileName = item.getName();
+
+  String fileId = "file" + (uploadFileCount + 1);
+  sendMessage("upload," + fileId + "," + fileName);
+  File uploadedFile = File.createTempFile("merge-",
+                      "-" + fileName, uploadDir);
+  item.write(uploadedFile);
+  if(uploadFileCount == 0) {        	
+    ditaMerge.setAncestor(uploadedFile, fieldName);
+  } else {
+    ditaMerge.addVersion(uploadedFile, fieldName);
+  }
+  sendMessage("add," + fileId + "," + fileName);
+  uploadFileCount++;
+}]]></programlisting>
+      </para>
+    </sect2>
+    <sect2>
+      <title>Client</title>
+      <para>The XMLFlow client effectively comprises the browser, JavaScript and XSLT 2.0 code, CSS
+        styling and a single HTML page. File handling, user-event handling, web-layer communications
+        and page-rendering are the key areas of functionality, this is summarised in the diagram
+        below:</para>
+      <figure>
+        <title>A component view of client-side features</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/pp-clientroles.png" width="100%" />
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <sect3>
+        <title>File Management</title>
+        <para>Files management is used in XMLFlow for managing XML documents that are to be merged,
+          the 'working merge' document, and the 'finalized' document. The HTML5 File and FormData
+          APIs are exploited to allow files to be retrieved, stored locally and then sent as part of
+          a Merge request. File management functionality is coded in JavaScript, simplified code for
+          sending a Merge request is shown below:</para>
+        <programlisting language="javascript"><![CDATA[var mergeDocument = function () {
+ 
+  // synchronously create a remote HTTP session and
+  // bind this to a new WebSocket connection for
+  // progress monitoring
+  setupComms();
+
+  // append each uploaded file along with its label
+  // to a new FormData object
+  var form = new FormData();
+  var labels =
+    document.getElementById("labels-group")
+            .getElementsByTagName("input");
+  for (var i = 0; i < rawFilename.length; i++) {
+    var rawIndex = parseInt(
+      listButtons[i].getAttribute("data-fileindex")
+    );
+    form.append(
+      labels[i].value, rawfileData[rawIndex],
+      rawFilename[rawIndex]
+    );
+  }  
+  // POST the updated FormData instance and set the
+  // 'statechange' event handler function
+  var oReq = new XMLHttpRequest();
+  oReq.open("POST", reqMergeHttp, true);
+  oReq.send(form);
+  oReq.onreadystatechange =
+    handleMergeStateChange(oReq);
+};]]></programlisting>
+        <para>The JavaScript above shows how, for each file to be merged, the file label, the file
+          object (rawFileData), and the filename are added to a FormData object. This FormData
+          object is then sent asynchronously via a POST XMLHttpRequest to the remote server, a
+          function is assigned to handle the response. The first method call in this code is
+            <code>setupComms</code>, this creates a WebSocket connection with the server and assigns
+          a function to handle WebSocket messages sent from the server. </para>
+      </sect3>
+      <sect3>
+        <title>Page Rendering</title>
+        <para> This applicaton is rendered within a single HTML web page. The static page is
+          effectively a skeleton to which dynamically updated parts of the application are added
+          using XSLT. While standard XSLT normally transforms an entire document, the Saxon-CE
+          processor extends the <code>xsl:result-document</code> to allow specified parts of the
+          HTML DOM to be updated instead. There are three parts of the application that are updated
+          in this way, the content change list, the attribute change list and the document view. The
+          two change lists are updated using the same XSLT sylesheet that contains two
+          result-document instructions, the document view is updated by a separate XSLT stylesheet
+          with just one result-document instruction. Both XSLT transforms are invoked using
+          Saxon-CE's JavaScript API as soon as a response from a Merge request is received.</para>
+      </sect3>
+      <sect3>
+        <title>Transforming a Merge Result</title>
+        <para>The result of a DITA Merge operation is a DITA document that effectively combines all
+          the input documents into one. Where there are differences between versions, document
+          elements are annotated with 'deltaxml:deltaV2' attributes. Extra wrapper elements are also
+          added to allow differences in attributes and text nodes to be represented in a lossless
+          way; these are namely 'deltaxml:textGroup', 'deltaxml:text' and
+          'deltaxml:attributes'.</para>
+        <para>Coding the XSLT was relatively straightforward once the DeltaV2 format was understood.
+          The deltaV2 attribute of an element combined with the deltaV2 attribute of its parent has
+          all the information needed to determine not only the type of change, but who made the
+          change. This attribute holds the labels for all the documents that contain a match for
+          that element. The attributes labels are arranged to describe the equality characteristics
+          of the sub-tree of the element, they are separated by '=' if they are part of the same
+          'equality group', '!=' character-pairs are used to separate equality groups. An example
+          deltaV2 attribute value would be: <code>X=anna=ben!=chris=david</code>. </para>
+        <para>An extract from a DeltaV2 formatted document is shown below, the label 'X' is used to
+          denote the 'common ancestor' version, the other labels are 'anna','ben','chris' and
+          'david'. This shows a <code>p</code> element with an attribute that has been deleted by
+          'chris', we know this is a deletion because the deltaV2 attribute for the <code>p</code>
+          element contains the label 'X' representing the common ancestor. Within the text node, the
+          word 'DeltaXML' is deleted by 'anna' and 'chris' in two places. For each text deletion
+          there is are two wrapper elements <code>deltaxml:textGroup</code> and
+            <code>deltaxml:text</code> The <code>textGroup</code> element allows one or more
+            <code>text</code> elements so that modifications of a word or phrase can be shown as
+          well as additions and deletions. </para>
+        <programlisting language="xml"><![CDATA[
+<p deltaxml:deltaV2="X=ben=david!=anna=chris">
+  <deltaxml:attributes
+    deltaxml:deltaV2="X=anna=ben=david">
+    <dxx:id xmlns:dxx=
+"http://www.deltaxml.com/ns/xml-namespaced-attribute" 
+      deltaxml:deltaV2="X=anna=ben=david">
+      <deltaxml:attributeValue
+        deltaxml:deltaV2="X=anna=ben=david">
+        legacy
+      </deltaxml:attributeValue>
+    </dxx:id>
+  </deltaxml:attributes>Now, with 
+  <deltaxml:textGroup
+    deltaxml:deltaV2="X=ben=david">
+    <deltaxml:text deltaxml:deltaV2="X=ben=david">
+      DeltaXML </deltaxml:text>
+  </deltaxml:textGroup>DITA Merge, this job becomes
+    much, much easier, because 
+  <deltaxml:textGroup
+    deltaxml:deltaV2="X=ben=david">
+    <deltaxml:text deltaxml:deltaV2="X=ben=david">
+        DeltaXML 
+      </deltaxml:text>
+  </deltaxml:textGroup>DITA Merge merges all the
+  changes into a single document.
+</p>]]></programlisting>
+        <para>Part of the top-level XSLT template used to update the attribute and content change
+          lists is shown below, with each xsl:result-document instruction updating a different list.
+          The referenced <code>xsl:member-count</code> variable is an integer returned by a
+          JavaScript extension function (another Saxon-CE extension that treats function names in a
+          special namespace as native JavaScript functions). In this specific case, using a
+          user-defined JavaScript function is not strictly necessary, but it serves well as an
+          illustration of how JavaScript can be exploited, note the string() cast is used on the
+          $deltv2 attribute argument because the JavaScript will not auto-cast attribute nodes to
+          strings.</para>
+        <programlisting language="xml"><![CDATA[
+<xsl:variable name="member-count" as="xs:integer"
+select="count(js:getV2Members(string($deltav2)))"/>
+              
+<xsl:result-document href="#changes"
+                     method="replace-content">
+  <xsl:apply-templates select="
+      //deltaxml:textGroup |
+      //*[not(self::deltaxml:*)]
+      [exists(@deltaxml:deltaV2) 
+      and not(contains(@deltaxml:deltaV2, '!=')) 
+      and count(tokenize(@deltaxml:deltaV2, '='))
+        ne $member-count 
+      and not(parent::deltaxml:attributes)
+      or (exists(@deltaxml:deltaV2) 
+        and count(tokenize(@deltaxml:deltaV2, '=')) 
+      ne
+        count(tokenize(
+                parent::*/@deltaxml:deltaV2, '='))
+      and not(parent::deltaxml:attributes))
+      and exists(parent::*)]" mode="setchange"/>
+</xsl:result-document>
+
+<xsl:result-document href="#att-changes"
+                     method="replace-content">
+  <xsl:apply-templates
+    select="*" mode="set-element-att-change">
+    <xsl:with-param name="location" select="''"/>
+  </xsl:apply-templates>
+</xsl:result-document>]]></programlisting>
+      </sect3>
+      <sect3>
+        <title>Creating a Working Merge</title>
+        <para>The 'Working Merge' is the result of the merge document with extra XML elements added
+          at the start of the document to hold information about each change, and the approval data
+          for each change (whether it has been accepted or rejected). This document format is
+          designed so that the document merge and the current merge state can be stored remotely and
+          reloaded at any time. When it is reloaded the embedded approval data for each change is
+          used to update the changes lists and the document views in the XMLFlow page. </para>
+        <para>An example of the extra embedded elements in the working merge is shown below.
+          Attribute and element changes are kept separate in their own respective
+          deltaxml:attribute-updates and deltaxml:updates wrapper elements; this keeps the XSLT
+          transforms simple as this is the way changes are viewed in XMLFlow. </para>
+        <programlisting language="xml">
+<![CDATA[<deltaxml:updates>
+  <deltaxml:update index="1" change="add"
+                   data-accept="yes"
+                   data-descriptor="add"
+                   data-dgroup="add"/>
+  <deltaxml:update index="2" change="elementAdd"
+                   data-accept="no"
+                   data-descriptor=""
+                   data-dgroup="elementAdd"/>
+  <deltaxml:update index="3" change="replace"
+                   data-descriptor="replace" 
+                   data-dgroup="modify"
+                   option="1"/>
+  <deltaxml:update index="4" change="elementDelete"
+                   data-accept="no"/>
+  <deltaxml:update index="5" change="add"/>
+</deltaxml:updates>
+<deltaxml:attribute-updates>
+  <deltaxml:update index="1" change="elementAdd"
+                   data-accept="yes"/>
+  <deltaxml:update index="2" change="modify"
+                   data-accept="yes" 
+                   data-dgroup="modify"
+                   option="2"/>
+  <deltaxml:update index="3" change="elementAdd"/>
+</deltaxml:attribute-updates>]]></programlisting>
+        <note>
+          <para>The 'deltaxml' prefix is bound to the standard DeltaXML namespace, ideally a
+            different namespace would be used, but an early decision was made to minimize the number
+            of namespaces due to XML serialization issues encountered in the iOS implementation of
+            Safari running on the iPad. A custom XML serializer was eventually implemented in
+            JavaScript to deal with namespace issues.</para>
+        </note>
+      </sect3>
+      <sect3>
+        <title>Creating a Finalized Merge</title>
+        <para>The 'Finalized Merge' takes the working merge and uses the approval data to remove or
+          add elements, attributes or parts of text nodes to produce a complete and valid DITA
+          document. To ensure validity, the approval data is removed; in more formal review cases it
+          is therefore prudent to keep a copy of the last working merge also, this is a record of
+          whose changes were accepted or rejected.</para>
+      </sect3>
+      <sect3>
+        <title>Handling User Events</title>
+        <para>Using Saxon-CE's interactive extensions, XSLT templates with special <code>mode</code>
+          attributes that match the event type handle most user events in the browser. This works
+          reasonably well even for the iPad because <code>touchstart</code> and
+            <code>touchend</code> events are supported by Saxon-CE's interactive extensions. There
+          were however problems associated with scrolling panels for the iPad, an element might only
+          be touched for the purpose of grabbing the entire panel to scroll. Here it was necessary
+          to add some low-level JavaScript to intercept certain touch start events and only rethrow
+          them if a corresponding touch end event happened within a certain interval. Other
+          techniques tried meant there was a noticeable delay between the user touching an element
+          and the user interface being updated to reflect the change. Note that event handling
+          varies between different mobile platforms but event handling has only been specialised for
+          the iPad.</para>
+      </sect3>
+    </sect2>
+    <sect2>
+      <title>A Document Merge Scenario</title>
+      <para>Having described how the main features of the client and server are used to perform a
+        document merge, it is time to look at the flow of information between client and server for
+        a single merge operation. The sequence diagram below shows the information flow in
+        diagrammatic form.</para>
+      <para>The scenario begins with the user adding files for the merge through the user interface,
+        these files are stored as objects in the File Manager. The process ends after the DeltaXML
+        merge component has completed the merge, with the result sent back as the response to an
+        HTTP request (via Remote Comms), the File Manager adds this result to its set of files, and
+        finally the file is rendered in the user interface (via XSLT). </para>
+      <figure>
+        <title>A simplified sequence diagram for a typical merge operation</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/pp-sequence.png" width="100%" />
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>One thing the diagram above illustrates is that the 'Messaging' component that wraps a
+        WebSocket connection does add a degree of complexity because of the 'Register' method
+        required as part of the initial connection handshake with the HTTP session.</para>
+    </sect2>
+
+  </sect1>
+  <sect1>
+    <title>Conclusions</title>
+    <para>The proof of concept, though restricted in certain areas of functionality still
+      demonstrates the potential for XML document merge (and thus concurrent working) within an
+      authoring workflow. Changes made concurrently to different copies of an XML document by a
+      number of contributors can be explained to the user in an understandable way. Moreover, by
+      using 'approval modes' the process of accepting, rejecting and deferring changes, can be
+      performed relatively effortlessly.</para>
+    <para>In practice, the publication process and authoring workflow is affected and determined by
+      such a wide variety of factors that it would be very difficult to claim that all processes
+      could be streamlined by adding support for concurrent working. However, we should at least
+      consider the software development process, where branch and merge has been an intrinsic part
+      of version control for many years now. </para>
+
+    <para>This paper describes how DeltaXML's DITA Merge component was used by the proof of concept
+      to gather all information required by a merge into a single DITA document augmented with
+      'DeltaV2' attributes and elements. Currently, XMLFlow uses this format directly to create the
+      document-view and change-lists; with the benefit of hindsight, it would have simplified the
+      XSLT to first convert the output to a form that characterised the XML so each change was
+      described in terms of the change type and the change 'owner(s)'. This first 'analysis stage'
+      XSLT could have been run server side also which would help reduce the load for
+      resource-limited mobile devices like iPads. The drawback to a first 'analysis stage' is that,
+      for nested changes, special care would be needed to qualify the type according to its
+      context.</para>
+    <para>The XMLFlow design makes extensive use of client-side XSLT, reducing significantly the
+      JavaScript skills needed to develop XMLFlow. The declarative nature of XSLT also means that
+      when the design changed considerably, changes to XSLT still had to be made in a considered
+      way; there was thus less potential for the code structure to degenerate significantly with
+      each design change. This makes a good case for using client-side XSLT 2.0 (with interactive
+      extensions) for rapid development of a proof of concept, especially when XSLT developer
+      resources are already available. </para>
+  </sect1>
+</article>

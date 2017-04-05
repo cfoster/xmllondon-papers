@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+
+<article xmlns="http://docbook.org/ns/docbook"
+         xmlns:xl="http://www.w3.org/1999/xlink"
+         version="5.0" xml:lang="en">
+
+  <info>
+
+    <title>Vivliostyle - Web browser based CSS typesetting engine</title>
+
+    <subtitle>How browser based typesetting systems can be made to work also for printed media</subtitle>
+
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Shinyu</firstname>
+          <surname>Murakami (村上 真雄)</surname>
+        </personname>
+        <email>murakami@vivliostyle.com</email>
+        <affiliation>
+          <orgname>Vivliostyle Inc.</orgname>
+        </affiliation>
+      </author>
+      <author>
+        <personname>
+          <firstname>Johannes</firstname>
+          <surname>Wilm</surname>
+        </personname>
+        <email>johanneswilm@vivliostyle.com</email>
+        <affiliation>
+          <orgname>Vivliostyle Inc.</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+
+    <keywordset>
+      <keyword>HTML</keyword>
+      <keyword>CSS</keyword>
+      <keyword>Page based media</keyword>
+    </keywordset>
+
+    <abstract>
+      <para>
+	All currently available typesetting systems and formats are rather
+	limited, and the integration between workflows related to print are
+	quite different than those related to web publishing and ebooks.
+      </para>
+      <para>
+	In this article we argue that the best way forward to unite the
+	workflows is to focus on an HTML-centric workflow, using CSS for styling,
+	and leveraging the power of browsers through the usage of Javascript
+	for print-based layouts.
+      </para><para>
+        The Vivliostyle project is working on a new typesetting engine for the
+	next phase of the digital publishing era in which web, ebook and print
+	publishing are unified. We seek to demonstrate here that such a project is
+	needed to bring the three publishing workflows together.
+      </para>
+    </abstract>
+
+  </info>
+
+  <section>
+
+    <title>Introduction</title>
+
+    <para>
+      Publishing of long format text in 2015 usually takes three different forms:
+      print as a book, a version to be used on the internet and possibly an ebook.
+    </para>
+    <para>
+      Ebooks are in most cases EPUB files. The textual content of EPUBs is provided
+      by files containing a restricted version of Hyper Text Markup Language (HTML),
+      the same format used for web pages. The styling of both web pages and EPUBs
+      is defined through Cascading Style Sheets (CSS). Converting content between
+      EPUBs and web pages is therefore not that difficult.
+    </para>
+    <para>
+      In contrast, most print typesetting systems are using quite different formats
+      and standards than those for ebooks and the web. The workflows from document
+      creation, through editing to final publication differ considerably with
+      different tools and different file formats used. Publishing the same document
+      for print, web and ebooks is therefore difficult, especially for documents
+      that require updating after initial publication as a change in oen fo the
+      files needs to be propagated to all other versions.
+    </para>
+    <para>
+      The simplest way to unify the publication processes is to introduce HTML and
+      CSS to the print publishing process. Other projects that provide print
+      processing functionality using HTML/CSS already exist. Among these are
+      PrinceXML<footnote><para><link xl:href="http://www.princexml.com"/></para>
+      </footnote>, the Antenna House Formatter<footnote><para>
+      <link xl:href="http://www.antennahouse.com"/></para></footnote>, PDFreactor
+      <footnote><para><link xl:href="http://www.pdfreactor.com"/></para></footnote>
+      or
+      Pagination.js
+      <footnote><para><link xl:href="https://github.com/fiduswriter/pagination.js"/>
+          (requires CSS Regions, previously known as BookJS)
+      </para></footnote>
+      and SimplePagination.js
+      <footnote><para><link xl:href="https://github.com/fiduswriter/simplePagination.js"/>
+          (does not require CSS Regions, but has less features than Pagination.js)
+      </para></footnote>
+      .
+    </para>
+    <para>
+      However, none of these solutions have been able to establish themselves as
+      the industry standard. In the following, we will argue that all the existing
+      solutions have fundamental shortcomings and that the Vivliostyle project is
+      needed to effectuate a change to web technologies in the print publishing
+      industry.
+    </para>
+  </section>
+
+  <section>
+    <title>CSS Paged Media and the limitations of current implementations.</title>
+    <para>
+      To style elements of pages (electronic or physical) there is a CSS module
+      called "CSS Paged Media" <biblioref linkend="css3-page"/>.
+      It is one of several CSS modules defining
+      styling elements needed to make exact specifications in CSS for printed and
+      paged output. There are already several typesetting engines supporting CSS
+      Paged Media: The Antenna House Formatter supports CSS as an alternative to
+      XSL-FO, and also PrinceXML supports it.
+    </para>
+    <para>
+      However, these proprietary and paid-for solutions were never able to
+      establish CSS Paged Media as a standard neither for the web nor for their
+      industry. Web browsers have not implemented much of it, even though they
+      have provided features to print web pages and convert to the Portable
+      Document Format (PDF), the file format most commonly used to ensure
+      consistency in print outputs. Even ebook systems, which show individual
+      pages on the screen, have not been very concerned with implementing CSS
+      Paged Media.
+    </para>
+    <para>
+      What is more, the formatters that do support CSS Paged Media each have
+      their own proprietary vendor extensions that are not compatible with web
+      browsers or even each other.
+    </para>
+    <para>
+      Even though CSS Paged Media formatters are getting acknowledgment in the
+      XML publishing world, they are therefore still far away from becoming
+      mainstream tools that are widely used.
+    </para>
+  </section>
+
+  <section>
+    <title>Enhancing web browser's page layout with JavaScript</title>
+    <para>
+      An approach to try to bring page layout to web browsers are Pagination.js
+      and simplePagination.js, which use Javascript in combination with CSS to
+      draw pages. They provide some of the features used for book printing such
+      as table of contents, running headers, page floats, footnotes, word indexes,
+      and margin notes.
+    </para>
+    <para>
+      However, they are limited to features of books, they do not interpret CSS
+      but take configuration options only through Javascript function arguments,
+      and they use tricks to achieve their results in current browsers. The usage
+      of tricks means that they only currently work but that this may not work for
+      all future. For this reason they may be usable for certain cases of print,
+      but will not be able to replace broader printing solutions.
+    </para>
+  </section>
+
+  <section>
+    <title>Standardizing and implementing next generation CSS standards</title>
+    <para>
+      The Vivliostyle projects seeks to combine and enhance both approaches: Use
+      CSS standards and Javascript for browser based implementations.
+    </para>
+    <para>
+      Vivliostyle seeks to work with the World Wide Web Consortium (W3C) to enhance
+      and promote specifications such as CSS Paged Media and other related
+      specifications such as "CSS Page Floats" <biblioref linkend="css-page-floats" />,
+      working with web browsers to work towards implementation of these
+      specifications in browsers.
+    </para>
+    <para>
+      Until such support is fully implemented in browsers, Vivliostyle develops
+      Vivliostyle.js, a polyfill which will use Javascript to layout pages inside
+      browsers, similar to simplePagination.js and Pagination.js, but it will do
+      so by reading and interpreting the CSS that accompanies the source files and
+      it will provide for a broader usage field, so that styling options can be
+      defined through CSS and will work for a broader usage field than just books.
+    </para>
+    <para>
+      Additionally, the Vivliostyle Formatter, a Command-Line Interface (CLI)
+      application, and the Vivliostyle Browser, a Graphic User Interface (GUI)
+      application, will embed Vivliostyle.js to allow for PDF output of HTML/XHTML
+      and CSS source files to fit professional publishing needs.
+    </para>
+  </section>
+
+  <bibliography>
+    <title>Bibliography</title>
+
+    <biblioentry xml:id="css3-page">
+      <abbrev>1</abbrev>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Melinda</firstname>
+            <surname>Grant</surname>
+          </personname>
+          <affiliation>
+            <org>
+              <orgname>Hewlett-Packard</orgname>
+            </org>
+          </affiliation>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>Elika</firstname>
+            <surname>Etemad</surname>
+          </personname>
+          <affiliation>
+            <org>
+              <orgname>Hewlett-Packard</orgname>
+            </org>
+          </affiliation>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>Håkon</firstname>
+            <surname>Wium Lie</surname>
+          </personname>
+          <affiliation>
+            <org>
+              <orgname>Opera Software</orgname>
+            </org>
+          </affiliation>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>Simon</firstname>
+            <surname>Sapin</surname>
+          </personname>
+          <affiliation>
+            <org>
+              <orgname>Kozea</orgname>
+            </org>
+          </affiliation>
+        </editor>
+      </authorgroup>
+      <title>CSS Paged Media Module Level 3</title>
+      <subtitle>W3C Working Draft</subtitle>
+      <date>14 March 2013</date>
+      <publisher>
+        <publishername>World Wide Web Consortium (W3C)</publishername>
+      </publisher>
+      <biblioid class="uri">http://www.w3.org/TR/css3-page/</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="css-page-floats">
+      <abbrev>2</abbrev>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Johannes</firstname>
+            <surname>Wilm</surname> 
+          </personname>
+          <affiliation>
+            <org>
+              <orgname>Vivliostyle</orgname>
+            </org>
+          </affiliation>
+        </editor>
+      </authorgroup>
+      <title>CSS Page Floats</title>
+      <subtitle>Editor’s Draft</subtitle>
+      <date>7 April 2015</date>
+      <publisher>
+        <publishername>World Wide Web Consortium (W3C)</publishername>
+      </publisher>
+      <biblioid class="uri">http://dev.w3.org/csswg/css-page-floats/</biblioid>
+    </biblioentry>
+  </bibliography>
+    
+
+</article>

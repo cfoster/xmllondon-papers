@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-9" version="5.0">
+  <info xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Structure-Aware Search of UK Legislation</title>
+    
+      <author>
+        <personname><firstname>John</firstname><surname>Sheridan</surname></personname>
+        <affiliation>
+          <jobtitle>Digital Director</jobtitle>
+          <org>
+            <orgname>The National Archives</orgname>
+          </org>
+        </affiliation>
+        <personblurb>
+          <para>John Sheridan is Digital Director at The National Archives and was the Principle Investigator for the
+            “Big Data for Law” research project, as well as being responsible for legislation.gov.uk.</para>
+        </personblurb>
+      </author>
+      <author>
+        <personname><firstname>Jim</firstname><surname>Mangiafico</surname></personname>
+        <email>jim@mangiafico.com</email>
+        <personblurb>
+          <para>Jim Mangiafico was the lead developer of the application described herein.</para>
+        </personblurb>
+      </author>
+    
+    <abstract>
+      <para>We have created an application that enables searching the UK statute book with reference to the structure of
+        legislative documents. Users can target individual legislative provisions and receive direct links to the
+        matching document components. For example, users can search for chapters that contain certain phrases or for
+        sections that have certain headings. In this paper, we describe the XML format used to represent UK legislation
+        and the technologies used to fulfill the queries. We have developed a simple, domain-specific query language to
+        express user requests, and we use MarkLogic to store and index the documents. We parse user requests in XQuery
+        and translate them into native MarkLogic query directives, but because some of the searches we support cannot
+        fully be expressed as MarkLogic queries, we sometimes construct over-inclusive queries and filter the results at
+        the application level. We are currently preparing the application for public release at
+        <link xl:href="http://research.legislation.gov.uk">research.legislation.gov.uk</link>.</para>
+    </abstract>
+  </info>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Introduction</title>
+    <para>The National Archives operates <link xl:href="http://legislation.gov.uk">legislation.gov.uk</link>, the UK’s official legislation website, underpinned by the
+      government’s legislation database. There are an estimated 50 million words in the statute book, with 100,000 words
+      added or changed every month. There has never been a more relevant time for research into the architecture and
+      content of law. However researchers typically lack the raw data, the tools, and the methods to undertake research
+      across the whole statute book.</para>
+    <para>As part of the “Big Data for Law” project<footnote><para>"Big Data for Law" project <link xl:href="http://www.legislation.gov.uk/projects/big-data-for-law"/></para></footnote>, funded by the Arts and Humanities Research Council (AHRC), The
+      National Archives set out to develop a Legislation Data Research Infrastructure, to enable richer and deeper
+      research into legislation. We found that many of those with interesting research questions to ask lacked the
+      technical knowledge and skills to query the XML data that we hold. To mediate between those people with
+      interesting questions, but who typically lack knowledge of XQuery <biblioref linkend="paper-9_xquery"/>, and our rich XML legislation data, we developed
+      a powerful but easy to use application for searching legislation documents based on their structure. Of particular
+      interest to us was the ability to frame searches to find examples of commonly occurring legal design patterns in
+      legislation. These typically span several provisions of an act or statutory instrument. Finding such patterns
+      proved beyond traditional full text search capabilities, leading us to develop this structure aware search
+      application.</para>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Keyword and Proximity Searches</title>
+    <para>Our application is, first of all, a complete search engine that can fulfill simple keyword searches. A user
+      can enter any word or phrase and receive a page of results listing documents that contain the given word or
+      phrase, including snippets of text with the search terms highlighted. Keyword searches can contain wildcards; they
+      can be either case sensitive or case insensitive; and they can be “stemmed” or “unstemmed”. Stemmed searches match
+      all words derived from the same word stem. For example, a stemmed search for the word “is” will match not only
+      “is” but also “am”, “are”, “be”, “been”, “being”, etc. Furthermore, multiple keyword searches can be combined in a
+      single query with the boolean operators AND, OR and NOT. The search for “<code>appeal AND Secretary of State</code>” matches
+      documents containing both the word “appeal” and the exact phrase “Secretary of State”. We also support a common
+      alternative syntax for the boolean operators: “<code>&amp;&amp;</code>”, “<code>||</code>” and “<code>!</code>”.</para>
+    <para>Users can also search for documents containing words or phrases occurring within a specified proximity to one
+      another. Although we modeled our query syntax loosely on that of Apache Lucene<footnote>
+      <para>Apache Lucene <link xl:href="https://lucene.apache.org/"/></para>
+      </footnote>, for simplicity and consistency we
+      chose a syntax for proximity searches in which the distance in number of words precedes a parenthetical list of
+      terms. For example, the query “<code>20(appeal, Secretary of State)</code>” matches documents in which the word “appeal”
+      appears not more than 20 words before the phrase “Secretary of State”. Proximity searches expressed with rounded
+      brackets match only those documents in which the given terms appear in the given order. The use of square brackets
+      specifics an unordered search, matching documents containing the given words or phrases in any order, so long as
+      they appear within the given proximity to one another.</para>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Element Searches</title>
+    <para>Because our dataset comprises highly structured documents, represented in XML and stored in a database
+      designed for XML documents, we wanted to allow users to target their searches to the structural elements of
+      documents. And because most elements in legal documents contain free-form text, we wanted element-specific queries
+      to resemble simple, familiar keyword searches to the extent possible. Therefore, we allow users to limit any of
+      the keyword searches described above to most common structural elements by enclosing the keyword parameters in
+      parentheses placed after the name of the target element. For example, the query “<code>title(European Union, trade)</code>”
+      matches documents whose titles contains both “European Union” and “trade”. The query “<code>chapter(appeal, Secretary of
+      State)</code>” matches all <emphasis>chapters</emphasis> that contain those terms. The first query, because it targets a
+      document-level element, that is, one that appears only once in a document, returns a list of documents. The second
+      query returns a list of chapters, grouped by document.</para>
+    <para>Element queries share other characteristics of simple keyword searches. They can contain the combination of
+      keyword limitations with boolean operators. The query “<code>chapter(apple &amp;&amp; !banana)</code>” matches chapters
+      containing the word “apple” but not the word “banana”. And element searches can be combined with other element
+      searches using the same operators. For instance, the query “<code>chapter(apple, banana) &amp;&amp; chapter(pear,
+      orange)</code>” matches chapters containing the first two words and chapters containing the second two, in documents that
+      contain chapters of each sort. Also, like the proximity searches, element searches can be either ordered or
+      unordered, expressed with rounded or square brackets respectively. We currently support element searches for all
+      of the major structural components of legislative documents: part, chapter, heading, para, subpara, and schedule.
+      We also support queries directed at many document-level elements such as title, longtitle, intro, headnote, and
+      subject. And we support a variety of other elements, such as footnote, annotation, signature, and
+      department.</para>
+    <para>Not only can element searches be combined with one another; they can also be <emphasis>nested</emphasis>
+      within one another. For example, to search for chapters with the word “security” in their heading, the user can
+      submit “<code>chapter(heading(security))</code>”. Element queries can be nested to an arbitrary depth, and nested queries can
+      be combined in all of the ways described above. To search for chapters with the word “security” in their heading
+      and the word “shareholder” anywhere in their body, a user can enter “<code>chapter(heading(security) &amp;&amp;
+      shareholder)</code>”. To search for paragraphs with subparagraphs matching two different criteria, one can enter
+      “<code>para(subpara(a,b,c) &amp;&amp; subpara(x,y,z))</code>”. Even proximity searches can be nested within element searches.
+      The query “<code>title(5(apple,pear))</code>” matches documents whose titles contains the word “apple” followed within 5 words
+      by the word “pear”.</para>
+    <para>It should be noted that nesting does not always have exactly the same significance. Usually it signifies a
+      more general ancestor/descendant relationship, but in once case it signifies a more specific parent/child
+      relationship. For example, the query “<code>part(para(...) &amp;&amp; para(...))</code>” matches Part elements with both types
+      of paragraphs as descendants, regardless of whether there are intermediary levels in the document hierarchy, such
+      as chapters or cross-headings. In contrast, the query “<code>part(heading(...))</code>” matches only those Part elements with
+      the necessary heading as a direct child, and not those which contain matching headings belonging to some
+      descendant chapter or paragraph. We hope we have anticipated users’ expectations and that the meaning of nested
+      queries is unambiguous in context.</para>
+    <para>Implementing queries that target direct parent/children relationships introduces an additional level of
+      complexity to our application, for the MarkLogic database<footnote><para>MarkLogic <link xl:href="https://www.marklogic.com/"/></para></footnote> we use is not optimized for them. Also, our database
+      does not allow direct parent/child relationships to be expressed in that component of a native query which can be
+      constructed at runtime. Because we need to build our queries at runtime, to capture the virtually limitless range
+      of possibilities we give the user, we have had to construct approximate native queries for the database engine and
+      then filter the results at the application level. For example, because we cannot express parent/child
+      relationships adequately, we pass an over-inclusive ancestor/descendant query to the database, allowing it to take
+      maximum advantage of the indexes it keeps, and then we filter out the false positives (in this case, descendants
+      that are not direct children) in our application code. We need application-level filters in other instances as
+      well. For instance, we allow users to specify that a given query should ignore those parts of documents that are
+      amendments to other documents. A restriction such as this requires a “<code>negative ancestor</code>” query, a query for things
+      that do not have a specified ancestor, and negative ancestor queries are not supported by our database. We must
+      therefore construct the most narrowly-tailored over-inclusive query we can, to leverage any existing index
+      available, and exclude those results with the specified ancestor at the application level. We try to avoid
+      application-level filters except where necessary, for they are slower than what can be done at the database level.
+      Also, they are tricky to implement, especially when related to a NOT query. If a search must be represented as an
+      over-inclusive query combined with a limiting filter, its negative cannot be represented with the simple negation
+      of the over-inclusive query, as that would exclude too many documents.</para>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Range Queries</title>
+    <para>Although most elements in legislative documents contain natural language text, a few common query targets
+      contain scalar values, such as numbers and dates. Some of these are metadata values, and may not typically be
+      presented to users, but others appear within the body of the document, such as signature dates. We allow users to
+      construct range queries targeted at many of the common scalar values by using the quantitative operators =, &lt;,
+      &gt;, &lt;=, &gt;= and !=. For example, to search for documents from the year 2016, the user can submit “<code>year =
+      2016</code>”. Many of the relevant scale values in legislative documents are dates, and we support expressions involving
+      the “enacted” date of primary legislation and the “made”, “laid” and “CIF” (coming into force) dates of secondary
+      legislation. Naturally, a range restriction can be combined with other range restrictions and also with any other
+      query component using any of the boolean operators.</para>
+    <para>We originally conceived of range queries targeted only at stored values, that is, indexable values within the
+      documents as they are stored within the database. But we have since expanded them to support a great many
+        <emphasis>computed</emphasis> values. For instance, if one wanted to limit one’s search to documents with more
+      than one schedule, one could append “<code>&amp;&amp; schedules &gt; 1</code>” to one’s query. It happens that we do not store
+      the schedule count as a metadata value in our documents, although we could have. Therefore, we must count the
+      number of schedules in each matching document ad hoc, in response to each query request. Obviously, the
+      performance of queries based on computed values differs considerably from those based on stored (and therefore
+      indexable) values. However, the performance of queries involving computed values differs considerably from one to
+      the next, depending upon the extent to which the computed restriction is the limiting factor in the query. A
+      compound query whose computed terms is not particularly limiting, that is, which happens to match most of the same
+      documents matched by the other query terms, will not run much more slowly that would a query without the computed
+      term. On the other hand, if the computed term is very limiting, and the value must be computed for many documents
+      only to exclude them from the results, then the query will run quite slowly. Because we allow users to construct
+      queries of arbitrary complexity, any computed range restriction might cause grave performance degradation when
+      combined with certain query components, but its effect on performance might be negligible when combined with
+      others.</para>
+    <para>Range queries based on computed values are slow to execute, but they are easy to implement, because they
+      require no change to the underlying data. Consequently, we are able to support a large number of such queries. One
+      can limit one’s search based on the number of tables, footnotes or annotations in a document. One can even
+      restrict one’s search based on the number of days separating the dates on which an instrument was made and the
+      date it came into force. The query “<code>... &amp;&amp; days-made-cif &gt; 7</code>” matches only those statutory instruments
+      that came into force more than a week after being made. Finally, we allow range queries to target the number of
+      “matches” to the other components in a query. For example, the query “<code>para(x,y,z) &amp;&amp; matches &gt; 2</code>”
+      yields those paragraphs meeting the specified criteria only when they appear in documents containing more than two
+      such paragraphs.</para>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Counting and Grouping</title>
+    <para>Our search API, discussed above, return a list of metadata about matching documents and document elements. It
+      is a “paged” API, returning only a batch of results at a time. Sometimes, however, one wants to know the exact
+      number of total matches. To satisfy inquiries of this sort we provide a count API. Requests to this endpoint
+      accept the same query strings describe above, but they return only the number of matching documents. Responses
+      from the count API take longer to execute, but they provide complete and accurate counts.</para>
+    <para>And the count API can count many things other than documents. Users can specify the unit to be counted with
+      the “<code>count</code>” instruction. Here we employ a syntax similar to proximity and element searches: one uses the term
+      “<code>count</code>” followed by a parenthetical expression signifying the thing to be counted. For example, if one wants to
+      know not the total number of documents matching one’s query but instead the total number of paragraphs in all of
+      the matching documents, one can append to one’s query the instruction “<code>count(total-paragraphs)</code>”. Similarly, one
+      can count the total number of tables, footnotes, annotations, or any other computed value recognized by the range
+      queries. And one may specify any number of different counters in the same request by combining count instructions
+      with an AND. A query containing the instruction “<code>count(table-rows) &amp;&amp; count(table-cells)</code>” will return both
+      the total number of table rows and the total number of table cells within the documents matching the query.</para>
+    <para>Finally, counts may be grouped by a few fields known to contain only a limited number of unique values.
+      Suppose that one wants to know the number of documents matching one’s query for each year within a given range. Or
+      suppose one wants to know the total number of paragraphs for each designated subject matter. Our count API
+      provides these results in response to the queries “<code>... &amp;&amp; groupby=year</code>” and “<code>... &amp;&amp;
+      count(total-paragraphs) &amp;&amp; groupby=subject</code>”. The former provides count information for each year, and the
+      latter provides count information for each unique value in the subject field. One can group by only a few fields,
+      such as subject, department, and signee. And we provide limited support for a two-dimensional grouping, so long as
+      one of the dimensions is year. Therefore, “<code>groupby=department&amp;year</code>” will produce a table of results, showing
+      the specified count for each department in each year. Greater support for multidimensional grouping is possible,
+      but we imagine it would be of limited utility.</para>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Conclusion</title>
+    <para>We have tried to provide a simple syntax for expressing complex queries directed at legislative documents. We
+      hope it is intuitive enough to be learned quickly yet expressive enough to represent most of the searches expert
+      users would construct with a general purpose query language such as XQuery. Additionally, we provide results in a
+      variety of formats, such as HTML, CSV, JSON and RDF. We hope these tools will allow researches to identify
+      previously undiscovered patterns in our legislation and improve the consistency and accessibility of our
+      laws.</para>
+  </section>
+  
+  <bibliography xmlns:xl="http://www.w3.org/1999/xlink">
+    <biblioentry xml:id="paper-9_xquery" xreflabel="[1]">
+      <abbrev>1</abbrev>
+      <title>XQuery 1.0: An XML Query Language (Second Edition)</title>
+      <publishername>W3C</publishername>
+      <pubdate>14 December 2010</pubdate>
+      <biblioid class="uri">https://www.w3.org/TR/xquery/</biblioid>
+      <editor>
+        <personname>
+          <firstname>Scott</firstname>
+          <surname>Boag</surname>
+        </personname>
+      </editor>
+      <editor>
+        <personname>
+          <firstname>Don</firstname>
+          <surname>Chamberlin</surname>
+        </personname>
+      </editor>
+      <editor>
+        <personname>
+          <firstname>Mary</firstname>
+          <honorific>F</honorific>
+          <surname>Fernández</surname>
+        </personname>
+      </editor>
+      <editor>
+        <personname>
+          <firstname>Daniela</firstname>
+          <surname>Florescu</surname>
+        </personname>
+      </editor>
+      <editor>
+        <personname>
+          <firstname>Jonathan</firstname>
+          <surname>Robie</surname>
+        </personname>
+      </editor>
+      <editor>
+        <personname>
+          <firstname>Jérôme</firstname>
+          <surname>Siméon</surname>
+        </personname>
+      </editor>
+    </biblioentry>
+  </bibliography>      
+    
+</article>

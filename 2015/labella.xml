@@ -1,0 +1,1704 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article
+  xmlns="http://docbook.org/ns/docbook"
+  xmlns:xl="http://www.w3.org/1999/xlink"
+  version="5.0"
+  xml:lang="en">
+  
+  <info>
+
+    <title>A rendering language for RDF</title>
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Fabio</firstname>
+          <surname>Labella</surname>
+        </personname>
+        <affiliation>
+          <orgname>The University of Edinburgh</orgname>
+        </affiliation>
+        <affiliation>
+          <orgname>NCR Corporation</orgname>
+        </affiliation>
+      </author>
+      <author>
+        <personname>
+          <firstname>Henry S.</firstname>
+          <surname>Thompson</surname>
+        </personname>
+        <affiliation>
+          <orgname>The University of Edinburgh</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+
+    <abstract>
+      <para> Since RDF is primarily intended to be processed by machines, there is a need for a
+        technology to <emphasis>render</emphasis> it into human readable (HTML) content, similarly
+        to what XSLT does for XML. This is made hard, however, by the high syntactic variability of
+        RDF serialisations, that allows the same graph to be expressed in many different ways. </para>
+      <para> In this paper we propose an approach, called <emphasis>just-in-time
+          reflection</emphasis>, that allows the application of normal XSLT stylesheets directly to
+        RDF graphs. It follows that the transformation does not depend on any particular
+        serialisation format: stylesheets can be written in terms of RDF's abstract syntax. </para>
+    </abstract>
+
+  </info>
+
+  <section xml:id="sec-introduction">
+    <title>Introduction</title>
+
+    <para> With the increasing adoption of RDF comes the need for transforming RDF graphs into a
+      human readable format like HTML. While XML has a core technology, XSLT, devoted to it, a
+      similar tool is sorely missing for RDF. Let's take for example the simple graph represented in
+        <xref linkend="fig-circ-graph"/>. We might like to be able to transform it into an HTML
+      output like the one in <xref linkend="fig-circ-graph-html"/>, with the constraints that it
+      must be possible to express the transformation declaratively, and that the result should not
+      depend on the particular serialisation syntax which was used to create the RDF graph at hand. </para>
+    <figure xml:id="fig-circ-graph">
+      <title>A simple RDF graph representation. The predicate names have been left blank for
+        simplicity</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/uoe-circ-graph.svg" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+
+    <figure xml:id="fig-circ-graph-html">
+      <title>A possible HTML output.</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/uoe-circ-graph-html.svg" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+
+    <para> We call this transformation process <emphasis>rendering</emphasis>, and offer the
+      following contributions: </para>
+    <itemizedlist mark="bullet">
+      <listitem>
+        <para>We propose an approach, called <emphasis>just-in-time reflection</emphasis>, that
+          provides access to RDF data, originating from <emphasis role="bold">any</emphasis> format,
+          via XPath expressions (Sec. <xref linkend="sec-just-in-time-reflection"/>).</para>
+      </listitem>
+      <listitem>
+        <para>We design a normal form that allows the stylesheet to be written against RDF's
+          abstract syntax, without having to know the details of any particular concrete syntax
+            (Sec.<xref linkend="sec-norm"/>).</para>
+      </listitem>
+      <listitem>
+        <para>We present an enhanced XSLT processor that uses <emphasis>just-in-time
+            reflection</emphasis> to give standard XSLT stylesheets access to RDF graphs via the
+          XPath data model. This processor implements all the XPath axes and can be used to
+          transform any RDF graph (Sec.<xref linkend="sec-engine"/>).</para>
+      </listitem>
+    </itemizedlist>
+  </section>
+
+  <section xml:id="sec-rendering-rdf">
+    <title>Rendering RDF</title>
+    <!-- This figure spanned both columns in the the original two-columns .tex-->
+    <figure xml:id="fig-rdf-xml">
+      <title>Different representations of the same RDF graph <xref linkend="akhtar2008xsparql"
+        /></title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/uoe-rdf-xml.svg" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+
+    <para>The RDF specification <xref linkend="cyganiak2013rdf"/> defines an abstract syntax where
+      RDF datasets, composed of triples of the form <emphasis>subject-predicate-object</emphasis>,
+      have a natural representation as a directed graph.</para>
+
+    <para>However, the actual form RDF documents take is entirely dependant on the serialisation
+      format used: as an example, <xref linkend="fig-rdf-xml"/> shows the same graph in Turtle (a),
+      and different flavours of RDF/XML. Path-based query languages can be easily extended to fit
+      RDF's graph-based data model, making XSLT an attractive candidate to solve the RDF rendering
+      problem. </para>
+    <para>In contrast, attempting to render generic RDF via XSLT stylesheets targetting RDF/XML
+      directly has serious drawbacks: </para>
+    <itemizedlist mark="bullet">
+      <listitem>
+        <para>it would not apply to non-XML formats directly, whereas the general trend seems to
+          move away from RDF/XML in favour of simpler formats, especially Turtle.</para>
+      </listitem>
+      <listitem>
+        <para>RDF/XML itself is highly flexible (<xref linkend="fig-rdf-xml"/>), allowing the same
+          graph to be serialised in several different ways.</para>
+      </listitem>
+      <listitem>
+        <para>That very flexibility means there is no standard approach to re-serialising graphs
+          independently of their original format (if any).</para>
+      </listitem>
+    </itemizedlist>
+    <para>An apparently more serious problem lies in the mismatch between XPath's tree-based data
+      model and RDF's graph-based data model, which means that is not possible, in general, to
+      serialise an RDF graph trivially into XML in a way that is compatible with path-based
+      traversal. </para>
+    <para>Alternative XML formats such as TriX <xref linkend="carroll2004rdf"/> have been designed
+      specifically to be compatible with XSLT, but, in order to ensure predictability, they move
+      away from a graph-based encoding of RDF, opting instead to represent it as a collection of
+      statements, which seems more suitable for a pattern matching query language. </para>
+    <para>For these reasons, currently the only available solution to the rendering problem consists
+      in processing RDF using native engines, since they are oblivious of the input format and work
+      directly in terms of the abstract syntax. This obviously means that for every transformation
+      custom code must be written to select the appropriate RDF data and generate the desired HTML
+      output. Moreover, the semantics of these engines are usually modelled after SPARQL, and are
+      based on pattern matching instead of path traversal. </para>
+  </section>
+
+  <section xml:id="sec-just-in-time-reflection">
+    <title>Just-in-time reflection</title>
+
+    <para>The starting point for this work was a paper by Thompson et al. <xref
+        linkend="thompson2003uniform"/>, which proposed an approach, called <emphasis>just-in-time
+        reflection</emphasis>, to access XML Infosets and their extensions from XPath.</para>
+
+    <para>The main contribution of our paper is that the same approach can be applied successfully
+      to RDF: this section will hence explain what is meant by <emphasis>just-in-time
+        reflection</emphasis>, and how it can turn XSLT into a syntax-unaware RDF processor. </para>
+    <section xml:id="subsec-refl">
+      <title>Static reflection</title>
+
+      <para>Thompson et al. <xref linkend="thompson2003uniform"/> defined reflection as <emphasis>``
+          a process whereby a syntactic form in some language, in our case XML, is analysed and
+          represented in some underlying data model, in our case the XML Infoset, and then the
+          constituents of that representation are themselves expressed using the same syntactic
+          form, in our case XML once again.''</emphasis>. Adapting this definition to RDF,
+        reflecting means that the underlying graph is derived from an RDF/XML serialisation, and
+        then serialised once again in XML.</para>
+      <para> Listings <xref linkend="lst-simplestatement"/> and <xref linkend="lst-simplereflection"
+        /> and <xref linkend="fig-small-graph"/> show the process of reflecting the statement
+        ``Alice is a person'', bearing in mind however, that in this paper the concept of reflection
+        is used more loosely, for the resulting XML is not necessarily the reflection of an RDF/XML
+        input, since the graph it processes can be derived from any RDF format. </para>
+
+      <figure xml:id="lst-simplestatement">
+        <title>Three different serialisations of the same RDF statement</title>
+        
+        <para>TURTLE:</para>
+        <programlisting language="turtle"><![CDATA[alice:me a foaf:Person .]]></programlisting>
+
+        <para>RDF/XML - ABBREV:</para>
+        <programlisting language="xml"><![CDATA[<foaf:Person rdf:about="alice/me"/>]]></programlisting>
+
+        <para>RDF/XML:</para>
+        <programlisting language="xml"><![CDATA[<rdf:Description rdf:about="alice/me">
+ <rdf:type
+  rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
+</rdf:Description>]]></programlisting>
+      </figure>
+
+
+      <figure xml:id="fig-small-graph">
+        <title>The underlying graph</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/uoe-small-graph.svg" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+
+      <figure xml:id="lst-simplereflection">
+        <title>A possible reflection</title>
+        <programlisting language="xml"><![CDATA[<alice:me>
+  <rdf:type>       
+    <foaf:Person>
+      .....]]></programlisting>
+      </figure>
+
+      <para> In our approach the reflection is generated from an RDF data model exploiting a generic
+        RDF engine, and then fed to XSLT using <emphasis>extension functions</emphasis>, a native
+        mechanism to call external functions, written in another programming language, from any
+        stylesheet. As a result, path expressions are evaluated against the reflection instead of
+        the original file, meaning that: </para>
+      <itemizedlist mark="bullet">
+        <listitem>
+          <para>XSLT can work with different input formats, not necessarily XML-based.</para>
+        </listitem>
+        <listitem>
+          <para>Syntactic variability, the single greatest obstacle to RDF processing with XSLT, is
+            eliminated, provided that the reflection is expressed in a <emphasis>normal
+              form</emphasis>.</para>
+        </listitem>
+      </itemizedlist>
+    </section>
+
+    <section xml:id="subsec-jit">
+      <title>Generating reflections dynamically </title>
+      <para> As its name would suggest, a <emphasis>just-in-time reflection</emphasis> differs from
+        a mere normalisation in that it is not the result of preprocessing the input data, but is
+        instead generated dynamically when evaluating a path expression.</para>
+
+      <para> More specifically, the system evaluates a path expression one step at the time,
+        interprets it according to the normal form used, and returns a nodeset populated by querying
+        the RDF engine to retrieve the appropriate resources. Therefore, even though the XSLT
+        processor behaves as if it were operating on a physical XML file encoding the reflection of
+        an RDF graph, with this approach no actual serialisation is needed, which is a significant
+        advantage over a simple normalisation. </para>
+      <para> In fact, the complexity of RDF/XML stems from the mismatch between the <emphasis
+          role="bold">graph</emphasis> structure of RDF and the <emphasis role="bold">
+          tree</emphasis> structure of XML, for a graph in the general case is not constrained to be
+        acyclic, rooted or connected. Since the edges that violate the aforementioned constraints
+        cannot be encoded directly into the structure of XML <xref linkend="walsh2003rdf"/>,
+        different approaches to represent them lead to high syntactic flexibility, which makes
+        RDF/XML very unfit for XSLT processing<footnote>
+          <para>Technically, a graph could be consistently encoded in standard XML by using only
+            IDREF attributes to represent edges (see Layman Normal Form <xref
+              linkend="thompson2001normal"/>), but this would make path expressions hard to
+            write.</para>
+        </footnote>. </para>
+      <para> On the other hand, when serialisation is not required, it becomes much easier to devise
+        a normal form to model closely RDF's abstract syntax, rendering path expressions
+        straightforward to write. Let's consider for instance the cyclic graph described by the
+        statement ``Alice knows Bob and Bob knows Alice'', which can be encoded as in Listing <xref
+          linkend="lst-anf"/>, that is: </para>
+      <figure xml:id="lst-anf">
+        <title>Simple representation of a cyclic graph</title>
+        <programlisting language="xml"><![CDATA[
+ <alice:me>                    
+   <foaf:knows>                 
+     <bob:me>                          
+       <foaf:knows>                       
+         <alice:me>                   
+           <foaf:knows>                 
+             <bob:me>                     
+               <foaf:knows>                 
+                    ...                          
+               <foaf:knows/>                
+             <bob:me/>                    
+           <foaf:knows/>                
+         <alice:me/>                  
+       <foaf:knows/>                
+     <bob:me/>                    
+   <foaf:knows/>                
+ <alice:me/>]]></programlisting>
+      </figure>
+
+      <para> This normal form is very easy to query, but results in an infinitely deep tree and is
+        hence impossible to serialise: using <emphasis>just-in-time reflection</emphasis>, however,
+        one can write a path expression for this normal form, leaving to the system the synthesis of
+        the appropriate result nodeset (whose elements are retrieved using any generic RDF engine's
+        basic navigation capabilities), <emphasis role="bold">as if</emphasis> such a serialisation
+        could exist and be manipulated by XSLT.</para>
+
+      <para> Problems only arise when querying along the descendant axis, since a recursive
+        depth-first search of the tree would be performed, leading to non-termination (because the
+        system tries to reflect the same structure infinitely often). To solve this problem, the
+        reflection generator must then be equipped with a cycle detection algorithm, so that when
+        the same node is visited twice with an unchanged path expression, the search stops exploring
+        that branch, avoiding infinite recursion. </para>
+    </section>
+  </section>
+  <section xml:id="sec-norm">
+    <title>Normal form design</title>
+    <para> The <emphasis>just-in-time reflection</emphasis> approach effectively overcomes the
+      limitations of XSLT with respect to the variability in the concrete syntax of RDF, but it is
+      not sufficient to ensure that is possible to work directly with the graph-based data model. In
+      fact, the normal form used for the reflection is crucial for that purpose, for it must strive
+      to model closely RDF's abstract syntax, so that one can easily write a path expression given
+      only knowledge of the structure of the graph.</para>
+
+    <para>Before discussing the design of the normal form we used, it's necessary to clarify what we
+      exactly mean by ``normal form''. Thompson <xref linkend="thompson2001normal"/> distinguished
+      two uses of the term: one concrete, to refer to a representation of a dataset in XML, and one
+      abstract, to refer to ``<emphasis>a set of principles for constructing and/or interpreting
+        concrete normal forms</emphasis>''.</para>
+
+    <para>We use ``normal form'' here in the latter sense, since it represents a set of rules by
+      which the system interprets path expressions in order to construct a result nodeset, rather
+      than a concrete XML encoding, as discussed above. </para>
+
+    <para>The original work on reflection <xref linkend="thompson2003uniform"/> proposed the
+      so-called Edinburgh Normal Form as a suitable representation for reflected Post
+      Schema-Validation Infosets (PSVIs). Due to its blend of simplicity and conciseness, it was
+      chosen as the starting point for the one used here, although some changes were necessary to
+      adapt it to RDF. </para>
+
+    <para>This section lays out the rules that define what we are calling, showing a remarkable lack
+      in imagination, Edinburgh Normal Form for RDF (ENFR).</para>
+
+    <section>
+      <title>Resources</title>
+      <para> RDF resources are encoded using XML elements, named after the resource's QName, or its
+        full URI if no QName is available. It was decided not to use <code>rdf:resource,
+          rdf:Description</code> etc., since they are not directly concerned with the RDF model, but
+        appear to be details of RDF/XML that make the resulting syntax less human-friendly. </para>
+    </section>
+
+    <section>
+
+      <title>Predicates</title>
+
+      <para>To reduce verbosity, the representation for predicates is different depending on whether
+        the object of a statement is a resource or a literal.</para>
+
+      <section>
+
+        <title>Resource-valued properties</title>
+        <para> Borrowing from Alternating Normal Form <xref linkend="thompson2001normal"/>, triples
+          whose object is a resource are represented by nesting alternately elements representing
+          nodes and elements representing edges, as shown in Listing <xref linkend="lst-anf"/>. Path
+          expressions would then take the form:</para>
+        <programlisting language="xquery">
+subject/predicate/object/predicate/object/...
+        </programlisting>
+
+        <para>so that, given the Turtle statements:</para>
+
+        <programlisting language="turtle">Alice:me foaf:knows Bob:me .           
+Bob:me foaf:knows Charlie:me .</programlisting>
+
+        <para>Charlie can be accessed, assuming that Alice is the root of the reflection, using the
+          expression:</para>
+
+        <programlisting language="xquery">
+Alice:me/foaf:knows/Bob:me/foaf:knows/Charlie:me.
+        </programlisting>
+
+        <para> Several strategies are possible for representing two properties with the same name
+          and different objects: the one chosen here is to have the two properties as two different
+          children of the subject element, so as to guarantee that each property element has exactly
+          one child. This restriction is more faithful to RDF's data model, where properties are
+          required to be binary.</para>
+
+      </section>
+
+      <section>
+        <title>Literal-valued properties</title>
+
+        <para>Expressions of the form outlined above are desirable as they model paths through a
+          graph in a very intuitive manner, but they are unnecessarily verbose when dealing with
+          literals. Since literals in RDF can only appear in the object position of a triple, they
+          ought to never have children in ENFR, and can thus be represented using attributes, in
+          order to shorten path expression involving them. This choice, however, has some
+          drawbacks:</para>
+
+        <itemizedlist mark="bullet">
+          <listitem>
+            <para>The result is undefined when two properties have the same name and they both have
+              literal values, however this appears to be pretty rare.</para>
+          </listitem>
+          <listitem>
+            <para>Datatypes for literals are not easily supported, as XML attributes cannot have
+              attributes themselves. This could be addressed by the use of XML Schema datatypes, but
+              we will not explore this option here.</para>
+          </listitem>
+        </itemizedlist>
+
+        <para>It's important to stress, however, that these are shortcomings of the normal form, and
+          they are not intrinsic in using a <emphasis>just-in-time reflection</emphasis>. In fact,
+          they could both be overcome, at the price of verbosity, by using Alternating Normal
+          Form.</para>
+
+        <para>Furthermore, since the implementation is based on extension functions, one may choose
+          the most appropriate normal form on demand by calling the corresponding extension
+          function. Since time constraints limited the implementation to one normal form, ENFR
+          seemed more useful for the majority of cases.</para>
+      </section>
+
+    </section>
+    <section>
+      <title>Multiple roots</title>
+      <para> In general, a graph is not rooted, hence one may start navigating through it starting
+        from any node. For this reason a reflection expressed in Edinburgh Normal Form has multiple
+        roots, one for each subject in the graph, but this is a strength rather than a weakness,
+        since we are generating a reflection dynamically instead of serialising. </para>
+      <para> However, since a root node, by definition, has no parent <footnote>
+          <para>Technically, it has a parent: the Document node, but this makes no difference in
+            this context since the document is generated on demand via
+              <emphasis>reflection</emphasis>, starting from the root node.</para>
+        </footnote>, one cannot access properties having the root as their object using the parent
+        axis: if one wants to do so, one has to choose a different starting node to act as the root.
+      </para>
+    </section>
+
+    <section xml:id="subsec-parent-axis">
+      <title>The parent and ancestor axis:backtracking</title>
+      <para> Since an XML document is modelled as a rooted tree, every element has at most one
+        parent node. This constraint is of course violated by an RDF graph, since a node can be the
+        object of multiple statements, as in <xref linkend="fig-parent-graph"/>.</para>
+
+      <para> To understand the exact behaviour of our implementation of the parent axis given this,
+        one must consider how nodes are generated by the reflection process: they can either be
+        returned by an extension function to act as the root of a reflection, or reflected during
+        the evaluation of a path expression. We `solve' the parent axis problem by implementing it
+        to backtrack one step along the path that led to the creation of the current node, returning
+        the empty nodeset in case of a root node. </para>
+      <figure xml:id="fig-parent-graph">
+        <title>The parent axis carries problems with directed non rooted graphs.</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/uoe-parent-graph.pdf" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>Taking the graph in <xref linkend="fig-parent-graph"/> as an example, let's consider the
+        following expressions <footnote>
+          <para><code> \..</code> is a short form for <code> \parent::*</code>.</para>
+        </footnote>, where the node following <code> reflect()</code> is the root of the reflection:
+        <programlisting language="xquery">reflect()/Alice:me/..</programlisting> returns the
+        empty nodeset.
+        <programlisting language="xquery">reflect()/Alice:me/foaf:knows/Charlie:me/../..</programlisting>
+        returns <code>Alice:me</code>.
+        <programlisting language="xquery">reflect()/Bob:me/foaf:knows/Charlie:me/../..</programlisting>
+        returns <code>Bob:me</code>.</para>
+
+      <para>Therefore, unlike in XML, the parent axis is path-dependant, meaning that the ancestors
+        of a node are all the nodes visited in the evaluation of the current path which are
+        reachable via the parent access. It follows that one can trace back from a node to the root
+        used to evaluate the expression that generated it by simply querying the ancestor axis.
+      </para>
+    </section>
+
+    <section xml:id="subsec-desc-axis">
+      <title>The descendant axis: reentrancy and circularity</title>
+
+      <para>Since RDF graphs, in the general case, are not acyclic, they can result in infinitely
+        deep trees when using a serialisation that represents edges using nesting, such as ENFR.
+        However, reflecting a graph dynamically ensures that this is not an issue in most cases,
+        since the system only goes as deep as required by the query at hand, even if the graph
+        contains a cycle.</para>
+
+      <para>A notable exception is the descendant axis: since it performs a depth first search, it
+        exhibits non-terminating behaviour if the tree is infinitely deep. Using
+          <emphasis>just-in-time reflection</emphasis> alone does not solve the problem in this
+        case, because the search forces the reflection of a cyclic structure recursively, which is
+        effectively the same as trying to serialise it.</para>
+
+      <para>For this reason, having an algorithm capable of detecting and breaking cycles is
+        essential. This is however not sufficient to ensure a consistent behaviour of the descendant
+        axis, due to the fact that, unlike in trees, the same node could be a descendant of the
+        context node along multiple paths. Since graphs can exhibit this property, called
+          <emphasis>reentrancy</emphasis>, independently from circularity, one might have duplicate
+        nodes in the result nodeset, even when the search does terminate. </para>
+
+      <para>We have chosen to change the behaviour of the descendant axis by implementing a
+        graph-based depth-first search algorithm, which deals explicitly with reentrancy and
+        circularity. </para>
+
+      <para>The key idea of the search algorithm is to avoid visiting the same node twice, thus
+        preventing endless loops or duplicate results when dealing with circular or reentrant
+        graphs. For this purpose, an adequate definition of equality is crucial: in RDF two things
+        are equal if they have the same URI, but, in this case, this definition cannot handle
+        properties correctly. </para>
+
+      <para>In fact, if two properties with the same URI but different objects were to be considered
+        equal, some branches would be left unexplored by the search algorithm, since it will
+        erroneously think such branches were visited before. </para>
+
+      <para>To overcome this problem, the equality test for properties was changed so that two
+        properties are equal if they have the same URI, <emphasis role="bold">and</emphasis> their
+        children also have the same URI. Note that this definition is not ambiguous since in
+        Edinburgh Normal Form properties are constrained to have exactly one child (the object of
+        the statement that they encode).</para>
+
+    </section>
+
+    <section xml:id="subsec-sibling-axis">
+      <title>The sibling axis: sibling properties</title>
+
+      <para>As a final remark, it's appropriate to discuss briefly the behaviour of the sibling
+        axis. In the Edinburgh Normal Form for RDF, an element representing a node in the graph can
+        either be:</para>
+      <itemizedlist mark="bullet">
+        <listitem>
+          <para>The <emphasis role="bold">only child</emphasis> of a property element, thus having
+            no siblings.</para>
+        </listitem>
+        <listitem>
+          <para>The <emphasis role="bold">root node</emphasis> of the reflection, which has no
+            siblings by definition.</para>
+        </listitem>
+      </itemizedlist>
+      <para> It should therefore be evident how the concept of sibling is only meaningful for
+        property elements. In particular, sibling properties can be thought of as properties with
+        the same subject.</para>
+    </section>
+  </section>
+  <section xml:id="sec-engine">
+    <title>An XSLT engine for RDF Graphs</title>
+    <para>Having discussed both <emphasis>just-in-time reflection</emphasis> and Edinburgh Normal
+      Form, it is now possible to present the resulting engine. We will not go into much detail on
+      its architecture, whereas greater attention will be given to the form of the stylesheets it
+      can process.</para>
+
+    <section xml:id="sec-over-arch">
+      <title>Overall architecture</title>
+      <para> This section will describe the overall architecture of the system. While the discussion
+        will be kept to a fairly high level, it should be enough to understand how a typical XSLT
+        transformation is carried out.</para>
+
+      <para> The system consists mainly of a pipeline, with the RDF engine on one end and the XSLT
+        processor on the other: these two components are connected by a set of extension functions,
+        that basically allow access to the graph API from XSLT stylesheets. More specifically, the
+        system takes two files as input: an RDF file, which is parsed by the RDF engine, and an XSLT
+        stylesheet, which is compiled and executed by the XSLT processor, and can contain one or
+        more calls to interface extension functions. </para>
+
+      <para> The different extension functions implemented have slightly different behaviours, but
+        they can all be thought of as returning a special <emphasis role="bold"> wrapper
+          object</emphasis> to act as the root of the reflection. Since both expose the same
+        interface to the XSLT processor, such a wrapper looks no different from the in-memory
+        representation of a node generated during the parsing of a physical XML document, but it
+        differs greatly in the implementation, since: </para>
+
+      <itemizedlist mark="bullet">
+        <listitem>
+          <para>It wraps an RDF resource, named after its QName, if available, or URI
+            otherwise.</para>
+        </listitem>
+        <listitem>
+          <para>It is capable of reflecting other nodes, so that, when used as the context node in a
+            path expression step, it will use the rules laid out in the normal form to interpret it,
+            and then query the RDF engine to retrieve the desired resources. The result is a nodeset
+            accordingly populated with other wrappers, which are in turn used to reflect the next
+            step in the path, and so on until the expression has been completely evaluated.</para>
+        </listitem>
+        <listitem>
+          <para>It uses the depth-first graph search algorithm described above to ensure termination
+            and absence of duplicate results when reflecting along the descendant axis.</para>
+        </listitem>
+      </itemizedlist>
+
+      <para>Specifically, Jena and Saxon were used as the RDF and XSLT engine respectively: since
+        Saxon represents XML nodes via the <code>NodeInfo</code> interface, the wrapper object, in
+        which lies all the <emphasis>just-in-time reflection</emphasis> logic, is simply a custom
+        implementation of this interface. </para>
+
+      <para> As briefly mentioned before, this architecture is not dependent on the normal form
+        used: a different kind of wrapper object could implement an entirely different normal form.
+        Furthermore, since the root wrapper is accessed through an extension function, different
+        functions can return different wrappers, allowing to mix and match the normal form to the
+        input data on demand. </para>
+    </section>
+
+    <section xml:id="sec-stylesheet-structure">
+      <title>Stylesheet structure</title>
+      <para>RDF stylesheets look almost identical to standard XML ones, the only difference being
+        the use of extension functions in the initial template. Once their semantics are understood,
+        an XSLT user should be able to write stylesheets for RDF easily, because, apart from the
+        initial template, stylesheets look exactly the same as if they were processing a physical
+        XML file expressed in Edinburgh Normal Form.</para>
+
+      <section xml:id="sec-reflect-function">
+        <title>The Reflect function</title>
+
+        <para> Reflect is the most important function of the engine, in that it gives access to the
+          Document node of the reflection. To better understand its usage, let's notice that when
+          using XSLT with XML, if the user does not write an initial template, the processor
+          implicitly executes the instruction:</para>
+
+        <programlisting language="xml"><![CDATA[<xsl:template match="/">
+ <xsl:apply-templates select="/*">
+</xsl:template>]]></programlisting>
+
+        <para>where <code>/</code> is the document node and <code>*</code> is the outermost element,
+          i.e. the root node of the tree. Subsequent templates then match the various children of
+          the root node.</para>
+
+
+        <para> For RDF, the initial template is written explicitly, like so: </para>
+        <programlisting language="xml"><![CDATA[
+<xsl:template name="main">                                   
+  <xsl:apply-templates select="enf:reflect()/*"/>              
+</xsl:template>]]></programlisting>
+
+        <para> There is an important difference though: in XML the outermost element is unique, for
+          a Document node is required to have exactly one Element node among its children, whereas
+          an ENFR reflection has multiple roots, and therefore one can replace the wildcard match
+          with the name of any subject in the graph: the argument to <code>select</code> takes then
+          the form <code>enf:reflect/root-qname</code>. </para>
+
+        <para> This characteristic is still compatible with the XPath 2.0 data model <xref
+            linkend="berglund2010xdm"/> and, while it can be useful in general to shorten some path
+          expression, it becomes essential in the case of disconnected graphs. </para>
+        <para> However, note how one cannot write directly something like:</para>
+        <programlisting language="xml"><![CDATA[
+<xsl:template
+  match="reflect()/Alice:me/foaf:knows/*">]]></programlisting>
+        <para>Due to the fact that a template <code>match</code> expression cannot start with a
+          function call or variable. This limitation should disappear in XSLT 3.0 <xref
+            linkend="kay2013xsl"/>, but until then, the correct form is:</para>
+        <programlisting language="xml"><![CDATA[<xsl:template name="main">                                             
+ <xsl:apply-templates select="reflect()/Alice:me"/>                     
+</xsl:template>
+
+<xsl:template match="foaf:knows/*">                                    
+...]]></programlisting>
+
+        <para> Finally, a name for the initial template is strictly required when writing a
+          stylesheet for RDF: since the Saxon processor is not running on any physical XML source
+          file, the initial template acts as the starting point for the transformation. </para>
+
+      </section>
+
+      <section>
+        <title>The Select function</title>
+
+        <para> Let's consider the following template, which operates on an RDF graph containing
+          several statements, some of which are about Persons:</para>
+        <programlisting language="xml"><![CDATA[<xsl:variable name="doc" select="enf:reflect()"/>
+
+<xsl:template name="main">
+  <xsl:for-each select="$doc/*[rdf:type/
+                               foaf:Person]">
+    <div>
+      <xsl:value-of select="@rdfs:comment"/>
+    </div>
+  </xsl:for-each>
+</xsl:template>]]></programlisting>
+
+        <para>The <code>foreach</code> loop outputs the textual description of the resources in the
+          graph, but only if they are of type Person. Filtering by type is indeed a very common
+          need, so it seemed appropriate to devote a function to it, called <code>select()</code>,
+          which returns a RdfDocWrapper whose children are filtered according to the specified type.
+          The stylesheet then becomes:</para>
+
+        <programlisting language="xml"><![CDATA[<xsl:variable name="doc"
+              select="enf:select('foaf:Person')"/>
+
+<xsl:template name="main"> 
+  <xsl:for-each select="$doc/*">
+    <div>
+      <xsl:value-of select="@rdfs:comment"/>
+    </div>
+  </xsl:for-each
+</xsl:template>]]></programlisting>
+      </section>
+    </section>
+  </section>
+
+  <section>
+
+    <title>Transformation example</title>
+
+    <para>As an example of the capabilities of our engine, we will use it to perform the
+      transformation outlined at the very beginning of this paper: the graph in <xref
+        linkend="fig-circ-graph"/> is encoded by the following Turtle, that describes the
+      connections between Alice, Bob, Charlie and Dave, using the <code>foaf:knows</code>
+      predicate:</para>
+
+    <programlisting language="turtle"><![CDATA[@prefix crc: <http://www.inf.ed.ac.uk/~fl/crc#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix rdf:
+  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:
+  <http://www.w3.org/2000/01/rdf-schema#> .
+
+crc:A a foaf:Person ;
+	foaf:name "Alice" ;
+	foaf:knows crc:D .
+
+crc:B a foaf:Person ;
+	foaf:name "Bob" ;
+	foaf:knows crc:C , crc:A .
+
+crc:C a foaf:Person ;
+	foaf:name "Charlie" ;
+	foaf:knows crc:A , crc:B .
+
+crc:D a foaf:Person ;
+	foaf:name "Dave" ;
+	foaf:knows crc:C .]]></programlisting>
+
+    <para>This data is an ideal candidate to test the behaviour of the descendant axis, since it
+      has several reentrant and cyclic paths. The idea is to use the descendant axis with the
+      predicate <code>foaf:knows</code> to find out all the connections that each Person has, where
+      a connection is defined as a Person that is at any degree of separation in chain of
+      acquaintances. The output in <xref linkend="fig-circ-graph-html"/> is produced by the
+      following stylesheet:</para>
+
+    <programlisting language="xml"><![CDATA[<xsl:variable name="Node" select="enf:reflect()"/>
+
+<xsl:template name="main">
+  <html>
+    <body>
+      <table> 
+        <tr>
+          <xsl:for-each select="$Node/*">
+            <td>
+              <table border="1">
+                <tr bgcolor="#9acd32">
+                  <th>
+                    Connections for
+                    <xsl:value-of
+                      select="@foaf:name"/>
+                  </th>
+                </tr>
+                <xsl:for-each select=".//*
+                  [parent::foaf:knows]">
+                  <tr>
+                    <td>
+                      <xsl:value-of
+                        select="@foaf:name"/>
+                    </td>
+                  </tr>
+                </xsl:for-each>
+              </table>
+            </td>
+          </xsl:for-each>
+        </tr>
+      </table>
+    </body>
+  </html>
+</xsl:template>]]></programlisting>
+  </section>
+
+  <section>
+    <title>Limitations</title>
+    <para> While this project goes a good deal towards implementing a rendering language for RDF, it
+      is not without limitations. Some of them are due to the relatively limited time available for
+      the implementation, whereas others are intrinsic. Here is a brief overview:</para>
+
+    <itemizedlist mark="bullet">
+      <listitem>
+        <para>If two properties with the same name both have a literal object, the result of
+          querying them is undefined, as ENFR encodes literal-valued properties as attributes, which
+          are required to be unique. However is possible to implement another, more verbose normal
+          form that does not have this limitation. More importantly, it's possible to use both at
+          the same time by calling the appropriate extension function.</para>
+      </listitem>
+      <listitem>
+        <para>Variables or function calls are not allowed in match expressions: this is
+          inconvenient, as one has to resort to inelegant workarounds. This limitation is enforced
+          by XSLT and therefore very little can be done about it, however it should disappear in
+          XSLT 3.0.</para>
+      </listitem>
+      <listitem>
+        <para>RDF Containers are unsupported. In theory they could be queried using standard XPath
+          expressions, but no tests have been done to ensure they will work correctly.</para>
+      </listitem>
+      <listitem>
+        <para>We would like to thank an anonymous reviewer for pointing out that there might be
+          other ways to break the XSLT processor with a graph data model, including fetching the
+          string value of an element, <code>fn:deep-equal(), <![CDATA[ << ]]>, is,</code> and
+            <code>fn:root()</code>,%>> and also for highlighting that document order might be an
+          important factor. The current implementation guarantees to preserve document order as long
+          as the underlying RDF engine does so during the parsing, and appears to deal well with
+            <code>fn:string()</code> (in ENFR there are no text nodes). However, we have not
+          explored these aspects in detail and they deserve further investigation.</para>
+      </listitem>
+      <listitem>
+        <para>Using the ancestor and descendant axes in conjunction may lead to unexpected results.
+          Let's consider for example the graph in Figure <xref linkend="fig-anc"/>; if one is
+          interested in retrieving the descendants of Alice that are also descendants of Bob, one
+          could write:</para>
+        <figure xml:id="fig-anc">
+          <title>DFS can cause non intuitive behaviour of the ancestor axis.</title>
+          <mediaobject>
+            <imageobject>
+              <imagedata fileref="images/uoe-ancestor.svg" width="100%"/>
+            </imageobject>
+          </mediaobject>
+        </figure>
+        <programlisting language="xml">
+select="enf:reflect()/Alice//*[ancestor::Bob]"
+      </programlisting>
+        <para> While it's clear that this query should select both Charlie and Ellen, only Charlie
+          is guaranteed to always appear in the result nodeset. This happens because there are two
+          paths from Alice to Ellen, and since the depth first search will avoid reflecting her
+          twice, Ellen will be reached <emphasis role="bold">either</emphasis> through Bob and
+          Charlie or through Dave, depending on the document order. If Ellen is reached via Dave,
+          than her ancestors will be Dave itself and Alice, and therefore she will not be selected
+          by the above query. </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+
+  <section xml:id="sec-related-work">
+
+    <title>Related work</title>
+
+    <para>Besides the approach followed by TriX, various attempts have been made that do not require
+      a change in the existing formats: most of them are now abandonware, yet some of the ideas used
+      may still be worth exploring.</para>
+
+    <section xml:id="subsec-xsparql">
+
+      <title>XSPARQL</title>
+
+      <para>XSPARQL does not deal directly with rendering RDF, but with the related and somewhat
+        more general problem of RDF <emphasis>lifting</emphasis> and <emphasis>lowering</emphasis>
+        <xref linkend="kopecky2007sawsdl"/>,<xref linkend="farrell2007semantic"/>.</para>
+
+      <para> In this context lifting is not relevant, but it's not hard to envision how lowering,
+        the task of translating RDF into arbitrary XML, originally for use with Web Services, could
+        be adapted to produce XHTML for formatting purposes. </para>
+
+      <para> XSPARQL <xref linkend="akhtar2008xsparql"/> stems from merging SPARQL into XQuery, so
+        that RDF data is accessed using SPARQL, and then processed as in normal XQuery. </para>
+
+      <para> While undoubtedly an interesting approach, it has a few drawbacks: it is an entirely
+        new technology, with only one implementation available, and, perhaps more importantly, does
+        not use a path semantics, which is very familiar to users that deal with templating, since
+        this is usually done in XSLT. </para>
+    </section>
+
+    <section xml:id="sec-trial">
+
+      <title>TriAl</title>
+
+      <para>TriAl <xref linkend="libkin2013trial"/> is a query language for RDF capable of working
+        directly on triples, in order to account for the few but significant differences between
+        directed graphs and RDF's data model. TriAL semantics model RDF more closely than XPath
+        does, but they also prevent its usage with XSLT, therefore making it a worse fit in the
+        context of RDF rendering.</para>
+    </section>
+
+    <section xml:id="subsec-rdfxslt">
+      <title>RDFXSLT</title>
+      <para>RDFXSLT <xref linkend="kopecky2007dx"/> is basically an XSLT stylesheet that turns
+        RDF/XML into a more predictable form, which can then be queried using standard XPath
+        expressions, along with a set of XSLT extension functions.</para>
+
+      <para> The main attractive of this approach is that is written in pure XSLT, and hence
+        independent from any particular XSLT processor or platform. However, RDFXSLT is clearly
+        limited to RDF/XML, and the RDF/XML subset it produces, although predictable and hence
+        usable with XSLT, is admittedly ugly. </para>
+    </section>
+
+    <section xml:id="subsec-rdftwig">
+
+      <title>RDF Twig</title>
+
+      <para>RDF Twig <xref linkend="walsh2003rdf"/> is implemented through a set of XPath extension
+        functions, which provide access to different XML serialisation of a graph, mainly
+        breadth-first and depth-first trees. Twig is quite limited, in that it does not attempt a
+        uniform mapping between RDF's abstract syntax like the one presented in this paper. However,
+        it contains two important ideas:</para>
+      <orderedlist>
+        <listitem>
+          <para>It uses an RDF engine to access the graph, and then provides the result in a form
+            amenable to XSLT processing.</para>
+        </listitem>
+        <listitem>
+          <para>The graph is not preprocessed, but rather the serialisations needed (e.g. a
+            breadth-first tree) are generated on demand.</para>
+        </listitem>
+      </orderedlist>
+    </section>
+
+    <section xml:id="subsec-treehugger">
+
+      <title>TreeHugger</title>
+
+      <para>TreeHugger <xref linkend="mcdermott2012treehugger"/> is an extension function that
+        builds on Twig's two ideas as outlined above, and improves on them in that the serialisation
+        it gives access to is a more accurate mapping from the RDF model to XML's than a mere search
+        tree, like the ones used by Twig.</para>
+      <para>TreeHugger's approach is very similar to the one used in this project, however its
+        implementation is limited to the parent, attribute and child axes<footnote>
+          <para>This means three out of the thirteen XPath axes. Most notably, the descendant axis
+            is missing.</para>
+        </footnote>.</para>
+    </section>
+    <section xml:id="subsec-rxslt">
+      <title>RxSLT</title>
+      <para>The RxPath language <xref linkend="souzis2006rxpath"/> is a more complete attempt at RDF
+        rendering that supports all the XPath axes. However, it does not use XPath extension
+        functions, but is a new language with a native processor.</para>
+
+      <para>Even though RxPath's syntax is designed to be identical to XPath 1.0, the choice of
+        using a native processor carries a few consequences:</para>
+
+      <itemizedlist>
+        <listitem>
+          <para>It cannot benefit from improvements in newer versions of XPath.</para>
+        </listitem>
+        <listitem>
+          <para>For implementation reasons, it constraints the behaviour of the ancestor and
+            descendant axes <xref linkend="souzis2006rxpath"/>.</para>
+        </listitem>
+        <listitem>
+          <para>A new processor is likely to be not nearly as popular as the alternatives available
+            for XSLT (like Saxon or Xalan).</para>
+        </listitem>
+      </itemizedlist>
+      <para> However, it is the only attempt trying a complete, deterministic mapping from RDF to
+        the XPath data model, and has been influential on this work. </para>
+      <para> RxSLT emulates XSLT by replacing XPath expressions with RxPath expressions to select
+        nodes. </para>
+    </section>
+  </section>
+  <section xml:id="sec-concl-future-work">
+    <title>Conclusions and future work</title>
+    <para> After more than a decade, RDF is on its way to become a widespread technology. However,
+      the lack of a suitable mechanism for rendering it to humans makes it costly to integrate into
+      web-facing applications, and hardly appealing to the casual user. It is worth mentioning the
+      case of SGML, whose diffusion was hindered by the lack of a template language, a mistake that
+      its successor, XML, avoided thanks to the introduction of XSLT.</para>
+
+    <para>While XSLT cannot work directly on arbitrary RDF, and can only deal with RDF/XML at the
+      price of great complexity, we showed how <emphasis>just-in-time reflection</emphasis> can be
+      used to abstract away from the concrete syntax, and work directly on the data model.
+      Furthermore, changing the descendant algorithm to a graph-based search accounting for both
+      reentrancy and circularity completes the mapping to the tree based model used by XPath. </para>
+
+    <para>Now that a working implementation is available, several extensions are possible. First and
+      foremost, new normal forms can be implemented, in order to avoid trading off generality for
+      concision, as ENFR does. Also, it will be useful to add support for inference, which is
+      currently lacking. This does not seem excessively hard, as it will probably only require
+      adding the inferred triples to the Jena model. </para>
+
+    <para>Finally, one could improve on the Document node, so that it can act as the Saxon Source
+      for the transformation. This is a very interesting possibility, as extension functions would
+      then become unnecessary, making RDF stylesheets exactly identical to the ones used on XML.
+      Achieving this goal, however, would require substantially more implementation effort than the
+      approach reported here.</para>
+  </section>
+
+  <bibliography>
+    <title>References</title>
+    <biblioentry role="incollection" xml:id="akhtar2008xsparql">
+      <abbrev>AKKP08</abbrev>
+      <biblioset role="chapter">
+        <authorgroup>
+          <author>
+            <personname>
+              <firstname>Waseem</firstname>
+              <surname>Akhtar</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Jacek</firstname>
+              <surname>Kopecky</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Thomas</firstname>
+              <surname>Krennwallner</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Axel</firstname>
+              <surname>Polleres</surname>
+            </personname>
+          </author>
+        </authorgroup>
+        <title>XSPARQL: Traveling between the XML and RDF Worlds - and Avoiding the XSLT Pilgrimage</title>
+      </biblioset>
+      <biblioset role="collection">
+        <title>The Semantic Web: Research and Applications</title>
+        <publisher>
+          <publishername>Springer</publishername>
+        </publisher>
+        <pubdate>2008</pubdate>
+      </biblioset>
+      <biblioid class="doi">10.1007/978-3-540-68234-9_33</biblioid>
+    </biblioentry>
+
+    <biblioentry role="techreport" xml:id="berglund2010xpath">
+      <abbrev>BBC+10</abbrev>
+      <authorgroup>
+
+        <author>
+          <personname>
+            <firstname>Anders</firstname>
+            <surname>Berglund</surname>
+          </personname>
+        </author>
+
+        <author>
+          <personname>
+            <firstname>Scott</firstname>
+            <surname>Boag</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Don</firstname>
+            <surname>Chamberlin</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Mary</firstname>
+            <surname>Fernandez</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Michael</firstname>
+            <surname>Kay</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Jonathan</firstname>
+            <surname>Robie</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Jerome</firstname>
+            <surname>Simeon</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <title>XML path language (XPath) 2.0 (second edition)</title>
+      <bibliomisc role="type">W3C recommendation</bibliomisc>
+      <orgname>W3C</orgname>
+      <pubdate>December 2010</pubdate>
+      <biblioid class="uri">http://www.w3.org/TR/xpath20/</biblioid>
+    </biblioentry>
+
+    <biblioentry role="techreport" xml:id="berglund2010xdm">
+      <abbrev>BFM+10</abbrev>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Anders</firstname>
+            <surname>Berglund</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Mary</firstname>
+            <surname>Fernandez</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Ashok</firstname>
+            <surname>Malhotra</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Jonathan</firstname>
+            <surname>Marsh</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Marton</firstname>
+            <surname>Nagy</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Norman</firstname>
+            <surname>Walsh</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <title>XQuery 1.0 and XPath 2.0 data model (XDM) (second edition)</title>
+      <bibliomisc role="type">W3C recommendation</bibliomisc>
+      <orgname>W3C</orgname>
+      <pubdate>December 2010</pubdate>
+      <biblioid class="uri">http://www.w3.org/TR/xpath-datamodel/</biblioid>
+    </biblioentry>
+
+    <biblioentry role="article" xml:id="brickley2012foaf">
+      <abbrev>BM12</abbrev>
+      <biblioset role="article">
+        <authorgroup>
+          <author>
+            <personname>
+              <firstname>Dan</firstname>
+              <surname>Brickley</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Libby</firstname>
+              <surname>Miller</surname>
+            </personname>
+          </author>
+        </authorgroup>
+        <title>Foaf vocabulary specification 0.98</title>
+      </biblioset>
+      <biblioset role="journal">
+        <title>Namespace Document</title>
+        <volumenum>9</volumenum>
+        <pubdate>2012</pubdate>
+      </biblioset>
+      <biblioid class="uri">http://xmlns.com/foaf/spec/</biblioid>
+    </biblioentry>
+
+    <biblioentry role="techreport" xml:id="bray2008xml">
+      <abbrev>BYM+08</abbrev>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Tim</firstname>
+            <surname>Bray</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Francois</firstname>
+            <surname>Yergeau</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Eve</firstname>
+            <surname>Maler</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Jean</firstname>
+            <surname>Paoli</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Michael</firstname>
+            <surname>Sperberg-McQueen</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <title>Extensible markup language (XML) 1.0 (fifth edition)</title>
+      <bibliomisc role="type">W3C recommendation</bibliomisc>
+      <orgname>W3C</orgname>
+      <pubdate>November 2008</pubdate>
+      <biblioid class="uri">http://www.w3.org/TR/REC-xml/</biblioid>
+    </biblioentry>
+
+    <biblioentry role="techreport" xml:id="carothers2014turtle">
+      <abbrev>CP14</abbrev>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Gavin</firstname>
+            <surname>Carothers</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Eric</firstname>
+            <surname>Prud'hommeaux</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <title>RDF 1.1 turtle</title>
+      <bibliomisc role="type">W3C recommendation</bibliomisc>
+      <orgname>W3C</orgname>
+      <pubdate>February 2014</pubdate>
+      <biblioid class="uri">http://www.w3.org/TR/turtle/</biblioid>
+    </biblioentry>
+
+    <biblioentry role="inproceedings" xml:id="carroll2004rdf">
+      <abbrev>CS04</abbrev>
+      <biblioset role="article">
+        <authorgroup>
+          <author>
+            <personname>
+              <firstname>Jeremy J</firstname>
+              <surname>Carroll</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Patrick</firstname>
+              <surname>Stickler</surname>
+            </personname>
+          </author>
+        </authorgroup>
+        <title>RDF triples in XML</title>
+        <pagenums>412-413</pagenums>
+      </biblioset>
+      <biblioset role="proceedings">
+        <confgroup>
+          <conftitle>Proceedings of the 13th international World Wide Web conference on Alternate
+            track papers &amp; posters</conftitle>
+          <confsponsor>ACM</confsponsor>
+        </confgroup>
+        <pubdate>2004</pubdate>
+      </biblioset>
+      <biblioid class="doi">10.1145/1010432.1010566</biblioid>
+    </biblioentry>
+
+    <biblioentry role="techreport" xml:id="cyganiak2013rdf">
+      <abbrev>CWL14</abbrev>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Richard</firstname>
+            <surname>Cyganiak</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>David</firstname>
+            <surname>Wood</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Markus</firstname>
+            <surname>Lanthaler</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <title>RDF 1.1 concepts and abstract syntax</title>
+      <bibliomisc role="type">W3C recommendation</bibliomisc>
+      <orgname>W3C</orgname>
+      <pubdate>February 2014</pubdate>
+      <biblioid role="uri">http://www.w3.org/TR/rdf11-concepts/</biblioid>
+    </biblioentry>
+
+    <biblioentry role="techreport" xml:id="farrell2007semantic">
+      <abbrev>FL07</abbrev>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Joel</firstname>
+            <surname>Farrell</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Holger</firstname>
+            <surname>Lausen</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <title>Semantic annotations for WSDL and XML schema</title>
+      <bibliomisc role="type">W3C recommendation</bibliomisc>
+      <orgname>W3C</orgname>
+      <pubdate>August 2007</pubdate>
+      <biblioid role="uri">http://www.w3.org/TR/sawsdl/</biblioid>
+    </biblioentry>
+
+    <biblioentry role="techreport" xml:id="gandon2014rdfxml">
+      <abbrev>GS14</abbrev>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Fabien</firstname>
+            <surname>Gandon</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Guus</firstname>
+            <surname>Schreiber</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <title>RDF 1.1 XML syntax</title>
+      <bibliomisc role="type">W3C recommendation</bibliomisc>
+      <orgname>W3C</orgname>
+      <pubdate>February 2014</pubdate>
+      <biblioid class="uri">http://www.w3.org/TR/rdf-syntax-grammar/</biblioid>
+    </biblioentry>
+
+    <biblioentry role="article" xml:id="heath2011linked">
+      <abbrev>HB11</abbrev>
+      <biblioset role="article">
+        <authorgroup>
+          <author>
+            <personname>
+              <firstname>Tom</firstname>
+              <surname>Heath</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Christian</firstname>
+              <surname>Bizer</surname>
+            </personname>
+          </author>
+        </authorgroup>
+        <title>Linked data: Evolving the web into a global data space</title>
+        <pagenums>1--136</pagenums>
+      </biblioset>
+      <biblioset role="journal">
+        <title>Synthesis lectures on the semantic web: theory and technology</title>
+        <volumenum>1</volumenum>
+        <issuenum>1</issuenum>
+        <pubdate>2011</pubdate>
+      </biblioset>
+      <biblioid class="doi">10.2200/s00334ed1v01y201102wbe001</biblioid>
+    </biblioentry>
+
+    <biblioentry role="techreport" xml:id="harris2013sparql">
+      <abbrev>HS13</abbrev>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Steven</firstname>
+            <surname>Harris</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Andy</firstname>
+            <surname>Seaborne</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <title>SPARQL 1.1 query language</title>
+      <bibliomisc role="type">W3C recommendation</bibliomisc>
+      <orgname>W3C</orgname>
+      <pubdate>March 2013</pubdate>
+      <biblioid class="uri">http://www.w3.org/TR/sparql11-query/</biblioid>
+    </biblioentry>
+
+    <biblioentry role="techreport" xml:id="kay2009xsl">
+      <abbrev>Kay09</abbrev>
+      <author>
+        <personname>
+          <firstname>Michael</firstname>
+          <surname>Kay</surname>
+        </personname>
+      </author>
+      <title>XSL transformations (XSLT) version 2.0 (second edition)</title>
+      <bibliomisc role="type">W3C recommendation</bibliomisc>
+      <orgname>W3C</orgname>
+      <pubdate>April 2009</pubdate>
+      <biblioid class="uri">http://www.w3.org/TR/xslt20/</biblioid>
+    </biblioentry>
+
+    <biblioentry role="techreport" xml:id="kay2013xsl">
+      <abbrev>Kay13</abbrev>
+      <author>
+        <personname>
+          <firstname>Michael</firstname>
+          <surname>Kay</surname>
+        </personname>
+      </author>
+      <title>XSL transformations (XSLT) version 3.0</title>
+      <bibliomisc role="type">Last call WD</bibliomisc>
+      <orgname>W3C</orgname>
+      <pubdate>December 2013</pubdate>
+      <biblioid class="uri">http://www.w3.org/TR/2013/WD-xslt-30-20131212/</biblioid>
+    </biblioentry>
+
+    <biblioentry role="article" xml:id="kopecky2007dx">
+      <abbrev>Kop07</abbrev>
+      <biblioset role="article">
+        <author>
+          <personname>
+            <firstname>Jacek</firstname>
+            <surname>Kopecky</surname>
+          </personname>
+        </author>
+        <title>Dx. yvzz rdfxslt: Xslt-based data grounding for rdf wsmo working draft 12 april
+          2007</title>
+      </biblioset>
+      <biblioset role="journal">
+        <title>WSMO Working Draft, WSMO</title>
+        <pubdate>2007</pubdate>
+      </biblioset>
+      <biblioid class="uri">http://www.wsmo.org/TR/d24/d24.2/v0.1/20070412/rdfxslt.html</biblioid>
+    </biblioentry>
+
+    <biblioentry role="article" xml:id="kopecky2007sawsdl">
+      <abbrev>KVBF07</abbrev>
+      <biblioset role="article">
+        <authorgroup>
+          <author>
+            <personname>
+              <firstname>Jacek</firstname>
+              <surname>Kopecky</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Tomas</firstname>
+              <surname>Vitvar</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Carine</firstname>
+              <surname>Bournez</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Joel</firstname>
+              <surname>Farrell</surname>
+            </personname>
+          </author>
+        </authorgroup>
+        <title>Sawsdl: Semantic annotations for wsdl and xml schema</title>
+        <pagenums>60--67</pagenums>
+      </biblioset>
+      <biblioset role="journal">
+        <title>Internet Computing, IEEE</title>
+        <volumenum>11</volumenum>
+        <issuenum>6</issuenum>
+        <pubdate>2007</pubdate>
+      </biblioset>
+      <biblioid class="doi">10.1109/mic.2007.134</biblioid>
+    </biblioentry>
+
+    <biblioentry role="inproceedings" xml:id="libkin2013trial">
+      <abbrev>LRV13</abbrev>
+      <biblioset role="article">
+        <authorgroup>
+          <author>
+            <personname>
+              <firstname>Leonid</firstname>
+              <surname>Libkin</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Juan</firstname>
+              <surname>Reutter</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Domagoj</firstname>
+              <surname>Vrgoc</surname>
+            </personname>
+          </author>
+        </authorgroup>
+        <title>Trial for rdf: adapting graph query languages for rdf data</title>
+        <pagenums>201--212</pagenums>
+      </biblioset>
+      <biblioset role="proceedings">
+        <confgroup>
+          <conftitle>Proceedings of the 32nd symposium on Principles of database systems</conftitle>
+          <confsponsor>ACM</confsponsor>
+        </confgroup>
+        <pubdate>2013</pubdate>
+      </biblioset>
+      <biblioid class="doi">10.1145/2463664.2465226</biblioid>
+    </biblioentry>
+
+    <biblioentry role="article" xml:id="mcdermott2012treehugger">
+      <abbrev>McD12</abbrev>
+      <biblioset role="article">
+        <author>
+          <personname>
+            <firstname>Mat</firstname>
+            <surname>McDermott</surname>
+          </personname>
+        </author>
+        <title>Treehugger</title>
+      </biblioset>
+      <biblioset role="journal">
+        <title>TreeHugger</title>
+        <pubdate>2012</pubdate>
+      </biblioset>
+    </biblioentry>
+
+    <biblioentry role="techreport" xml:id="manola2004rdf">
+      <abbrev>MM04</abbrev>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Frank</firstname>
+            <surname>Manola</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Eric</firstname>
+            <surname>Miller</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <title>RDF primer</title>
+      <bibliomisc role="type">W3C recommendation</bibliomisc>
+      <orgname>W3C</orgname>
+      <pubdate>February 2004</pubdate>
+      <biblioid class="uri">http://www.w3.org/TR/rdf-primer/</biblioid>
+    </biblioentry>
+
+    <biblioentry role="article" xml:id="robie2001syntactic">
+      <abbrev>RGN+01</abbrev>
+      <biblioset role="article">
+        <authorgroup>
+          <author>
+            <personname>
+              <firstname>Jonathan</firstname>
+              <surname>Robie</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Lars Marius</firstname>
+              <surname>Garshol</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Steve</firstname>
+              <surname>Newcomb</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>M</firstname>
+              <surname>Fuchs</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>L</firstname>
+              <surname>Miller</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>D</firstname>
+              <surname>Brickley</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>V</firstname>
+              <surname>Christophides</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>G</firstname>
+              <surname>Karvounarakis</surname>
+            </personname>
+          </author>
+        </authorgroup>
+        <title>The syntactic web: Syntax and semantics on the web</title>
+        <pagenums>411--440</pagenums>
+      </biblioset>
+      <biblioset role="journal">
+        <title>Markup Languages: Theory and Practice</title>
+        <volumenum>3</volumenum>
+        <issuenum>4</issuenum>
+        <pubdate>2001</pubdate>
+      </biblioset>
+      <biblioid class="doi">10.1162/109966202760152176</biblioid>
+    </biblioentry>
+
+    <biblioentry role="inproceedings" xml:id="souzis2006rxpath">
+      <abbrev>Sou06</abbrev>
+      <biblioset role="article">
+        <author>
+          <personname>
+            <firstname>Adam</firstname>
+            <surname>Souzis</surname>
+          </personname>
+        </author>
+        <title>Rxpath: a mapping of rdf to the xpath data model</title>
+      </biblioset>
+      <biblioset role="proceedings">
+        <confgroup>
+          <conftitle>Extreme Markup Languages</conftitle>
+        </confgroup>
+        <pubdate>2006</pubdate>
+      </biblioset>
+      <biblioid class="uri">http://conferences.idealliance.org/extreme/html/2006/Souzis01/EML2006Souzis01.html</biblioid>
+    </biblioentry>
+
+    <biblioentry role="techreport" xml:id="schreiber2014rdf">
+      <abbrev>SR14</abbrev>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Guus</firstname>
+            <surname>Schreiber</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Yves</firstname>
+            <surname>Raimond</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <title>RDF 1.1 primer</title>
+      <bibliomisc role="type">W3C note</bibliomisc>
+      <orgname>W3C</orgname>
+      <pubdate>June 2014</pubdate>
+      <biblioid class="uri">http://www.w3.org/TR/rdf11-primer</biblioid>
+    </biblioentry>
+
+    <biblioentry role="inproceedings" xml:id="thompson2001normal">
+      <abbrev>Tho01</abbrev>
+      <biblioset role="article">
+        <author>
+          <personname>
+            <firstname>H</firstname>
+            <surname>Thompson</surname>
+          </personname>
+        </author>
+        <title>Normal form conventions for xml representations of structured data</title>
+      </biblioset>
+      <biblioset role="proceedings">
+        <confgroup>
+          <conftitle>Proceedings of XML 2001</conftitle>
+          <confsponsor>GCA</confsponsor>
+        </confgroup>
+        <pubdate>2001</pubdate>
+      </biblioset>
+      <biblioid class="uri">http://www.ltg.ed.ac.uk/~ht/normalForms.html</biblioid>
+    </biblioentry>
+
+    <biblioentry role="inproceedings" xml:id="thompson2003uniform">
+      <abbrev>TKC03</abbrev>
+      <biblioset role="article">
+        <authorgroup>
+          <author>
+            <personname>
+              <firstname>Henry S</firstname>
+              <surname>Thompson</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>K Ari</firstname>
+              <surname>Krupnikov</surname>
+            </personname>
+          </author>
+          <author>
+            <personname>
+              <firstname>Jo</firstname>
+              <surname>Calder</surname>
+            </personname>
+          </author>
+        </authorgroup>
+        <title>Uniform access to infosets via reflection.</title>
+      </biblioset>
+      <biblioset role="proceedings">
+        <confgroup>
+          <conftitle>Proceedings of Extreme Markup Languages 2003</conftitle>
+          <confsponsor>Extreme Markup Languages</confsponsor>
+        </confgroup>
+        <pubdate>2003</pubdate>
+      </biblioset>
+      <biblioid class="uri">http://conferences.idealliance.org/extreme/html/2003/Thompson01/EML2003Thompson01.html</biblioid>
+    </biblioentry>
+
+    <biblioentry role="inproceedings" xml:id="walsh2003rdf">
+      <abbrev>Wal03</abbrev>
+      <biblioset role="article">
+        <author>
+          <personname>
+            <firstname>Norman</firstname>
+            <surname>Walsh</surname>
+          </personname>
+        </author>
+        <title>Rdf twig: accessing rdf graphs in xslt.</title>
+      </biblioset>
+      <biblioset role="proceedings">
+        <confgroup>
+          <conftitle>Extreme Markup Languages</conftitle>
+          <confsponsor>Citeseer</confsponsor>
+        </confgroup>
+        <pubdate>2003</pubdate>
+      </biblioset>
+      <biblioid class="uri">http://nwalsh.com/docs/articles/extreme2003/</biblioid>
+    </biblioentry>
+
+  </bibliography>
+
+</article>

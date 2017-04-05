@@ -1,0 +1,840 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-25" version="5.0" xml:lang="en">
+    <info xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Lazy processing of XML in XSLT for big data</title>
+        <author>
+            <personname>Abel Braaksma</personname>
+            <email>abel@abrasoft.net</email>
+            <uri>http://abrasoft.net</uri>
+            <personblurb>
+                <para>Abel Braaksma is owner of Abrasoft (http://abrasoft.net) and creator or the
+                    new and upcoming streaming XSLT 3.0 processor Exselt. He has more than 15 years
+                    experience with XML and related technologies and is currently an Invited Expert
+                    of the XSLT and XPath working groups at W3C. He can be reached about anything
+                    XML or F# related at info@abrasoft.net or for the Exselt processor at
+                    info@exselt.net. For his current thoughts on technologies, you can visit <link xl:href="http://undermyhat.org">his blog at Under My Hat</link>.</para>
+            </personblurb>
+            <affiliation>
+                <jobtitle>consultant</jobtitle>
+                <orgname>Abrasoft</orgname>
+            </affiliation>
+        </author>
+        <keywordset>
+            <keyword>XML</keyword>
+            <keyword>XSLT</keyword>
+            <keyword>XPath</keyword>
+            <keyword>big-data</keyword>
+            <keyword>lazy-processing</keyword>
+            <keyword>lazy-loading</keyword>
+        </keywordset>
+        <abstract>
+            <para>In recent years we've come to see more and more reports on processing big XML data
+                with XSLT, mainly targeted at streaming XML.This has several disadvantages, mainly
+                because streaming is often implemented as forward-only processing, which limits the
+                expressive power of XSLT and XPath.</para>
+            <para>In this paper I present an alternative which processes XML in a lazy manner by not
+                fully loading the whole XML document in memory and by timely dismissing XML
+                fragments.</para>
+            <para>We will find that this solves many document-centric XML use-cases for large
+                datasets, while leaving the full power of XSLT at your fingertips. In addition, the
+                small memory footprint of this method makes it ideal for scenarios such as mobile
+                devices where memory is limited.</para>
+        </abstract>
+    </info>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Disclaimer</title>
+        <para>This paper is based on the publicly available versions of XPath 3.0, XSLT 3.0 and XDM
+            3.0 as of January 10, 2013
+            <xref linkend="paper-25_XSLWD"/><xref linkend="paper-25_XPCR"/><xref linkend="paper-25_XDM3"/>. Since
+            neither of these specifications is final, it is possible that references and details
+            change before the final specification has received Recommendation status. Some items
+            discussed here have not (yet) made it into the public Working Draft.</para>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Introduction</title>
+        <para>Since the dawn of XML there have been many attempts to load XML efficiently. In this
+            paper we are only interested in those methods that enable XML processing of large
+            datasets for scenarios where available main memory is not enough to contain the XML in
+            memory at once. These methods typically fall in one of the following categories:</para>
+        <itemizedlist>
+            <listitem><para>Streaming;</para></listitem>
+            <listitem><para>Lazy loading;</para></listitem>
+            <listitem><para>Succinct data structures;</para></listitem>
+            <listitem><para>Compression.</para></listitem>
+        </itemizedlist>
+        <para>Streaming is arguably the best known method for processing large XML documents. Its
+            main features are high speed of parsing and constant low memory footprint. With most
+            streaming approaches, each node is visited once in a depth-first left-to-right
+            traversal. This means that its biggest limitation that it cannot accomodate for
+            free-ranging traversal through the tree, for instance, a normal DOM tree would be out of
+            the question. Several types of streaming XML exist, from SAX in Java
+                <xref linkend="paper-25_SAX"/> and XmlReader in .NET <xref linkend="paper-25_XRDR"/> to the
+            highly versatile but complex STX engine <xref linkend="paper-25_STX"/>. In the XSLT domain,
+            streaming is available as an extension to Saxon <xref linkend="paper-25_SSTRM"/> and since
+            XSLT 3.0 it is also available for compliant processors that implement this optional
+            feature, like Saxon <xref linkend="paper-25_Saxon"/> and the upcoming Exselt
+                <xref linkend="paper-25_Exselt"/> processors.</para>
+        <para>Lazy loading is a method where nodes that are not required are not loaded from the
+            storage medium, henceforth resulting in a smaller memory footprint and, depending on the
+            scenario, faster processing and loading times. Typically, this method works best from an
+            XML database, but can also applied from disk. One such example is Oracle's XDB
+                <xref linkend="paper-25_XDB"/>, but they call it Lazy Manifestation. I'm not aware of XSLT
+            processors supporting this directly, but we will see that by combining streaming and
+            classical approaches, it is possible to mimic this behavior and to get similar
+            benefits.</para>
+        <para>Succinct data structures <xref linkend="paper-25_Jacobsen"/> are a way of minimizing storage
+            required by the data structures that store references to the objects in a DOM tree. Some
+            of these methods are briefly described below. This is a way of compressing the data
+            structure without having to decompress them when traversing the data tree. This method
+            was presented at XML Prague 2013 on a poster by <xref linkend="paper-25_Joannou"/> and the VTD
+            parser <xref linkend="paper-25_VTD"/> is a practical available example.</para>
+        <para>Compression can be applied in many forms. A compressed tree requires uncompressing
+            prior to processing it, which makes it less suitable for XML processing with XSLT.
+            However, partial compression, or on-the-fly compression, for instance of text nodes
+            only, may have a significant benefit to make the overall memory footprint smaller. </para>
+        <para>Combinations of these methods exist, again the poster by Joannou showed that
+            on-the-fly compression of text-nodes, possibly combined with lazy-loading, can yield a
+            memory footprint for the whole XDM or DOM to be less than 100%, in certain cases even as
+            low as 50% of the on-disk size, without compromising on functionality.</para>
+        <para>This paper focuses on lazy loading of XML as an approach to optimizing XML processing
+            with XSLT. We will find that current standards of XSLT, namely XSLT 1.0 and XSLT 2.0, do
+            not provide any means for lazy loading, but with the upcoming feature of streaming in
+            XSLT 3.0, combined with the traditional XDM approach of processing, we have powerful
+            tools at hand to simulate lazy loading without the need for a specific XML parser that
+            does so. However, we will also see that it depends on implementations to make use of the
+            available information in the stylesheet.</para>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>The challenge</title>
+        <para>With streaming, it is possible to process virtually any size of input XML with XSLT.
+            However, streaming XSLT is severely limited. While the XSL Working Group has gone to
+            great lengths to make streaming as useful as possible, it is by its very nature
+            forward-only, which makes it very hard to process a large document where the requirement
+            is to use free-ranging expressions. In other words, when you need to look back and
+            forward through the document from any given point in the process. References and index
+            building are examples of these requirements.</para>
+        <para>The approach presented here will make it possible to process XML documents that do not
+            fit in memory at once, but would fit in memory if only the nodes that are needed for the
+            processing were loaded. This approach I call lazy processing of XML. </para>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>The method</title>
+        <para>With classical XSLT 1.0 and 2.0, the processor will build an XDM tree of the whole XML
+            source document. With streaming, the XML source document is not maintained in memory but
+            instead is loaded on the fly with only the current node, without its siblings or
+            children, is typically kept in memory. Streaming helps primarily in those cases where
+            the XML document does not fit in memory as a whole, or when you are reading from a
+            source that cannot give the whole document at once, for instance when processing a
+            Twitter or news feed.</para>
+        <para>We consider streaming a whole document without the need of processing a given node,
+            skipping that node. Skipping a node gives the XSLT processor a hint that it does not
+            need to load that node in memory, simply because it is not needed. This is only
+            partially true, of course, as the position of subsequent nodes relies on the skipped
+            node, and thus certain properties must always be loaded, but the node itself and its
+            contents and children, are not required. In its simplest form, the following example can
+            skip the whole document except for the root element:</para>
+        <programlisting language="xml">&lt;xsl:mode streamable="yes" /&gt;
+&lt;xsl:template match="/root"&gt;
+  &lt;xsl:value-of select="@creation-date" /&gt;
+&lt;/xsl:template&gt;</programlisting>
+        <para>This example only reads out an attribute of the root node and doesn't do any further
+            processing. We will use this example in the timings to find out the difference between a
+            processor skipping nodes and a processor actually processing individual nodes.</para>
+        <para>A counter-example that requires all nodes to be processed is the following:</para>
+        <programlisting language="xml">&lt;xsl:strip-space elements="*" /&gt;
+&lt;xsl:mode streamable="yes" /&gt;</programlisting>
+        <para>This example merely processes all nodes through the default template rules and will
+            output it as text, skipping white-space-only text nodes.</para>
+        <para>For measuring the difference in processing speed between those two methods, skipping
+            all, and processing all, I added a small template to remove all text nodes from the
+            output stream, to make sure writing the output stream does not tamper with the timings.
+            This found a remarkable difference with streaming processors, where the first example
+            was processed in 4.5 seconds and the second in 6.1 seconds. Similar differences in
+            timings were seen with different sizes of the input. </para>
+        <para>This observation is the basis of selectively processing nodes, which we'll examine in
+            the next sections.</para>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Filtering nodes</title>
+        <para>The essence of lazy processing XML is to not load any nodes that are not used. In its
+            most simple form, consider that you want to filter out certain elements from an XML
+            document. If you are not interested in these elements, you do not need to load
+            them.</para>
+        <para>Suppose you are only interested in the chapters of a book, but not in the contents, you could've previously written a stylesheet as follows:</para>
+        <programlisting language="xml">&lt;xsl:template match="chapter"&gt;
+  &lt;chapter&gt;
+    &lt;xsl:value-of select="@title" /&gt;
+  &lt;/chapter&gt;
+&lt;/xsl:template&gt;
+&lt;xsl:template match="paragraph" /&gt;</programlisting>
+        <para>Assuming the structure of your input is as follows:</para>
+        <programlisting language="xml">&lt;chapter title="some title" /&gt;
+&lt;paragraph&gt; some paragraph&lt;/paragraph&gt;
+&lt;chapter title="some title" /&gt;
+&lt;paragraph&gt; some paragraph&lt;/paragraph&gt;
+&lt;paragraph&gt; some paragraph&lt;/paragraph&gt;
+&lt;chapter title="some title" /&gt;
+&lt;paragraph&gt; some paragraph&lt;/paragraph&gt;
+</programlisting>
+        <para>This will effectively only output the titles. But what you are essentially doing here is telling the processor to process the paragraph nodes, but then to do nothing. This has become easier in XSLT 3.0, where we can explicitly tell the processor to ignore unmatched nodes when they are encountered:</para>
+        <programlisting language="xml">&lt;xsl:mode on-no-match="deep-skip" /&gt;</programlisting>
+        <para>This declaration means that all nodes that are not specifically matched will be
+            skipped, including all its children. This is mainly a simplified way of writing what was
+            already possible, but it also tells the processor it can quickly skip over unmatched
+            nodes, and ignore all its children. </para>
+        <para>However, in the classical approach, this helps us little with lazy loading, because as
+            long as we still have to load the whole document in the XDM, the skipped nodes are still
+            parsed. For large documents, this can be quite a performance hit. In cases where the
+            document still fitted into memory, there was no noticable performance gain of using
+            deep-skip.</para>
+        <para>In trivial scenario's, a processor could ignore those nodes while loading the XML into
+            the XDM, but if a processor were indeed to do so, it will have to take extra care of the
+            positions of nodes, because positions don't change, even when a node is skipped. </para>
+        <para>An alternative approach, where the programmer could explicitly tell the processor what nodes to skip, was aptly called xsl:filter, i.e:</para>
+        <programlisting language="xml">&lt;xsl:filter operation="ignore" select="paragraph"/&gt;</programlisting>
+        <para>However, this approach violates the node identities and the node traversal. Parsing the same document with or without a filter, would yield different node identies, because of the missing nodes. It could've been a shortcut for a micro-pipeline, but that technique is already well-known and programmers have more expressive power capturing the result of a transformation in a variable and re-processing it.</para>
+        <para>Some processors, namely Saxon, have an extension function that allows a certain kind
+            of filtering. In the case of Saxon it is called Burst Mode Streaming
+                <xref linkend="paper-25_Burst"/> and it allows you to create a single select statement
+            that only selects those nodes from an input stream that you require. However, the
+            returned nodes are parentless nodes and it is not possible to traverse between the
+            disconnected nodes.</para>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Lazy loading of XML</title>
+        <para>The limitations of skipping nodes as a means for programmer-induced lazy loading do not fit its purpose. The idea of lazy loading is not to skip nodes, but to be able to process a node when we need it, and to only load it when we need it. </para>
+        <para>However, the nature of XML is that it does not maintain any information on node length, so unless the source of the XML is a system that does have this information, like a database, we will still require, whatever approach we'll take, to load each node at least once, if not only just to know where the next node will start.</para>
+        <para>There are few systems around that apply a form of lazy loading in the traditional
+            sense. Taking the previous paragraph, it may come as no surprise that all of these
+            systems are in fact databases. In a way, they cheat, because any XML database must have
+            at least read the XML already. What they do is, when you create a query of the data,
+            that they only provide you with the actual data of that query when you actually process
+            that particular node, of element, which typically maps to a certain row in a table.
+            Oracle takes this approach in xDB for instance.</para>
+        <para>Given the above, what can we consider lazy loading of XML if we apply the term to other systems than databases? When XML is loaded into a DOM or an XDM, a lot of time is spent on constructing the data model. Skipping constructing the data model, or not loading the node information in memory, is lazy loading XML. </para>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Streaming processing of XML using XSLT</title>
+        <para>At the core of the new features of XSLT 3.0 lies one simple declaration, xsl:mode, which sets the features a particular mode must operate under. The feature of interest here is turning streaming off or on for any particular mode:</para>
+        <programlisting language="xml">
+&lt;!-- turn streaming on for the default,
+     unnamed mode --&gt;
+&lt;xsl:mode streamable="yes" /&gt;
+
+&lt;!-- turn streaming on for mode with
+     the name "streaming" --&gt;
+&lt;xsl:mode name="streaming" streamable="yes" /&gt;</programlisting>
+
+        <para>When streaming is turned on, all template rules for this mode must be guaranteed streamable. Whether a template rule is guaranteed streamable of not is beyond the scope of this paper, but bottom line is that each template rule must have at most one downward expression and no upward epxressions or otherwise free-ranging expressions. </para>
+        <para>According to the XSLT 3.0 specification, streaming means the following
+                <xref linkend="paper-25_Streaming"/>:</para>
+        <blockquote><para>The term streaming refers to a manner of processing in which documents (such as source and result documents) are not represented by a complete tree of nodes occupying memory proportional to document size, but instead are processed "on the fly" as a sequence of events, similar in concept to the stream of events notified by an XML parser to represent markup in lexical XML.</para></blockquote>
+        <para>In other words, the memory will remain constant.</para>
+
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Using streaming to achieve lazy loading</title>
+        <para>In the previous filtering example, we were trying to simply output all the chapter titles. Let's rewrite that example using streaming:</para>
+        <programlisting language="xml">&lt;xsl:mode on-no-match="deep-skip"
+          streamable="yes" /&gt;
+
+&lt;xsl:template match="chapter"&gt;
+  &lt;chapter&gt;
+    &lt;xsl:value-of select="@title" /&gt;
+  &lt;/chapter&gt;
+&lt;/xsl:template&gt;</programlisting>
+        <para>Now that was easy, wasn't it? We simply mark the default unnamed mode as streamable
+            and leave the rest as it was. This works, because the only template rule in this
+            stylesheet has one downward expression only (actually, the attribute axis is not
+            considered a downward expression, it is possible to access multiple attributes in a
+            single sequence constructor).</para>
+        <para>What has changed is the mode of operation. The processor will not load the document into an XDM in the tradition way. Instead, it will now load it streamed, that is, it will not keep a memory of the tree of nodes that are being processed.</para>
+        <para>In this example, we have applied lazy loading to the whole document. One could argue, that the only node that was necessarily loaded completely, is the title attribute node, because it was needed to create the text node with xsl:value-of. It was not needed to load the whole chapter element, nor was it needed to load the paragraph elements, let alone the children of these elements. Of course, the XML parser is required to process these elements and all their attributes to at least the minimal extend required to determine the well-formedness and, in the case of schema-awareness, the validity. But it was not required, in fact it wasn't even allowed, to create an XDM tree of any of these nodes.</para>
+        <para>Let us see how this performs in our original extreme example:</para>
+        <programlisting language="xml">
+&lt;xsl:mode streamable="yes"
+          on-no-match="deep-skip" /&gt;
+
+&lt;xsl:template match="/root"&gt;
+  &lt;xsl:value-of select="@creation-date" /&gt;
+  &lt;!-- continue processing to see
+       on-no-match in practice --&gt;
+  &lt;xsl:xsl-apply-templates /&gt;
+&lt;/xsl:template&gt;
+</programlisting>
+        <para>The difference with the original example is that we now force the processor to process
+            all nodes. However, we also tell the processor to deep-skip any nodes that are not
+            matched. The result of timing this is similar to the original example in The Method
+            section above, it is only marginally slower. This shows us that this approach gives us a
+            strong handle on how to lazily load elements only when we need them.</para>
+        <para>Now that we know how to not load the nodes, how would we go about loading the nodes once we actually need them? How can we break out the streaming mode and load one element, and all its children, or perhaps a more fine-grained selection, into memory?</para>
+        <para>XSLT 3.0 comes with several aides to achieve this. The main approaches are the following:</para>
+        <itemizedlist>
+            <listitem><para>fn:snapshot</para></listitem>
+            <listitem><para>fn:copy-of</para></listitem>
+            <listitem><para>micro-pipelining</para></listitem>
+        </itemizedlist>
+        <para>One might think that simply switching modes would be enough, but switching modes is not allowed. Once you are in a guaranteed streamable mode, you cannot simply break out by applying a non-streaming mode.</para>
+        <para/>
+        <section>
+            <title>fn:snapshot and fn:copy</title>
+            <para>You can take a snapshot of a node and its children at any time, which copies all the nodes and makes them available for normal processing. This is the easiest way of fully loading a particular node that you are interested in. In the following example, this is demonstrated by loading only the third employee and all its children:</para>
+            <programlisting language="xml">
+&lt;xsl:mode streamable="yes" /&gt;
+&lt;xsl:mode streamable="no" name="non-streaming" /&gt;
+&lt;xsl:template match="employees"&gt;
+  &lt;xsl:for-each select="employee"&gt;
+    &lt;xsl:if test="position() = 3"&gt;
+      &lt;xsl:apply-templates select="fn:snapshot(.)"
+                           mode="non-streaming" /&gt;
+    &lt;/xsl:if&gt;
+  &lt;/xsl:for-each&gt;
+&lt;/xsl:template&gt;
+&lt;xsl:template match="employee"
+              mode="non-streaming"&gt;
+  ....
+&lt;/xsl:template&gt;</programlisting>
+            <para>Note the switching of modes. In the current state of the standard, this is not
+                allowed by the streamability rules that are in the current internal draft of the
+                spec. The previous, and current public Working Draft does allow this type of
+                processing though. It is not sure whether this will become possible or not in the
+                final specification.</para>
+            <para>There's currently an easy way out of this. The trick is to change the context in
+                the for-each loop to be the context of the result of the snapshot. For instance, you
+                can rewrite the above example as follows:</para>
+            <programlisting language="xml">&lt;xsl:mode streamable="yes" /&gt;
+&lt;xsl:mode streamable="no" name="non-streaming" /&gt;
+&lt;xsl:template match="employees"&gt;
+  &lt;xsl:for-each
+       select="employee[position() = 3]/copy-of()"&gt;
+    &lt;xsl:apply-templates select="."
+                         mode="non-streaming" /&gt;
+  &lt;/xsl:for-each&gt;
+&lt;/xsl:template&gt;
+&lt;xsl:template match="employee"
+              mode="non-streaming"&gt;
+  ....
+&lt;/xsl:template&gt;</programlisting>
+            <para>Note that we moved the if-statement inside the XPath expression. If we did not do
+                so, the benefits of selectively copying only the needed elements would be
+                void.</para>
+        </section>
+
+        <section>
+            <title>Micro-pipelining</title>
+            <para>Micro-pipelines have been possible since XSLT 2.0. In its simplest form, they take a (modified) copy of data into a variable and process it again. In the case of streaming, the possibilities of micro-pipelining get a new dimension and make it possible to effectively create very fine-grained lazy loading XSLT transformations.</para>
+            <para>An example of micro-pipelining:</para>
+            <programlisting language="xml">
+&lt;xsl:variable name="filtered"&gt;
+  &lt;xsl:stream href="feed.xml"&gt;
+    &lt;xsl:for-each select="news/news-item[
+                            @date &gt; '2013-06-10']"&gt;
+      &lt;xsl:copy-of select="." /&gt;
+    &lt;/xsl:for-each&gt;
+  &lt;/xsl:stream&gt;
+&lt;/xsl:variable&gt;
+&lt;xsl:apply-templates select="$filtered/news-item" /&gt;
+</programlisting>
+            <para>This example lazily loads all news items, and then creates an XDM of only the items after June 10, 2013. </para>
+
+        </section>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>More advanced lazy loading</title>
+        <para>A prime example where lazy loading can be applied is when the requirements clearly
+            state that we do not need to look at all elements in the source document, and when the
+            selection of these skippable elements form a significant part of it. For instance,
+            consider that you are creating a document containing only the abstracts and titles of
+            all papers, and all papers are inside one document. If the XML is similar to DocBook,
+            you can make use of the deep-skip method examples like provided above.</para>
+        <para>If we expand the requirements a little further and only want to show the abstracts of
+            papers that have been written by a certain author, simply using deep-skip will not be
+            possible, because we cannot create a pattern that tests the contents of text nodes (this
+            is considered a free-ranging expression, because the whole text node must be loaded to
+            know whether it matches a certain string). In this scenario, the copy-of function comes
+            to our help, as it allows a free-ranging expression and the expression can be used by
+            the processor to return only a limited set of nodes. For instance:</para>
+        <programlisting language="xml">&lt;xsl:copy-of
+  select="article/info/copy-of()[
+            author/personname = 'John'
+          ]/(abstract | title)" /&gt;</programlisting>
+        <para>The predicate, as above, without the fn:copy-of function, would be consider
+            free-ranging because it requires processing the personname elements and its children. By
+            adding the fn:copy-of function, this works, as the function creates a copy of the
+            current node which can then be processed in the normal, non-streaming way.</para>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Always lazy loading XML with XSLT</title>
+        <para>It would be nice if we had a way to process any XSLT using streaming and lazy loading automatically. However, the complexity of the possible scenarios makes it impossible for an automated process to determine statically how the best lazy loading approach should work. Even more, this is the main reason why you cannot simply turn every stylesheet into a streaming stylesheet. </para>
+        <para>For instance, if your requirement is to visit the preceding-sibling axis often, or,
+            worse, you need to use the preceding axis in a predicate inside a pattern, it is
+            unlikely that streaming or lazy loading will help. Similarly, if you need to find a
+            string in any node, there's no way lazy loading will help, because you need to visit
+            every node anyway.</para>
+        <para>When dealing with large documents, one needs to limit oneself. Using the lazy loading technique, you can achieve the best of both worlds. Instead of using free-ranging expressions on the whole tree, you need to consider filtering the input tree to a smaller subset, or if that is not possible, use streaming and lazy loading to specifically load the parts only when you need them.</para>
+
+    </section>
+
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Limits of lazy loading XML</title>
+        <para>While there is no limit to the size of the input XML when using streaming, lazy loading has its limits. In fact, you have to be really careful. In particular, you need to consider the following rules:</para>
+        <itemizedlist>
+            <listitem><para>Do not use snapshots when your stream should run indefinitely, unless you've confirmed that
+                    your processor discards the used memory correctly;</para></listitem>
+            <listitem><para>The size of the snapshots multiplied by the maximum amount of taken snapshots should not exceed available memory;</para></listitem>
+            <listitem><para>Minimize the size of the snapshots by micro-pipelining them and removing all unnecesary data from the stream</para></listitem>
+            <listitem><para>Do not use snapshots in inner loops</para></listitem>
+        </itemizedlist>
+        <para>While the first rule is obvious (indefinitely running input stream will yield indefinite required size for snapshots), the second one can be hard to measure. Depending on the processor and the chosen XML parser, as a rule of thumb, take the size on disk and multiply that by 2.5 to 4.0. Multiply the result with the expected amount of snapshots to be taken and you should have a fair guess of the memory needed.</para>
+        <para>If your processor has an extension function to discard the memory used, or to flush the output stream to disk, your reach is virtually unlimited.</para>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Lazy processing performance</title>
+        <para>To determine the performance of lazy loading, I've created several scenario's with a
+            large input file, which I processed in one of four ways:<itemizedlist>
+                <listitem>
+                    <para>Deep: use deep-skip, only read an attribute of the root element of the
+                        source document, this is the minimum possible transformation.</para>
+                </listitem>
+                <listitem>
+                    <para>Deep02: deep-skip, processing 2% of the elements of the source document, a
+                        typical use-case where only a small part of the original document needs to
+                        be processed.</para>
+                </listitem>
+                <listitem>
+                    <para>Shallow02: shallow-skip, processing 2% of the elements of the source
+                        document, same as previous, but forces the processor to go over each node to
+                        find a match.</para>
+                </listitem>
+                <listitem>
+                    <para>Text: the same transform as above, but this time the non-matching nodes
+                        are matched and a one-character string is output to prevent the processor
+                        from optimizing the match away.</para>
+                </listitem>
+            </itemizedlist></para>
+        <para>All transformations are equal, except for the last one, where an addition
+            match="node()" is added. The other differ only in the setting of the on-no-match
+            attribute of the current mode. The first one however uses a deliberate non-selecting
+            apply-templates and only matches against the root node. This we use to have a baseline
+            to compare the measurements to: it is the simplest transformation possible, and it
+            measures how fast the processor dismisses the input document once it knows that the
+            select statement selects nothing.</para>
+        <para>As input for the transformation I used an XML corpus of all Shakespeare's plays. The
+            combined plays where copied in one XML file, which surmounted to about 10MB and then
+            copied again until the sizes 100MB, 500MB and 5GB were reached. This file is relatively
+            document-centric, which is a requirement for good tests, because using a vanilla XML
+            file gives the processor a lot of chances to read-ahead, which does not give very
+            meaningful results.</para>
+        <para>The processor used for all tests was Saxon 9.5.0.2 for Java and it was run on a 2x
+            3.3GHz Xeon 48GB Dell Precision Workstation with a Windows 7 64 bit operating system. To
+            eliminate timer errors, each test was run 5 times, the lowest and highest values were
+            removed and the other three arithmetically averaged. All results are shown in
+            seconds.</para>
+        <para>Let us look at some graphs. The first graph shows processing a 100MB and a 500MB input
+            file using traditional in-memory non-streaming processing. The deep02 and shallow02 bars
+            are noticeably of the same size. This means that the processor doesn't optimize the
+            scenario of deep-skip, or, perhaps more likely, because the document is already loaded
+            in memory anyway, there is no benefit for deep-skip versus shallow-skip. The test of the
+            5GB document is not included, because it didn't load in the available memory. The
+            largest measured memory size was for the shallow02 test, the processor took about
+            4.1GB.</para>
+        <mediaobject>
+            <imageobject>
+                <imagedata fileref="images/graph0.svg" width="24em"/>
+            </imageobject>
+        </mediaobject>
+        <para>This gives us a good starting point to compare the in-memory processing to the
+            streaming processing. I ran exactly the same tests, except that the modes were switched
+            to streaming. Three things became immediately apparent:<itemizedlist>
+                <listitem>
+                    <para>Processing with streaming takes longer, on average about 20-25%</para>
+                </listitem>
+                <listitem>
+                    <para>Memory remains constant on about 200MB (though still quite high, I didn't
+                        try to force the Java VM to force less available memory)</para>
+                </listitem>
+                <listitem>
+                    <para>On the longer runs, memory slowly dropped during the process to about
+                        140MB on the longest run. I have not been able to find a satisfying
+                        explanation for this behavior.</para>
+                </listitem>
+            </itemizedlist></para>
+        <para>That streaming takes longer may come as a surprise. However, streaming, and more
+            particularly streaming using the XSLT 3.0 standard, is fairly new. In fact, the previous
+            version of Saxon, 9.4 didn't yes support the streaming feature (it did support streaming
+            extensions though). Many features of streaming, in particular the ones related to
+            guaranteed streamability analysis, are still heavily under development. As Michael Kay
+            mentions himself in <xref linkend="paper-25_Kay"/>, features first, performance later. In
+            theory, streaming can be much faster than in-memory processing, especially when the
+            stylesheet is designed with streaming in mind.</para>
+        <para>The main reason for looking at the streaming timings, is to find the difference of
+            lazy processing or loading XML nodes. What happens when we skip nodes? What happens when
+            we only load a subset of the nodes? The deep02 and shallow02 only touch a subset of the
+            nodes and skip the rest:</para>
+        <mediaobject>
+            <imageobject>
+                <imagedata fileref="images/graph1.svg" width="24em"/>
+            </imageobject>
+        </mediaobject>
+        <para>The graph shows a very clear performance gain when deep-skipping nodes in a streaming
+            process. This stylesheet mimics the behavior that you find when you deliberately use
+            fn:copy-of or fn:snapshot, but I wasn't able to use these functions correctly, the
+            implementation still treats too many scenarios as not streamable. Hence I stuck to using
+            the more straightforward approach of skipping nodes. We can conclude three things here:<itemizedlist>
+                <listitem>
+                    <para>Processing all nodes versus processing one node takes double or more time
+                        (note that we only measure the "touching" of nodes by matching them, we
+                        don't actually do anything complex with the nodes, which would clearly make
+                        this distinction even bigger)</para>
+                </listitem>
+                <listitem>
+                    <para>There's an expected and noticeable performance difference between using
+                        deep-skip and shallow-skip. Even in a scenario where only 2% of the input
+                        document is actually matched, deep vs shallow skipping shows a big
+                        difference. It is more challenging to write a stylesheet for deep-skipping,
+                        but it is worth the effort when processing large documents.</para>
+                </listitem>
+                <listitem>
+                    <para>Lazy loading has a clear advantage over processing all nodes. Thinking
+                        carefully about the design of an XSLT stylesheet becomes more and more
+                        important, because a naive implementation may easily load too many nodes,
+                        which costs the processor too much time to process. This difference is much
+                        more apparent than in in-memory processing.</para>
+                </listitem>
+            </itemizedlist></para>
+        <para>Let us look at one more graph to see what happens when we try to load a really large
+            document of 5GB:</para>
+        <mediaobject>
+            <imageobject>
+                <imagedata fileref="images/graph2.svg" width="24em"/>
+            </imageobject>
+        </mediaobject>
+        <para>The document processed here was exactly 10x the size of the 500MB document. The
+            timings are almost exactly 10x as long as well. In streaming environments, this lineair
+            performance behavior is very expected, because of the way streaming works. With
+            in-memory processing, many performance comparisons that have been done over the years,
+            have shown a non-lineair performance graph <xref linkend="paper-25_Zavoral"/>.</para>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Further improvements using succinct data models</title>
+        <para>Beyond the XSLT 3.0 standard, more improvements are possible. These improvements must
+            be done on the XML data model. Several researches and implementation exist currently,
+            that apply the succinct data model principles to XML loading. </para>
+        <para>During the International Symposium on Information Processing 2009 in Huangshan, China,
+            Yunsong Zhang, Lei Zhao and Jiwen Yang presented a method for reusing the parsed XML
+            tree to optimize repetitive processing <xref linkend="paper-25_Zhang"/>. They called this
+            R-NEMXML and the essential idea they presented was to encode the node information in a
+            64 bit integer and store the actual data of the tree elsewhere. The integer contains
+            type information and an offset to the actual node in another storage medium. There paper
+            was a follow up on NEMXML, presented in June the same year, which showed a
+            non-extractive method of processing XML.</para>
+        <para>In XML Prague in February 2013, Stelios Joannou, Andreas Poyias and Rajeev Raman of
+            the University of Leicester presented a poster about their SiXML (Succinct Indexing XML)
+            parser <xref linkend="paper-25_Joannou"/>, which took the NEMXML idea one level further to
+            provide space-efficient data structures for in-memory parsing of large XML. They did so
+            by storing the data structures in a pointerless data structure as parenthesized strings,
+            known as succinct data structures <xref linkend="paper-25_SiXML"/>. SixDOM and SiXML was
+            pioneered in 2009 by O'Neil Delpratt in his thesis at the University of Leicester
+                <xref linkend="paper-25_Delpratt"/>. Earlier work similar to this, but using a different
+            approach can be seen in the VTD XML parser as mentioned in the introduction, which came
+            forth from the 2003 concept presented by XimpleWare. VTD stands for Virtual Token
+            Descriptor <xref linkend="paper-25_VTD"/> and stores the location of data of nodes using an
+            offset, as opposed to using objects to represent the data, which has a relative overhead
+            that bloats the DOM model.</para>
+        <para>For our processor <xref linkend="paper-25_Exselt"/> we are currently investigating the SiXML
+            model as an updateable model (it is currently read-only) and we try to expand that using
+            lazy loading of the data content of nodes, dependent on the structure of the XSLT, as
+            described in the previous sections in this paper.</para>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Conclusion</title>
+        <para>We have seen that XSLT 3.0 provides several ways to lazily load elements, or to at
+            least lazily process them. While certain environments provide lazy loading out of the
+            box, especially in certain database systems, when it comes down to processing input from
+            a memory stream, a local or a remote file, lazy loading was not yet a feature. With the
+            addition of streaming to XSLT 3.0 came a few other enhancements to the language that
+            facilitate handling large datasets, that make it possible without using extensions to
+            load a node, with all its children no demand or to skip nodes by using filtering based
+            on the available matching templates and the settings in the current mode.</para>
+        <para>By testing these assumptions using a real-world scenario, we've shown that lazy
+            loading in streaming processing has significant benefits. While the processors still
+            need to optimize this kind of processing, it is very encouraging that in a simple
+            comparison of different approaches, we see already gains of 50% and more.</para>
+        <para>If these approaches can be combined with an XML parser that can serve content of nodes
+            lazily, the resulting processing speed and required memory may go even further
+            down.</para>
+    </section>
+
+    <bibliography xmlns:xl="http://www.w3.org/1999/xlink">
+            <biblioentry xml:id="paper-25_Burst" xreflabel="[Burst]">
+                <abbrev>Burst</abbrev>
+                <citetitle>Burst Mode Streaming</citetitle>
+                <biblioid class="uri">http://saxonica.com/documentation9.4-demo/html/sourcedocs/streaming/burst-mode-streaming.html</biblioid>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_Delpratt" xreflabel="[Delpratt]">
+                <abbrev>Delpratt</abbrev>
+                <citetitle> Space efficient in-memory representation of XML documents </citetitle>
+                <edition>PhD. thesis at University of Leicester</edition>
+                <biblioid class="uri">https://lra.le.ac.uk/handle/2381/4805</biblioid>
+                <editor>
+                    <personname>
+                        <firstname>O'Neil Davion</firstname>
+                        <surname>Delpratt</surname>
+                    </personname>
+                </editor>
+                <pubdate>2009</pubdate>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_Exselt" xreflabel="[Exselt]">
+                <abbrev>Exselt</abbrev>
+                <citetitle>Exselt, a concurrent streaming XSLT 3.0 processor for .NET</citetitle>
+                <biblioid class="uri">http://exselt.net</biblioid>
+                <editor>
+                    <personname>
+                        <firstname>Abel</firstname>
+                        <surname>Braaksma</surname>
+                    </personname>
+                </editor>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_Jacobsen" xreflabel="[Jacobsen]">
+                <abbrev>Jacobsen</abbrev>
+                <citetitle>Succinct static data structures</citetitle>
+                <edition>Ph.D. thesis, Pitssburgh, PA, USA</edition>
+                <authorgroup>
+                    <author>
+                        <personname>
+                            <firstname>G.J.</firstname>
+                            <surname>Jacobsen</surname>
+                        </personname>
+                    </author>
+                </authorgroup>
+                <pubdate>1988</pubdate>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_Joannou" xreflabel="[Joannou]">
+                <abbrev>Joannou</abbrev>
+                <citetitle>  In-Memory Representations of XML Documents with Low Memory
+                    Footprint</citetitle>
+                <edition>Poster XML Prague 2013, part of SiXML</edition>
+                <authorgroup>
+                    <author>
+                        <personname>
+                            <firstname>Stelios</firstname>
+                            <surname>Joannou</surname>
+                        </personname>
+                    </author>
+                    <author>
+                        <personname>
+                            <firstname>Andrieas</firstname>
+                            <surname>Poyias</surname>
+                        </personname>
+                    </author>
+                    <author>
+                        <personname>
+                            <firstname>Rayeev</firstname>
+                            <surname>Raman</surname>
+                        </personname>
+                    </author>
+                </authorgroup>
+                <pubdate>2013</pubdate>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_Kay" xreflabel="[Kay]">
+                <abbrev>Kay</abbrev>
+                <citetitle> Streaming the identity, confusing running times </citetitle>
+              <biblioid class="uri">http://saxon-xslt-and-xquery-processor.13853.n7.nabble.com/Streaming-the-identity-confusing-running-times-td11839.html</biblioid>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_SAX" xreflabel="[SAX]">
+                <abbrev>SAX</abbrev>
+                <citetitle>Simple API for XML</citetitle>
+              <biblioid class="uri">http://www.saxproject.org/</biblioid>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_Saxon" xreflabel="[Saxon]">
+                <abbrev>Saxon</abbrev>
+                <citetitle>Saxon by Saxonica</citetitle>
+                <biblioid class="uri">http://saxonica.com</biblioid>
+                <editor>
+                    <personname>
+                        <firstname>Michael</firstname>
+                        <surname>Kay</surname>
+                    </personname>
+                </editor>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_SiXML" xreflabel="[SiXML]">
+                <abbrev>SiXML</abbrev>
+                <citetitle>
+                    <emphasis role="italic">Succinct indexable XML</emphasis>
+                </citetitle>
+              <biblioid class="uri">http://www.cs.le.ac.uk/SiXML/</biblioid>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_SSTRM" xreflabel="[SSTRM]">
+                <abbrev>SSTRM</abbrev>
+                <citetitle>Streaming in Saxon using saxon:stream</citetitle>
+                <biblioid class="uri">http://saxonica.com/documentation9.4-demo/html/sourcedocs/streaming/</biblioid>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_Streaming" xreflabel="[Streaming]">
+                <abbrev>Streaming</abbrev>
+                <citetitle>Streaming definition of XSLT 3.0</citetitle>
+                <biblioid class="uri">http://www.w3.org/TR/xslt-30/#streaming-concepts</biblioid>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_STX" xreflabel="[STX]">
+                <abbrev>STX</abbrev>
+                <citetitle>Streaming Transformations for XML</citetitle>
+                <biblioid class="uri">http://stx.sourceforge.net/</biblioid>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_VTD" xreflabel="[VTD]">
+                <abbrev>VTD</abbrev>
+                <citetitle>VTD-XML: Virtual Token Descriptor</citetitle>
+                <biblioid class="uri">http://vtd-xml.sourceforge.net/</biblioid>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_XDB" xreflabel="[XDB]">
+                <abbrev>XDB</abbrev>
+                <citetitle>Lazy Manifestation in Oracle's XDB</citetitle>
+                <biblioid class="uri">http://docs.oracle.com/cd/B19306_01/appdev.102/b14259/xdb10pls.htm</biblioid>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_XDM3" xreflabel="[XDM3]">
+                <abbrev>XDM3</abbrev>
+                <citetitle>XQuery and XPath Data Model 3.0, W3C Candidate Recommendation 08 January
+                    2013</citetitle>
+                <biblioid class="uri">http://www.w3.org/TR/2013/CR-xpath-datamodel-30-20130108/</biblioid>
+                <authorgroup>
+                    <editor>
+                        <personname>
+                            <firstname>Norman</firstname>
+                            <surname>Walsh</surname>
+                        </personname>
+                    </editor>
+                    <editor>
+                        <personname>
+                            <firstname>Anders</firstname>
+                            <surname>Berglund</surname>
+                        </personname>
+                    </editor>
+                    <editor>
+                        <personname>
+                            <firstname>John</firstname>
+                            <surname>Snelson</surname>
+                        </personname>
+                    </editor>
+                </authorgroup>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_XP3" xreflabel="[XP3]">
+                <abbrev>XP3</abbrev>
+                <citetitle>XML Path Language (XPath) 3.0, Latest Version</citetitle>
+                <biblioid class="uri">http://www.w3.org/TR/xpath-30/</biblioid>
+                <authorgroup>
+                    <editor>
+                        <personname>
+                            <firstname>Jonathan</firstname>
+                            <surname>Robie</surname>
+                        </personname>
+                    </editor>
+                    <editor>
+                        <personname>
+                            <firstname>Don</firstname>
+                            <surname>Chamberlin</surname>
+                        </personname>
+                    </editor>
+                    <editor>
+                        <personname>
+                            <firstname>Michael</firstname>
+                            <surname>Dyck</surname>
+                        </personname>
+                    </editor>
+                    <editor>
+                        <personname>
+                            <firstname>John</firstname>
+                            <surname>Snelson</surname>
+                        </personname>
+                    </editor>
+                </authorgroup>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_XPCR" xreflabel="[XPCR]">
+                <abbrev>XPCR</abbrev>
+                <citetitle>XML Path Language (XPath) 3.0, W3C Candidate Recommendation 08 January
+                    2013</citetitle>
+                <biblioid class="uri">http://www.w3.org/TR/2013/CR-xpath-30-20130108/</biblioid>
+                <authorgroup>
+                    <editor>
+                        <personname>
+                            <firstname>Jonathan</firstname>
+                            <surname>Robie</surname>
+                        </personname>
+                    </editor>
+                    <editor>
+                        <personname>
+                            <firstname>Don</firstname>
+                            <surname>Chamberlin</surname>
+                        </personname>
+                    </editor>
+                    <editor>
+                        <personname>
+                            <firstname>Michael</firstname>
+                            <surname>Dyck</surname>
+                        </personname>
+                    </editor>
+                    <editor>
+                        <personname>
+                            <firstname>John</firstname>
+                            <surname>Snelson</surname>
+                        </personname>
+                    </editor>
+                </authorgroup>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_XRDR" xreflabel="[XRDR]">
+                <abbrev>XRDR</abbrev>
+                <citetitle>XmlReader .NET BCL class</citetitle>
+                <biblioid class="uri">http://msdn.microsoft.com/en-us/library/system.xml.xmlreader.aspx</biblioid>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_XSLT3" xreflabel="[XSLT3]">
+                <abbrev>XSLT3</abbrev>
+                <citetitle>XSL Transformations (XSLT) Version 3.0, Latest Version</citetitle>
+                <biblioid class="uri">http://www.w3.org/TR/xslt-30/</biblioid>
+                <editor>
+                    <personname>
+                        <firstname>Michael</firstname>
+                        <surname>Kay</surname>
+                    </personname>
+                </editor>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_XSLWD" xreflabel="[XSLWD]">
+                <abbrev>XSLWD</abbrev>
+                <citetitle>XSL Transformations (XSLT) Version 3.0, W3C Working Draft 1 February
+                    2013</citetitle>
+                <biblioid class="uri">http://www.w3.org/TR/2013/WD-xslt-30-20130201/</biblioid>
+                <editor>
+                    <personname>
+                        <firstname>Michael</firstname>
+                        <surname>Kay</surname>
+                    </personname>
+                </editor>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_Zavoral" xreflabel="[Zavoral]">
+                <abbrev>Zavoral</abbrev>
+                <citetitle>Perfomance of XSLT Processors on Large Data Sets</citetitle>
+                <edition>ICADIWT '09. Second International Conference on theApplications of Digital
+                    Information and Web Technologies<link xl:href="http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=5273945">http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=5273945</link></edition>
+                <biblioid class="uri">http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=5273945</biblioid>
+                <editor>
+                    <personname><firstname>Filip</firstname><surname>Zavoral</surname></personname>
+                </editor>
+                <editor>
+                    <personname><firstname>Jana</firstname><surname>Dvorakova</surname></personname>
+                </editor>
+            </biblioentry>
+            <biblioentry xml:id="paper-25_Zhang" xreflabel="[Zhang]">
+                <abbrev>Zhang</abbrev>
+                <citetitle>R-NEMXML: A Reusable Solution for NEM- XML Parser</citetitle>
+                <edition>International Symposium on Information Processing 2009 in Huangshan,
+                        China<link xl:href="http://www.academypublisher.com/proc/isip09/papers/isip09p155.pdf‎">
+                        www.academypublisher.com/proc/isip09/papers/isip09p155.pdf‎
+                    </link></edition>
+                <biblioid class="uri">http://www.academypublisher.com/proc/isip09/papers/isip09p155.pdf‎</biblioid>
+                <editor>
+                    <personname><firstname>Yunsong</firstname><surname>Zhang</surname></personname>
+                </editor>
+                <editor>
+                    <personname><firstname>Lei</firstname><surname>Zhao</surname></personname>
+                </editor>
+                <editor>
+                    <personname><firstname>Jiwen</firstname><surname>Yang</surname></personname>
+                </editor>
+            </biblioentry>
+    </bibliography>
+</article>

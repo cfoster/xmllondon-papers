@@ -1,0 +1,1533 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbookxi.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-26" version="5.0">
+    <info xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>Product Usage Schemas</title>
+        <authorgroup>
+            <author>
+                <personname>
+                    <firstname>Jorge</firstname>
+                    <othername>Luis</othername>
+                    <surname>Williams</surname>
+                </personname>
+                <affiliation>
+                    <orgname>Rackspace Hosting</orgname>
+                </affiliation>
+                <email>jorge.williams@rackspace.com</email>
+            </author>
+        </authorgroup>
+        <keywordset>
+            <keyword>Usage Collection</keyword>
+            <keyword>Usage Validation</keyword>
+            <keyword>ATOM Syndication</keyword>
+            <keyword>XML Schema</keyword>
+            <keyword>WADL</keyword>
+            <keyword>XSLT</keyword>
+            <keyword>Cloud</keyword>
+            <keyword>Utility Computing</keyword>
+        </keywordset>
+        <abstract xml:base="parts/abstract.xml">
+    <para>
+        In this case study we describe the process of collecting,
+        validating, and aggregating usage information in a large
+        public cloud for the purpose of billing.  We also describe the
+        Product Usage Schema a simple xml schema language used
+        in-house to describe, version, and validate usage messages as
+        they are emitted by various products across our public cloud.
+    </para>
+</abstract>
+    </info>
+    <section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="paper-26_Background" xml:base="parts/background/background.xml">
+    <title>Background</title>
+    <para>
+        The advent of cloud computing has created a shift in IT in
+        which users may provision (or deprovision) computing
+        infrastructure and software platform services on demand based
+        on dynamic workloads. These on-demand computing resources may
+        be hosted on premise (<firstterm>private cloud</firstterm>),
+        off premise (<firstterm>public cloud</firstterm>), or may
+        reside both internally and externally (<firstterm>hybrid
+        cloud</firstterm>).  Hybrid clouds allow for <firstterm>cloud
+        bursting</firstterm>, the ability to scale work to a public
+        cloud when a workload exceeds the capacity of a private cloud
+        system.
+    </para>
+    <para>
+        Most cloud computing platforms make extensive use of concepts
+        expressed by <firstterm>Service Oriented
+        Architecture</firstterm> (SOA).  In particular, they expose
+        individual products as separate loosely coupled web
+        services. Often these services are written using the
+        <firstterm>REST</firstterm> architectural style as described
+        by <xref linkend="paper-26_Fielding2000"/>. Here, IT resources such as
+        virtual compute nodes, load balancers, databases, file storage
+        volumes, LAMP stacks, and so forth are mapped to URIs
+        accessible on the Internet (or via a private network).
+        Operations on those resources are expressed via the uniform
+        interface provided by the HTTP protocol.  Thus, the
+        provisioning, deprovisioning, and customization of resources
+        can be achieved dynamically and with relative ease by simply
+        performing HTTP requests on a resource URI. Likewise, the
+        state of a resource may be monitored via HTTP's uniform
+        interface — that is by performing a <code>GET</code> on
+        that resource's URI. This accessible interface coupled with
+        the ability to dynamically monitor and control resources are
+        important keys to achieving cloud bursting.
+    </para>
+    <para>
+        Public cloud providers offer a utility computing model <xref linkend="paper-26_Birman2004"/> to their customers in which the
+        customer pays only for the actual use of the resources he or
+        she consumes.  This utility model requires the provider to
+        implement metering of their services in order to track
+        customer usage and produce monthly invoices. Resources are
+        often sold at different pricing tiers which we refer to as
+        <firstterm>flavors</firstterm>. Some flavors are higher
+        performing or offer additional capabilities and are therefore
+        more expensive than others. For example, virtual machines may
+        be sold in a one gigabyte of RAM flavor or in a 16 gigabyte of
+        RAM flavor. The 16 gigabyte flavor is significantly more
+        expensive. A customer is allowed to change a resource's flavor
+        at will — this is known as
+        <firstterm>resizing</firstterm>. The resize operation may have
+        the effect of upgrading or downgrading a resource and as a
+        result a resource may be charged at different rates during its
+        lifetime.
+    </para>
+    <para>
+        Cloud providers allow customers to provision resources at
+        different geographical regions.  The ability to control the
+        relative location of a resource allows the customer to control
+        network latency, build applications with a higher level of
+        availability and fail over, and abide by governmental
+        restrictions in the storage of sensitive data.  It is
+        important to note that the exact location of the data center
+        in which a resource is provisioned is often obfuscated by a
+        service provider because it is considered a security risk to
+        expose it.  At Rackspace, for example, we identify regions by
+        using airport codes: DFW, LON, HKG.  Also, note that a region
+        may encompass multiple data centers. While customers may
+        control the region in which a resource may be provision, the
+        service provider controls the actual data center in which the
+        resources lives.
+    </para>
+    <para>
+        The process of creating an invoice for a customer can be
+        broken into a number of distinct parts.  First, usage data
+        must be collected from individual product services across all
+        regions and aggregated along a number of dimensions such as:
+        <itemizedlist mark="bullet">
+            <listitem>
+                <para>
+                    The owner of the resource (known as the
+                    <firstterm>tenant</firstterm>).
+                </para>
+            </listitem>
+            <listitem>
+                <para>
+                    The resource itself (the individual virtual
+                    compute node, load balancer, etc.).
+                </para>
+            </listitem>
+            <listitem>
+                <para>
+                    And the billable usage created by the resource
+                    — the usage type (CPU cycles, bandwidth,
+                    etc).
+                </para>
+            </listitem>
+        </itemizedlist> The aggregation process also
+        involves producing daily summaries of these properties and
+        enriching the data by adding additonal attributes such as a
+        unique billable account number. We refer to the process of
+        collecting, aggregating, summarizing, and enriching as
+        <firstterm>mediation</firstterm>. As a result of the mediation
+        process <firstterm>raw usage</firstterm> is converted into
+        <firstterm>mediated usage</firstterm>.  Finally, mediated
+        usage is consumed by a number of billing services responsible
+        for rating the usage for a particular billing cycle, applying
+        promotions and discounts, and producing a final bill. Together
+        these services form what we refer to as a <firstterm>billing
+        service layer</firstterm>. An example billing pipeline is
+        illustrated in <xref linkend="paper-26_billingPipeline"/>.
+    </para>
+    <figure xml:id="paper-26_billingPipeline">
+        <title>Billing Pipeline</title>
+        <mediaobject>
+            <imageobject>
+                <imagedata format="svg" fileref="images/orig_arch.svg" width="100%"/>
+            </imageobject>
+        </mediaobject>
+    </figure>
+</section>
+    <section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="paper-26_Rationale" xml:base="parts/rationale/rationale.xml">
+    <title>Rationale and First Steps</title>
+    <para>
+        Our initial billing pipeline required the usage mediation
+        system to consume raw usage data directly from underlying
+        product implementations. Products were in complete control of
+        the format they used to produce this data.  This solution
+        caused a number of problems:
+        <itemizedlist mark="bullet">
+            <listitem>
+                <para>
+                    Common cross-product attributes differed from one
+                    product to the next and the usage mediation team
+                    had to keep track of those differences. These
+                    differences could be very subtle, for example one
+                    product may emit times in central standard time
+                    (CST) another in GMT.
+                </para>
+            </listitem>
+            <listitem>
+                <para>
+                    Attributes described in raw usage data are likely
+                    to change as a product evolves. None-the-less,
+                    there was no process by which the usage mediation
+                    team could be notified of those changes.
+                </para>
+            </listitem>
+            <listitem>
+                <para>
+                    Because raw usage data was not required to adhere
+                    to any particular schema, it was difficult to
+                    catch data generation errors.  Often subtle
+                    errors found their way to production systems
+                    — even after extensive testing.
+                </para>
+            </listitem>
+            <listitem>
+                <para>
+                    In cases where errors were identified in
+                    production, they were often identified in the
+                    later stages of the billing pipelines, at times
+                    after a customer has been billed. Remediation
+                    required the reprocessing of a large amounts of
+                    data and in the worst case required Rackspace to
+                    either compensate a customer or absorb a loss.
+                </para>
+            </listitem>
+        </itemizedlist>
+    </para>
+    <para>
+        To address these issues we undertook a standardization effort
+        in order to bring consistency, strict validation, and
+        versioning of raw usage data into our billing pipeline.
+    </para>
+    <section xml:id="paper-26_AtomPub">
+        <title>Using AtomPub</title>
+        <para>
+            Rather than having the usage mediation system query all
+            products for raw usage, the new pipeline required products to
+            emit usage to a centralized system using the Atom Publishing
+            Protocol (AtomPub) <xref linkend="paper-26_AtomPubProt"/>.
+            We selected AtomPub for a number of reasons:
+            <itemizedlist mark="bullet">
+                <listitem>
+                    <para>
+                        We required a RESTful solution and the AtomPub
+                        protocol is considered an authoritative example of
+                        a RESTful protocol.
+                    </para>
+                </listitem>
+                <listitem>
+                    <para>
+                        The protocol and the underlying Atom format
+                        <xref linkend="paper-26_Atom"/> are backed by a large number
+                        of implementations.  On this front, Rackspace had
+                        already developed an implementation of an AtomPub
+                        sever, Atom Hopper <xref linkend="paper-26_AtomHopper"/>,
+                        which we could easily leverage.
+                    </para>
+                </listitem>
+                <listitem>
+                    <para>
+                        The Atom format is extensible, so it would be
+                        trivial to extend the protocol to suite our
+                        needs.
+                    </para>
+                </listitem>
+                <listitem>
+                    <para>
+                        There is a standard AtomPub extension to
+                        support archiving <xref linkend="paper-26_AtomArchive"/>. This solution
+                        provides us with a good model for storing and
+                        providing access to long term archives of
+                        usage data for auditing purposes.
+                    </para>
+                </listitem>
+            </itemizedlist>
+        </para>
+        <para>
+            In the AtomPub model, usage data is packaged into discrete
+            events in Atom Entries.  These entries are collected in feeds
+            where we reserved one feed for product. These feeds are mapped
+            to a specific URI using a shared endpoint. For example, all
+            usage data for our load balancer product is submitted to
+            <code>/lbaas/events</code>, usage data for our database
+            product is sent to <code>/dbaas/events</code> and so forth.
+            <note>
+                <para>
+                    Lbaas translates to Load Balancer As A Service and
+                    Dbaas translates to Database As A Service. We refer
+                    to some products by their internal product name, for
+                    example the compute service is known internally as
+                    Nova, so the atom feed is mapped to
+                    <code>/nova/events</code>.
+                </para>
+            </note>
+            In order to avoid network delays we deploy one instance of
+            Atom Hopper per region. The regional product service is then
+            responsible for submitting usage to the local instance. For
+            example, usage for a load balancer in the London region is
+            submitted to
+            <code>http://feeds.lon.rackspace.com/lbaas/events</code> and
+            usage for load balancer in the Dallas region is submitted to
+            <code>http://feeds.dfw.rackspace.com/lbaas/events</code>.
+        </para>
+        <para>
+            Each atom feed accepts two distinct types of events:
+            <code>USAGE</code> events and <code>USAGE_SNAPSHOT</code>
+            events. <code>USAGE</code> events capture the utility of a
+            resource over a time duration. The are usually emitted at
+            constant intervals throughout the day but they may also be
+            emitted after a resize operation or when a resource is
+            deleted. This is illustrated in <xref linkend="paper-26_usageDuration"/>. <code>USAGE_SNAPSHOT</code>
+            events denote cases which do not correspond directly with
+            the utility model such as one time charges and
+            subscriptions. These events are emitted as needed on an ad
+            hoc basis.
+        </para>
+        <figure xml:id="paper-26_usageDuration">
+            <title><code>USAGE</code> Events Emitted for a
+            Resource</title>
+            <mediaobject>
+                <imageobject>
+                    <imagedata format="svg" fileref="images/usage.svg" width="100%"/>
+                </imageobject>
+            </mediaobject>
+        </figure>
+    </section>
+    <section xml:id="paper-26_UsageFormat">
+        <title>The Usage Event Format</title>
+        <para>
+            Products are required to submit usage events in a standard
+            format. A standard raw usage event is made up of two
+            elements: an <code>event</code> element contains
+            attributes which are common across all products, and a
+            <code>product</code> element which contains product
+            specific attributes. A load balancer usage event is
+            illustrated in <xref linkend="paper-26_lbaasUsage"/>.
+        </para>
+        <example xml:id="paper-26_lbaasUsage">
+            <title>Load Balancer Usage Event</title>
+            <programlisting xml:space="preserve" language="xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;atom:entry xmlns="http://docs.rackspace.com/core/event"
+          xmlns:atom="http://www.w3.org/2005/Atom"
+          xmlns:lbaas="http://docs.rackspace.com/usage/lbaas"&gt;
+  &lt;atom:title type="text"&gt;LBAAS&lt;/atom:title&gt;
+  &lt;atom:content type="application/xml"&gt;
+    &lt;event type="USAGE" version="1"
+         tenantId="3737"
+         resourceName="MyLoadBalancer"
+         endTime="2012-06-15T10:19:52Z"
+         startTime="2012-06-14T10:19:52Z"
+         region="DFW" dataCenter="DFW1"
+         id="b79cc3de-b399-3883-b555-61829bb7f966"
+         resourceId="b79cc3de-b399-3883-b555-61829bbccd38"&gt;
+      &lt;lbaas:product serviceCode="CloudLoadBalancers"
+                     resourceType="LOADBALANCER" version="1"
+                     sslMode="MIXED" vipType="PUBLIC" numVips="44"
+                     numPolls="10"
+                     bandWidthOutSsl="345345346" bandWidthInSsl="364646770"
+                     bandWidthOut="3460346" bandWidthIn="43456346"
+                     avgConcurrentConnectionsSsl="4566.0"
+                     avgConcurrentConnections="30000.0"
+                     status="ACTIVE"/&gt;
+    &lt;/event&gt;
+  &lt;/atom:content&gt;
+&lt;/atom:entry&gt;</programlisting>
+        </example>
+        <para>
+            Both the <code>event</code> and the <code>product</code>
+            element have a set of required attributes:
+            <variablelist xml:id="paper-26_commonAttribs">
+                <title>Required <code>event</code> attributes</title>
+                <varlistentry>
+                    <term><code>id</code></term>
+                    <listitem>
+                        <para>
+                            A unique identifier for the event.
+                        </para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term><code>type</code></term>
+                    <listitem>
+                        <para>
+                            The type of usage event.  May be one of
+                            <code>USAGE</code> or
+                            <code>USAGE_SNAPSHOT</code>.
+                        </para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term><code>version</code></term>
+                    <listitem>
+                        <para>
+                            A version number for the event format.
+                        </para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term><code>tenantId</code></term>
+                    <listitem>
+                        <para>
+                            The owner of the resource.
+                        </para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term><code>region</code> and <code>datacenter</code></term>
+                    <listitem>
+                        <para>
+                            The specific location of the resource.
+                        </para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term><code>resourceId</code></term>
+                    <listitem>
+                        <para>
+                            A unique identifier for the resource.
+                        </para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term><code>resourceName</code></term>
+                    <listitem>
+                        <para>
+                            The name of the resource as given by the
+                            tenant. This will be used in the invoice line
+                            item.
+                        </para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term><code>startTime</code>, <code>endTime</code> or <code>eventTime</code></term>
+                    <listitem>
+                        <para>
+                            For a <code>USAGE</code> event
+                            <code>startTime</code> and
+                            <code>endTime</code> are required and
+                            represent the duration for the specified
+                            usage.  For a <code>USAGE_SNAPSHOT</code>
+                            event <code>eventTime</code> is required.
+                        </para>
+                    </listitem>
+                </varlistentry>
+            </variablelist>
+            <variablelist xml:id="paper-26_commonProdAttribs">
+                <title>Required <code>product</code> attributes</title>
+                <varlistentry>
+                    <term><code>serviceCode</code></term>
+                    <listitem>
+                        <para>
+                            A unique identifier for the product.
+                        </para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term><code>resourceType</code></term>
+                    <listitem>
+                        <para>
+                            The type of resource that is being used.
+                        </para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term><code>version</code></term>
+                    <listitem>
+                        <para>
+                            A version number for the product element
+                            format.
+                        </para>
+                    </listitem>
+                </varlistentry>
+            </variablelist>
+        </para>
+        <para>
+            While an <code>event</code> element is allowed to contain
+            only the required attributes above, the
+            <code>product</code> element may contain additional product
+            specific attributes.  It is important to note that the
+            <code>product</code> element is defined in a product
+            specific namespace. In <xref linkend="paper-26_lbaasUsage"/>, the
+            namespace is
+            <code>http://docs.rackspace.com/usage/lbaas</code>.  A
+            product may define more than one type of
+            <code>USAGE</code> event, each with a <code>product</code>
+            element in a separate namespace. The
+            <code>resourceType</code> and <code>serviceCode</code>,
+            attributes are defined in the <code>product</code> element
+            because this enables product specific validation. In other
+            words, by defining these attributes in the
+            <code>product</code> element the product can specify a
+            finite set of possible attribute values as part of the
+            product-specific element definition.
+        </para>
+    </section>
+    <section xml:id="paper-26_ValidatingEvents">
+        <title>Validating Events</title>
+        <para>
+            Validation of usage events is achieved by employing Repose
+            <xref linkend="paper-26_Repose"/>.  Repose is a programmable HTTP proxy
+            which sits in front of most of our REST services, it is
+            capable of extending a service's capabilities by
+            implementing common tasks such as authorization, rate
+            limiting, transformation and validation of requests. We
+            augmented our billing pipeline by deploying an instance of
+            Repose in front of our Atom Pub server as illustrated in
+            <xref linkend="paper-26_newBillingPipeline"/>.
+        </para>
+        <figure xml:id="paper-26_newBillingPipeline">
+            <title>New Billing Pipeline</title>
+            <mediaobject>
+                <imageobject>
+                    <imagedata format="svg" fileref="images/ahop_repose_arch.svg" width="100%"/>
+                </imageobject>
+            </mediaobject>
+        </figure>
+        <para>
+            Repose can load a description of a REST service in WADL
+            format <xref linkend="paper-26_Hadley2009"/> and reject requests
+            which do not conform to the contract. We described the
+            process that Repose employs for WADL validation in detail
+            here: <xref linkend="paper-26_Williams"/>. The WADL that we use to
+            validate our usage events looks similar to the one in
+            <xref linkend="paper-26_ahopWADL"/>.
+        </para>
+        <example xml:id="paper-26_ahopWADL">
+            <title>Usage Validation WADL for Atom Hopper</title>
+            <programlisting xml:space="preserve" language="xml">&lt;?xml version="1.0"?&gt;
+&lt;application xmlns="http://wadl.dev.java.net/2009/02" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+             xmlns:atom="http://www.w3.org/2005/Atom"&gt;
+  &lt;grammars&gt;
+    &lt;include href="core_xsd/entry.xsd"/&gt;
+  &lt;/grammars&gt;
+  &lt;resources base="http://localhost/"&gt;
+    &lt;resource path="autoscale/events"  type="wadl/feed.wadl#AtomFeed wadl/feed.wadl#Unvalidated"/&gt;
+    &lt;resource path="backup/events"     type="wadl/feed.wadl#AtomFeed wadl/product.wadl#CloudBackup"/&gt;
+    &lt;resource path="bigdata/events"    type="wadl/feed.wadl#AtomFeed wadl/product.wadl#BigData"/&gt;
+    &lt;resource path="cbs/events"        type="wadl/feed.wadl#AtomFeed wadl/product.wadl#CloudBlockStorage"/&gt;
+    &lt;resource path="dbaas/events"      type="wadl/feed.wadl#AtomFeed wadl/product.wadl#CloudDatabase"/&gt;
+    &lt;resource path="dns/events"        type="wadl/feed.wadl#AtomFeed wadl/product.wadl#CloudDNS "/&gt;
+    &lt;resource path="domain/events"     type="wadl/feed.wadl#AtomFeed wadl/product.wadl#DomainRegistration"/&gt;
+    &lt;resource path="ebs/events"        type="wadl/feed.wadl#AtomFeed wadl/product.wadl#EBS"/&gt;
+    &lt;resource path="emailapps/events"  type="wadl/feed.wadl#AtomFeed wadl/product.wadl#EmailApps"/&gt;
+    &lt;resource path="files/events"      type="wadl/feed.wadl#AtomFeed wadl/product.wadl#CloudFiles"/&gt;
+    &lt;resource path="glance/events"     type="wadl/feed.wadl#AtomFeed wadl/product.wadl#Glance"/&gt;
+    &lt;resource path="lbaas/events"      type="wadl/feed.wadl#AtomFeed wadl/product.wadl#CloudLoadBalancers"/&gt;
+    &lt;resource path="meta/events"       type="wadl/feed.wadl#AtomFeed wadl/product.wadl#AtomHopper"/&gt;
+    &lt;resource path="monitoring/events" type="wadl/feed.wadl#AtomFeed wadl/product.wadl#CloudMonitoring"/&gt;
+    &lt;resource path="netdevice/events"  type="wadl/feed.wadl#AtomFeed wadl/product.wadl#NetDevice"/&gt;
+    &lt;resource path="nova/events"       type="wadl/feed.wadl#AtomFeed wadl/product.wadl#CloudServersOpenStack wadl/product.wadl#RHEL"/&gt;
+    &lt;resource path="queues/events"     type="wadl/feed.wadl#AtomFeed wadl/product.wadl#CloudQueues"/&gt;
+    &lt;resource path="servers/events"    type="wadl/feed.wadl#AtomFeed wadl/product.wadl#CloudServers wadl/product.wadl#RHEL"/&gt;
+    &lt;resource path="sites/events"      type="wadl/feed.wadl#AtomFeed wadl/product.wadl#CloudSites"/&gt;
+    &lt;resource path="ssl/events"        type="wadl/feed.wadl#AtomFeed wadl/product.wadl#Ssl"/&gt;
+    &lt;resource path="support/events"    type="wadl/feed.wadl#AtomFeed wadl/product.wadl#Support"/&gt;
+  &lt;/resources&gt;
+&lt;/application&gt;
+</programlisting>
+        </example>
+        <para>
+            Each Atom feed is represented by a <code>resource</code>
+            element in the WADL. The element is associated with at
+            least two resource types which are defined externally
+            either in <code>wadl/feed.wadl</code> or in
+            <code>wadl/product.wadl</code>. The resource type
+            <code>wadl/feed.wadl#AtomFeed</code> contains common
+            properties of a feed.  For example, a feed accepts a
+            <code>GET</code> operation and a feed can contain a list
+            of entries which may be accessed independently.  This
+            resource type is used by all product feeds. The product
+            WADL, on the other hand, defines product specific
+            properties and validations. These product specific
+            resource types prevent the cross posting of usage
+            events. A usage event from the load balancer service, for
+            example, is not acceptable in the DNS feed. Note that
+            several feeds may accept the same product resource
+            types. In the example above, both the OpenStack compute
+            service (<code>nova/events</code>) and our legacy compute
+            service (<code>severs/events</code>) support the resource
+            type <code>wadl/product.wadl#RHEL</code> which contains
+            rules for processing usage messages for RedHat Enterprise
+            Linux (RHEL) licenses. Finally, there is a special
+            resource type <code>wadl/feed.wadl#Unvalidated</code>,
+            this type loosens product specific validations and is
+            used when on-boarding a new product before product
+            validations are set.
+        </para>
+        <para>
+            Note that the WADL makes reference to an XML schema
+            document (XSD) <xref linkend="paper-26_XSD"/>
+            <code>core_xsd/entry.xsd</code>.  This document contains
+            the definition of the atom entries which contain usage
+            events. We create a special complex type for the atom
+            content element that specifically refers to our definition
+            of a usage <code>event</code> element as illustrated in
+            <xref linkend="paper-26_usageContent"/>. This allows the the schema
+            processor to strictly validate the <code>event</code>
+            element.
+        </para>
+        <example xml:id="paper-26_usageContent">
+            <title>Atom Entry Usage Content Type</title>
+            <programlisting xml:space="preserve" language="xml">&lt;complexType name="UsageContent"&gt;
+  &lt;complexContent&gt;
+    &lt;extension base="atom:BaseContent"&gt;
+      &lt;sequence&gt;
+        &lt;choice&gt;
+          &lt;element ref="event:event"/&gt;
+        &lt;/choice&gt;
+      &lt;/sequence&gt;
+    &lt;/extension&gt;
+  &lt;/complexContent&gt;
+&lt;/complexType&gt;
+</programlisting>
+        </example>
+        <para>
+            In the definition of the <code>event</code> element
+            itself, we allow for an element in a foreign namespace
+            which must be strictly validated against a schema. Thus
+            aside from defining the common cross-product attributes in
+            <xref linkend="paper-26_commonAttribs"/>, the definition of
+            <code>event</code> contains the following: <programlisting xml:space="preserve" language="xml">&lt;sequence&gt;
+  &lt;any namespace="##other" processContents="strict"
+       minOccurs="0" maxOccurs="unbounded"/&gt;
+&lt;/sequence&gt;</programlisting> This allows products to
+            define their own <code>product</code> elements with an
+            XSD. These elements must contain the attributes in <xref linkend="paper-26_commonProdAttribs"/>, though we provide no
+            explicit constrantraint on the XSD to enforce this
+            requirement. Additonally, the product XSDs are expected to
+            annotate custom product attributes with instructions that
+            help guide the mediation process. For example, the
+            definition of the <code>avgConcurrentConnections</code>
+            attribute in <xref linkend="paper-26_lbaasUsage"/> is defined as:
+            <programlisting language="xml">&lt;attribute name="avgConcurrentConnections"
+           use="required"
+           type="p:avgConcurrentConnections1Type"&gt;
+  &lt;annotation&gt;
+    &lt;documentation&gt;
+      &lt;html:p&gt;
+        The amount of conncurrent connections.
+      &lt;/html:p&gt;
+    &lt;/documentation&gt;
+    &lt;appinfo&gt;
+      &lt;usage:attributes
+        aggregateFunction="WEIGHTED_AVG"
+        unitOfMeasure="COUNT"
+        groupBy="false"/&gt;
+    &lt;/appinfo&gt;
+  &lt;/annotation&gt;
+&lt;/attribute&gt;</programlisting> Here, the
+            <code>usage:attributes</code> annotation denotes that
+            values from this attribute should be aggregated using a
+            weighted average function, that the unit of measure for
+            these attributes is simply a count and that attributes
+            with the exact same value should not be grouped together.
+            Likewise the <code>bandwidthIn</code> attribute is defined
+            as: <programlisting xml:space="preserve" language="xml">
+&lt;attribute name="bandWidthIn" use="required"
+           type="p:bandWidthIn1Type"&gt;
+  &lt;annotation&gt;
+    &lt;documentation&gt;
+      &lt;html:p&gt;
+        The amount of bandwidth in, in bytes.
+      &lt;/html:p&gt;
+    &lt;/documentation&gt;
+    &lt;appinfo&gt;
+      &lt;usage:attributes aggregateFunction="SUM"
+        unitOfMeasure="B" groupBy="false"/&gt;
+    &lt;/appinfo&gt;
+  &lt;/annotation&gt;
+&lt;/attribute&gt;</programlisting> Here, the unit of measure
+            is bytes and the values should be summed together during
+            aggregation. The goal of these annotations is to enable
+            the mediation process to dynamically adjust to product
+            changes.  Additionally, there is the potential to reduce
+            errors by placing declarative control of the meditation
+            process in the hands of product owners who best understand
+            their product.
+        </para>
+    </section>
+</section>
+    <section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="paper-26_ProductSchema" xml:base="parts/schema/schema.xml">
+    <title>The Product Schema</title>
+    <para>
+        Our initial implementation involved the manual creation of
+        product specific XSDs given the rules defined in <xref linkend="paper-26_ValidatingEvents"/>. Additionally, the product
+        specific resource types defined in
+        <code>wadl/product.wadl</code> were manually maintained. This
+        was a tedious and error prone process. Since product teams
+        owned their product specific XSDs, it required them to have
+        detailed knowledge of XML schema something many teams were not
+        familiar with. What's more, the process of checking that a
+        product schema conformed to the rules we defined in terms of
+        required attributes and annotations was mostly a manual one.
+        To help automate the process, we developed a simplified schema
+        format to represent product specific attributes. We refer to
+        documents in this format as <firstterm>Product
+        Schemas</firstterm>. We developed an XProc <xref linkend="paper-26_Walsh2010"/> pipeline to generate product specific
+        XSDs and the product WADL from a collection of these schemas.
+    </para>
+    <section xml:id="paper-26_ProdcutSchemaFormat">
+        <title>The Product Schema Format</title>
+        <para>
+            The product schema for the usage message in <xref linkend="paper-26_lbaasUsage"/> is illustrated in <xref linkend="paper-26_lbaasSchema"/>.
+        </para>
+        <example xml:id="paper-26_lbaasSchema">
+            <title>Load Balancer Usage Product Schema</title>
+            <programlisting xml:space="preserve" language="xml">&lt;productSchema xmlns="http://docs.rackspace.com/core/usage/schema"
+               namespace="http://docs.rackspace.com/usage/lbaas"
+               serviceCode="CloudLoadBalancers"
+               version="1"
+               resourceTypes="LOADBALANCER"&gt;
+    &lt;description&gt;
+        Lbaas load balancer usage fields.
+    &lt;/description&gt;
+    &lt;attribute name="avgConcurrentConnections" type="double" use="required"
+               aggregateFunction="WEIGHTED_AVG"
+               unitOfMeasure="COUNT" min="0" max="1000000"&gt;
+        The amount of conncurrent connections.
+    &lt;/attribute&gt;
+    &lt;attribute name="avgConcurrentConnectionsSsl" type="double" use="required"
+               aggregateFunction="WEIGHTED_AVG"
+               unitOfMeasure="COUNT" min="0" max="1000000"&gt;
+        The amount of conncurrent ssl connections.
+    &lt;/attribute&gt;
+    &lt;attribute name="bandWidthIn" type="unsignedLong" use="required"
+               unitOfMeasure="B" aggregateFunction="SUM" min="0"
+               max="10995116277760"&gt;
+        The amount of bandwidth in, in bytes.
+    &lt;/attribute&gt;
+    &lt;attribute name="bandWidthOut" type="unsignedLong" use="required"
+               unitOfMeasure="B" aggregateFunction="SUM" min="0"
+               max="10995116277760"&gt;
+        The amount of bandwidth out in bytes.
+    &lt;/attribute&gt;
+    &lt;attribute name="bandWidthInSsl" type="unsignedLong" use="required"
+               unitOfMeasure="B" aggregateFunction="SUM" min="0"
+               max="10995116277760"&gt;
+        The amount of ssl bandwidth in, in bytes.
+    &lt;/attribute&gt;
+    &lt;attribute name="bandWidthOutSsl" type="unsignedLong" use="required"
+               unitOfMeasure="B" aggregateFunction="SUM" min="0"
+               max="10995116277760"&gt;
+        The amount of ssl bandwidth out in bytes.
+    &lt;/attribute&gt;
+    &lt;attribute name="numPolls" type="int" use="required"
+               unitOfMeasure="COUNT"
+               min="0" max="288"&gt;
+        The number of polls per load balancer.
+    &lt;/attribute&gt;
+    &lt;attribute name="numVips" type="int" use="required"
+               unitOfMeasure="COUNT"
+               min="0" max="100"&gt;
+        The number of vips per load balancer.
+    &lt;/attribute&gt;
+    &lt;attribute name="vipType" type="string" use="required"
+               allowedValues="PUBLIC SERVICENET"&gt;
+        The vip type associated with the load balancer.
+    &lt;/attribute&gt;
+    &lt;attribute name="sslMode" type="string" use="required"
+               allowedValues="ON OFF MIXED"&gt;
+        The mode determining SSL status on the load balancer.
+    &lt;/attribute&gt;
+    &lt;attribute name="status" type="string" use="required"
+               allowedValues="ACTIVE SUSPENDED"&gt;
+        Is the load balancer currently active?
+    &lt;/attribute&gt;
+    &lt;xpathAssertion test="if (@status = 'SUSPENDED') then
+                          ((@bandWidthIn = 0) and (@bandWidthOut = 0) and
+                          (@bandWidthInSsl = 0) and (@bandWidthOutSsl = 0) and
+                          (@avgConcurrentConnections = 0) and
+                          (@avgConcurrentConnectionsSsl = 0)) else true()"&gt;
+        If the status is SUSPENDED then bandWidthIn, bandWidthOut,
+        bandWidthInSsl, bandWidthOutSsl, avgConcurrentConnections, and
+        avgConcurrentConnectinsSsl should all be 0.
+    &lt;/xpathAssertion&gt;
+    &lt;xpathAssertion test="if (@sslMode = 'OFF') then
+                          ((@bandWidthInSsl = 0) and (@bandWidthOutSsl = 0) and
+                          (@avgConcurrentConnectionsSsl = 0)) else true()"&gt;
+        If SslMode is OFF then bandWidthInSsl, bandWidthOutSsl, and
+        avgConcurrentConnectionsSsl should all be 0.
+    &lt;/xpathAssertion&gt;
+    &lt;xpathAssertion test="if (@sslMode = 'ON') then
+                          ((@bandWidthIn = 0) and (@bandWidthOut = 0) and
+                          (@avgConcurrentConnections = 0)) else true()"&gt;
+        If SslMode in ON then bandWidthIn, bandWidthOut, and
+        avgConcurrentConnections should all be 0.
+    &lt;/xpathAssertion&gt;
+&lt;/productSchema&gt;
+</programlisting>
+        </example>
+        <para>
+            Here, the <xref linkend="paper-26_commonProdAttribs"/> are required
+            attributes in the schema, an error is emitted if they are
+            not defined. Note that the <code>resourceTypes</code>
+            attribute is a white-space separated list of resource types
+            — in this case, only one resource type is defined:
+            <code>LOADBALANCER</code>. The product specific namespace
+            is simply defined with the <code>namespace</code>
+            attribute and a general description of the usage event is
+            in the <code>description</code> element. 
+        </para>
+    </section>
+    <section xml:id="paper-26_Attributes">
+        <title>Attributes</title>
+        <para>
+            Attributes in the product schema have the following
+            properties:
+            <itemizedlist mark="bullet">
+                <listitem>
+                    <para>
+                        The embedded text in the
+                        <code>attribute</code> element serves as
+                        documentation for the attribute and is
+                        required.
+                    </para>
+                </listitem>
+                <listitem>
+                    <para>
+                        Mediation annotations are simply defined as
+                        part of the element
+                        (<code>aggregateFunction</code>,
+                        <code>unitOfMeasure</code>). Once we
+                        introduced this feature, the mediation team
+                        stopped parsing XSD annotations and began
+                        consuming our product schemas directly
+                        instead.
+                    </para>
+                </listitem>
+                <listitem>
+                    <para>
+                        Some of the attributes correspond directly
+                        with those defined in XSD.  In particular
+                        <code>name</code>, <code>type</code>,
+                        <code>use</code>.
+                    </para>
+                </listitem>
+                <listitem>
+                    <para>
+                        Enumerations are defined via the
+                        <code>allowedValues</code> attribute. Here,
+                        allowed values are specified as white-space
+                        separated list of values. Enumerations work
+                        with all basic types — not just strings.
+                    </para>
+                </listitem>
+                <listitem>
+                    <para>
+                        Ranges are defined directly via the
+                        <code>min</code> and <code>max</code>
+                        attributes.
+                    </para>
+                </listitem>
+                <listitem>
+                    <para>
+                        The <code>type</code> attribute contains a
+                        finite set of types, most inherited directly
+                        from XSD. Except that:
+                        <itemizedlist mark="bullet">
+                            <listitem>
+                                <para>
+                                    We extend the list of available
+                                    types to include simple types that
+                                    are common in our APIs —
+                                    such as UUID.
+                                </para>
+                            </listitem>
+                            <listitem>
+                                <para>
+                                    The string type always includes a
+                                    maximum character length of 255
+                                    characters as this is required by
+                                    the back-end billing service
+                                    layer.
+                                </para>
+                            </listitem>
+                            <listitem>
+                                <para>
+                                    Date types are required to use the
+                                    GMT timezone.
+                                </para>
+                            </listitem>
+                            <listitem>
+                                <para>
+                                    List types are supported and
+                                    denoted with a star(*). For
+                                    example <code>int*</code>,
+                                    <code>long*</code>. Since lists
+                                    are white-space separated
+                                    attributes <code>string*</code> is
+                                    not supported but
+                                    <code>name*</code> is. Note that
+                                    it is possible to mix list types
+                                    with ranges and enumerations.
+                                </para>
+                            </listitem>
+                        </itemizedlist>
+                    </para>
+                </listitem>
+            </itemizedlist>
+        </para>
+    </section>
+    <section xml:id="paper-26_Assertions">
+        <title>Assertions</title>
+        <para>
+            As <xref linkend="paper-26_lbaasSchema"/> illustrates, XPath
+            validation assertions are supported. Assertions may have a
+            <code>scope</code> attribute which denotes the current
+            node of the XPath expression. Allowed values for
+            <code>scope</code> are simply <code>entry</code> (the root
+            element of an Atom event) and <code>product</code> (the
+            element containing product specific attributes) with
+            <code>product</code> being the default. An example of an
+            assertion with an <code>entry</code> scope is illustrated
+            in <xref linkend="paper-26_assert"/>.
+        </para>
+        <example xml:id="paper-26_assert">
+            <title>Example non-product Assertion</title>
+            <programlisting xml:space="preserve" language="xml">&lt;xpathAssertion
+  test="$event/@resourceId castable as xs:integer"
+  scope="entry"&gt;
+    The resourceId for a VIP should be an integer.
+&lt;/xpathAssertion&gt;</programlisting>
+        </example>
+        <para>
+            How an assertion is translated depends on the
+            <code>scope</code> attribute. Assertions which only affect
+            the <code>product</code> element are embedded directly in
+            the generated XSD as XSD 1.1 <xref linkend="paper-26_XSD11"/>
+            assertions. <xref linkend="paper-26_productAssert"/> illustrates
+            the ComplexType in the generated XSD for <xref linkend="paper-26_lbaasSchema"/>. Note that, unfortunately, we must
+            generate both a <code>xerces:message</code> attribute an a
+            <code>saxon:message</code> attribute to ensure that a
+            correct error message is displayed, when an assertion
+            fails, regardless of which XSD implementation we're using
+            — we continually test against both Saxon and Xerces
+            implementations though we are currently utilizing Saxon in
+            production. This sort of requirement illustrates the
+            benefit of generating an XSD rather than developing it by
+            hand.
+        </para>
+        <example xml:id="paper-26_productAssert">
+            <title>Generated ComplexType for Load Balancer usage
+            message</title>
+            <programlisting xml:space="preserve" language="xml">&lt;complexType xmlns="http://www.w3.org/2001/XMLSchema" 
+             xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning"
+             xmlns:html="http://www.w3.org/1999/xhtml"
+             xmlns:usage="http://docs.rackspace.com/core/usage"
+             xmlns:xerces="http://xerces.apache.org"
+             xmlns:saxon="http://saxon.sf.net/"
+             xmlns:p="http://docs.rackspace.com/usage/lbaas"
+             name="CloudLoadBalancers1Type"&gt;
+  &lt;annotation&gt;
+    &lt;documentation&gt;
+      &lt;html:p&gt;Cloud Load Balancer usage fields.&lt;/html:p&gt;
+    &lt;/documentation&gt;
+    &lt;appinfo&gt;
+      &lt;usage:core groupByResource="true" ranEnrichmentStrategy="CI_SERVICE" type="USAGE"/&gt;
+    &lt;/appinfo&gt;
+  &lt;/annotation&gt;
+  &lt;complexContent&gt;
+    &lt;extension base="p:BaseCloudLoadBalancersType"&gt;
+      &lt;attribute name="resourceType" use="required" type="p:ResourceTypes1"/&gt;
+      &lt;attribute name="avgConcurrentConnections" use="required" type="p:avgConcurrentConnections1Type"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;The amount of conncurrent connections.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="NONE" unitOfMeasure="COUNT" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="avgConcurrentConnectionsSsl" use="required" type="p:avgConcurrentConnectionsSsl1Type"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;The amount of conncurrent ssl connections.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="NONE" unitOfMeasure="COUNT" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="avgConcurrentConnectionsSum" use="optional" type="xsd:double"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;The sum amount of conncurrent connections for regular and SSL.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="WEIGHTED_AVG" unitOfMeasure="COUNT" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="bandWidthIn" use="required" type="p:bandWidthIn1Type"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;The amount of bandwidth in, in bytes.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="NONE" unitOfMeasure="B" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="bandWidthInSsl" use="required" type="p:bandWidthInSsl1Type"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;The amount of ssl bandwidth in, in bytes.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="NONE" unitOfMeasure="B" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="publicBandWidthInSum" use="optional" type="xsd:unsignedLong"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;The sum amount of bandwidth in for regular and SSL, in bytes.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="SUM" unitOfMeasure="B" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="bandWidthOut" use="required" type="p:bandWidthOut1Type"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;The amount of bandwidth out in bytes.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="SUM" unitOfMeasure="B" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="bandWidthOutSsl" use="required" type="p:bandWidthOutSsl1Type"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;The amount of ssl bandwidth out in bytes.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="SUM" unitOfMeasure="B" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="publicBandWidthOutSum" use="optional" type="xsd:unsignedLong"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;The sum amount of bandwidth out for regular and SSL, in bytes.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="SUM" unitOfMeasure="B" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="numPolls" use="required" type="p:numPolls1Type"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;The number of polls per load balancer.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="NONE" unitOfMeasure="COUNT" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="numVips" use="required" type="p:numVips1Type"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;The number of vips per load balancer.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="NONE" unitOfMeasure="COUNT" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="vipType" use="required" type="p:vipType1Enum"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;The vip type associated with the load balancer.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="NONE" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="sslMode" use="required" type="p:sslMode1Enum"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;The mode determining SSL status on the load balancer.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="NONE" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="hasSSLConnection" use="optional" type="xsd:boolean"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;An attribute determining whether or not the Cloud Load Balancer used an SSL connection. Used for billing purposes.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="NONE" groupBy="true"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;attribute name="status" use="required" type="p:status1Enum"&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;Is the load balancer currently active?&lt;/html:p&gt;
+          &lt;/documentation&gt;
+          &lt;appinfo&gt;
+            &lt;usage:attributes aggregateFunction="NONE" groupBy="false"/&gt;
+          &lt;/appinfo&gt;
+        &lt;/annotation&gt;
+      &lt;/attribute&gt;
+      &lt;assert vc:minVersion="1.1" test="if (@status = 'SUSPENDED') then ((@bandWidthIn = 0) and (@bandWidthOut = 0) and (@bandWidthInSsl = 0) and (@bandWidthOutSsl = 0) and (@avgConcurrentConnections = 0) and (@avgConcurrentConnectionsSsl = 0)) else true()"
+              xerces:message="If the status is SUSPENDED then bandWidthIn, bandWidthOut, bandWidthInSsl, bandWidthOutSsl, avgConcurrentConnections, and avgConcurrentConnectinsSsl should all be 0."
+              saxon:message="If the status is SUSPENDED then bandWidthIn, bandWidthOut, bandWidthInSsl, bandWidthOutSsl, avgConcurrentConnections, and avgConcurrentConnectinsSsl should all be 0."&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;Assertion: If the status is SUSPENDED then bandWidthIn, bandWidthOut, bandWidthInSsl, bandWidthOutSsl, avgConcurrentConnections, and avgConcurrentConnectinsSsl should all be 0.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+        &lt;/annotation&gt;
+      &lt;/assert&gt;
+      &lt;assert vc:minVersion="1.1" test="if (@sslMode = 'OFF') then ((@bandWidthInSsl = 0) and (@bandWidthOutSsl = 0) and (@avgConcurrentConnectionsSsl = 0)) else true()"
+              xerces:message="If SslMode is OFF then bandWidthInSsl, bandWidthOutSsl, and avgConcurrentConnectionsSsl should all be 0."
+              saxon:message="If SslMode is OFF then bandWidthInSsl, bandWidthOutSsl, and avgConcurrentConnectionsSsl should all be 0."&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;Assertion: If SslMode is OFF then bandWidthInSsl, bandWidthOutSsl, and avgConcurrentConnectionsSsl should all be 0.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+        &lt;/annotation&gt;
+      &lt;/assert&gt;
+      &lt;assert vc:minVersion="1.1" test="if (@sslMode = 'ON') then ((@bandWidthIn = 0) and (@bandWidthOut = 0) and (@avgConcurrentConnections = 0)) else true()"
+              xerces:message="If SslMode in ON then bandWidthIn, bandWidthOut, and avgConcurrentConnections should all be 0."
+              saxon:message="If SslMode in ON then bandWidthIn, bandWidthOut, and avgConcurrentConnections should all be 0."&gt;
+        &lt;annotation&gt;
+          &lt;documentation&gt;
+            &lt;html:p&gt;Assertion: If SslMode in ON then bandWidthIn, bandWidthOut, and avgConcurrentConnections should all be 0.&lt;/html:p&gt;
+          &lt;/documentation&gt;
+        &lt;/annotation&gt;
+      &lt;/assert&gt;
+    &lt;/extension&gt;
+  &lt;/complexContent&gt;
+&lt;/complexType&gt;
+</programlisting>
+        </example>
+        <para>
+            Assertions with <code>scope</code> of <code>entry</code>
+            which involve reaching into different parts of the
+            message, cannot be generated directly into an XSD because
+            the XSD specification dictates that elements containing an
+            assertion are considered root elements. Because of this,
+            assertions may not reach out to parent elements (although
+            the Xerces XSD implementation currently allows this).
+            These assertions are instead converted into an XSLT
+            transformation <xref linkend="paper-26_XSLT"/> and embedded as part
+            of the <code>product.wadl</code> (since Repose supports an
+            extension to WADL which executes an XSLT before validating
+            the message).  These XSLT transforms perform the identity
+            transformation, but fail if the XPath assertion is not
+            satisfied. The translated assertion for <xref linkend="paper-26_assert"/> is illustrated in <xref linkend="paper-26_XSLAssert"/>.
+        </para>
+        <example xml:id="paper-26_XSLAssert">
+            <title>Generated XSLT fragment for Load Balancer usage
+            message assertion with entry scope</title>
+            <programlisting xml:space="preserve">&lt;xsl:when
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform" 
+  xmlns:p="http://docs.rackspace.com/event/lbaas/lb"
+  test="$event/p:product"&gt;
+  &lt;xsl:variable name="product"
+                select="$event/p:product"/&gt;
+  &lt;xsl:choose&gt;
+    &lt;xsl:when test="$product[@version = '1']"&gt;
+      &lt;xsl:choose&gt;
+        &lt;xsl:when test="$event/
+              @resourceId castable as xs:integer"/&gt;
+        &lt;xsl:otherwise&gt;
+          &lt;xsl:message terminate="yes"&gt;
+            The resourceId for a load balancer
+            should be an integer.
+          &lt;/xsl:message&gt;
+        &lt;/xsl:otherwise&gt;
+      &lt;/xsl:choose&gt;
+    &lt;/xsl:when&gt;
+  &lt;/xsl:choose&gt;
+&lt;/xsl:when&gt;
+</programlisting>
+        </example>
+        <para>
+            Note that the technique of translating a series of
+            assertions into an XSLT for execution is similar to the
+            technique used by Schematron <xref linkend="paper-26_Schematron"/>.
+            The reason for generating an XSL rather than utilizing
+            Schematron directly, in this case, is that validations
+            need to occur at a very frequent interval (thousands of
+            times a second) and the approach in <xref linkend="paper-26_XSLAssert"/> is much lighter weight. We do
+            however, utilize Schematron to help validate WADLs when
+            they are initially loaded by the Repose validator.
+        </para>
+        <para>
+            Also note that when the scope of the assertion is
+            <code>entry</code> the variables <code>$entry</code>,
+            <code>$event</code>, and <code>$product</code> are defined
+            for convenience and the product namespace is always
+            mapped to the prefix <code>p</code>. The prefixes
+            <code>atom</code>, <code>event</code> and <code>xs</code>
+            are also defined.
+        </para>
+    </section>
+    <section xml:id="paper-26_Versioning">
+        <title>Versioning</title>
+        <para>
+            It is possible to define multiple product schemas with the
+            same <code>serviceCode</code> and <code>namespace</code>
+            but with a different version number.  In this case, our
+            transformation creates a single XSD which supports
+            multiple versions of a message by utilizing the
+            <code>alternative</code> feature of XSD 1.1.  The
+            generated product element for our bigdata events
+            illustrate this in <xref linkend="paper-26_bigdata"/>.
+        </para>
+        <example xml:id="paper-26_bigdata">
+            <title>Alternatives used for versioning</title>
+            <programlisting xml:space="preserve" language="xml">&lt;element name="product" vc:minVersion="1.1"
+        type="p:BaseBigDataType"&gt;
+  &lt;alternative test="(@version eq '1')"
+               type="p:BigData1Type"/&gt;
+  &lt;alternative test="(@version eq '2')"
+               type="p:BigData2Type"/&gt;
+&lt;/element&gt;</programlisting>
+        </example>
+        <para>
+            The versioning feature allows multiple versions of a usage
+            schema to co-exist in the feed.  Our versioning strategy
+            requires that versions remain backwards compatible as much
+            as possible. The <code>version</code> attribute in a usage
+            message is used to for validation purposes — it
+            identifies which validation rules should apply.  It does
+            not imply that the usage messages are entirely
+            incompatible from a client's perspective.
+        </para>
+    </section>
+</section>
+    <section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="paper-26_FutureWork" xml:base="parts/futurework.xml">
+    <title>Future Work</title>
+    <para>
+        <itemizedlist mark="bullet">
+            <listitem>
+                <para>
+                    Our solution generates XSD 1.1 schemas, but some
+                    of our customers would like XSD 1.0 version
+                    because their XML binding tools such as JAXB <xref linkend="paper-26_JAXB"/> demand it.  While the schemas
+                    that we generate take advantage of the conditional
+                    inclusion properties of XSD we still run into high
+                    levels of incompatibility.  We plan on extending
+                    our system to generate (non-normative) XSD 1.0
+                    schemas which are more useful.
+                </para>
+            </listitem>
+            <listitem>
+                <para>
+                    The process of validating usage events introduces
+                    little run-time overhead. On a production grade
+                    system, validation of a usage event takes about 2
+                    milliseconds on average.  This overhead has
+                    remained fairly stable even as we've introduced
+                    many different types of usage events. The
+                    initialization process of loading the generated
+                    WADL and its related resources (XSDs and XSLts)
+                    has been steadily increasing, however, and now
+                    averages about 5 minutes.  These long load times
+                    mean that introducing new nodes or making making
+                    frequent schema changes, at run-time, incur a high
+                    cost and have the potential to affect our SLAs. We
+                    plan on investigating ways of decreasing these
+                    high initialization times — possibly by
+                    converting WADLs to an internal representation in
+                    an off-line preprocessing step.
+                </para>
+            </listitem>
+            <listitem>
+                <para>
+                    Since our product usage schema decouples us
+                    directly from XSD, we are exploring the
+                    possibility of supporting alternate formats for
+                    our usage messages including JSON. We would like
+                    to generate JSON schemas in the same way that we
+                    generate XML schemas.
+                </para>
+            </listitem>
+            <listitem>
+                <para>
+                    We are also exploring developing GUIs and
+                    wizards to aid products in the generation and
+                    maintenance of their product schemas.
+                </para>
+            </listitem>
+        </itemizedlist>
+    </para>
+</section>
+    <section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="paper-26_Conclusion" xml:base="parts/conclusion.xml">
+    <title>Conclusion</title>
+    <para>
+        In this case study, we examined the process of collecting,
+        validating, and aggregating usage events in a large public
+        cloud. We leveraged an XML based solution to transform our
+        existing billing pipeline from one in which usage data was
+        defined in irregular and inconsistent ways to one in which
+        strict standards were followed and a declarative language was
+        used to specify validation, versioning, and mediation
+        rules. The new usage event model has allowed us to catch
+        errors early which has significantly reduced the number and
+        impact of errors on our customers. What's more, we've been
+        able to achieve this strict level of validation with little to
+        no negative impact on the overall performance of our system.
+    </para>
+    <para>
+        Our simple product schema format has allowed us to leverage
+        the power of XSD and WADL without having to get lost in the
+        idiosyncrasies of these languages. By doing so, we were able
+        to design product specific usage data in a highly consistent
+        manner and to communicate requirements to the usage
+        mediation team accurately.
+    </para>
+</section>
+    <bibliography xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xi="http://www.w3.org/2001/XInclude" version="5" xml:base="parts/refs.xml">
+    <biblioentry xml:id="paper-26_Atom" xreflabel="[1]">
+        <abbrev>1</abbrev>
+        <title>The Atom Syndication Format</title>
+        <authorgroup>
+            <author>
+                <personname>
+                    <firstname>M.</firstname>
+                    <surname>Nottingham</surname>
+                </personname>
+            </author>
+            <author>
+                <personname>
+                    <firstname>R.</firstname>
+                    <surname>Sayre</surname>
+                </personname>
+            </author>
+        </authorgroup>
+        <biblioid class="uri">https://tools.ietf.org/html/rfc5023</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_AtomArchive" xreflabel="[2]">
+        <abbrev>2</abbrev>
+        <title>Feed Paging and Archiving</title>
+        <authorgroup>
+            <author>
+                <personname>
+                    <firstname>M.</firstname>
+                    <surname>Nottingham</surname>
+                </personname>
+            </author>
+        </authorgroup>
+        <biblioid class="uri">https://tools.ietf.org/html/rfc5005</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_AtomHopper" xreflabel="[3]">
+        <abbrev>3</abbrev>
+        <title>Atom Hopper</title>
+        <biblioid class="uri">http://atomhopper.org/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_AtomPubProt" xreflabel="[4]">
+        <abbrev>4</abbrev>
+        <title>The Atom Publishing Protocol</title>
+        <authorgroup>
+            <author>
+                <personname>
+                    <firstname>J.</firstname>
+                    <surname>Gregorio</surname>
+                </personname>
+            </author>
+            <author>
+                <personname>
+                    <firstname>B.</firstname>
+                    <surname>de Hóra</surname>
+                </personname>
+            </author>
+        </authorgroup>
+        <biblioid class="uri">https://tools.ietf.org/html/rfc5023</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_Birman2004" xreflabel="[5]">
+        <abbrev>5</abbrev>
+        <biblioset relation="journal">
+            <title>IBM Systems Journal</title>
+            <volumenum>43</volumenum>
+            <issuenum>1</issuenum>
+            <pubdate>2004</pubdate>
+        </biblioset>
+        <biblioset relation="article">
+            <title>Utility Computing</title>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>J.</firstname>
+                        <surname>Ritsko</surname>
+                    </personname>
+                </author>
+                <author>
+                    <personname>
+                        <firstname>B.</firstname>
+                        <surname>Birman</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <biblioid class="uri">http://www.research.ibm.com/journal/sj43-1.html</biblioid>
+        </biblioset>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_Fielding2000" xreflabel="[6]">
+        <abbrev>6</abbrev>
+        <authorgroup>
+            <author>
+                <personname>
+                    <firstname>R.</firstname>
+                    <surname>Fielding</surname>
+                </personname>
+            </author>
+        </authorgroup>
+        <title>Architectural Styles and the Design of Network-based
+        Software Architectures</title>
+        <biblioid class="uri">http://www.ics.uci.edu/~fielding/pubs/dissertation/top.htm</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_Hadley2009" xreflabel="[7]">
+        <abbrev>7</abbrev>
+        <authorgroup>
+            <author>
+                <personname>
+                    <firstname>M.</firstname>
+                    <surname>Hadley</surname>
+                </personname>
+            </author>
+        </authorgroup>
+        <title>Web Application Description Language</title>
+        <biblioid class="uri">http://www.w3.org/Submission/wadl/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_Repose" xreflabel="[8]">
+        <abbrev>8</abbrev>
+        <title>Open Repose</title>
+        <biblioid class="uri">http://www.openrepose.org/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_Walsh2010" xreflabel="[9]">
+        <abbrev>9</abbrev>
+        <authorgroup>
+            <editor>
+                <personname>
+                    <firstname>N.</firstname>
+                    <surname>Walsh</surname>
+                </personname>
+            </editor>
+            <editor>
+                <personname>
+                    <firstname>A.</firstname>
+                    <surname>Milowski</surname>
+                </personname>
+            </editor>
+            <editor>
+                <personname>
+                    <firstname>H.</firstname>
+                    <surname>Thompson</surname>
+                </personname>
+            </editor>
+        </authorgroup>
+        <title>XProc: An XML Pipeline Language</title>
+        <biblioid class="uri">http://www.w3.org/TR/xproc/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_Williams" xreflabel="[10]">
+        <abbrev>10</abbrev>
+        <biblioset relation="conference">
+            <title>Proceedings of Balisage: The Markup Conference 2012</title>
+            <subtitle>Balisage Series on Markup Technologies</subtitle>
+            <pubdate>2012</pubdate>
+            <volumenum>8</volumenum>
+            <pubdate>August 7 - 10, 2012</pubdate>
+        </biblioset>
+        <biblioset relation="article">
+            <title>Using XProc, XSLT 2.0, and XSD 1.1 to validate RESTful services.</title>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>J.</firstname>
+                        <surname>Williams</surname>
+                    </personname>
+                </author>
+                <author>
+                    <personname>
+                        <firstname>D.</firstname>
+                        <surname>Cramer</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <!-- <biblioid class="uri">http://www.balisage.net/Proceedings/vol8/html/Williams01/BalisageVol8-Williams01.html</biblioid> -->
+            <biblioid class="doi">10.4242/BalisageVol8.Williams01</biblioid>
+        </biblioset>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_XSD" xreflabel="[11]">
+        <abbrev>11</abbrev>
+        <title>XML Schema</title>
+        <biblioid class="uri">http://www.w3.org/XML/Schema</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_XSD11" xreflabel="[12]">
+        <abbrev>12</abbrev>
+        <title>W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes</title>
+        <authorgroup>
+            <editor>
+                <personname>
+                    <firstname>D.</firstname>
+                    <surname>Peterson</surname>
+                </personname>
+            </editor>
+            <editor>
+                <personname>
+                    <firstname>S.</firstname>
+                    <surname>Gao</surname>
+                </personname>
+            </editor>
+            <editor>
+                <personname>
+                    <firstname>A.</firstname>
+                    <surname>Malhotra</surname>
+                </personname>
+            </editor>
+            <editor>
+                <personname>
+                    <firstname>C. M.</firstname>
+                    <surname>Sperberg-McQueen</surname>
+                </personname>
+            </editor>
+            <editor>
+                <personname>
+                    <firstname>H.</firstname>
+                    <surname>Thompson</surname>
+                </personname>
+            </editor>
+        </authorgroup>
+        <biblioid class="uri">http://www.w3.org/TR/xmlschema11-2/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_XSLT" xreflabel="[13]">
+        <abbrev>13</abbrev>
+        <title>The Extensible Stylesheet Language Family (XSL)</title>
+        <biblioid class="uri">http://www.w3.org/Style/XSL/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_Schematron" xreflabel="[14]">
+        <abbrev>14</abbrev>
+        <title>Schematron</title>
+        <biblioid class="uri">http://www.schematron.com</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-26_JAXB" xreflabel="[15]">
+        <abbrev>15</abbrev>
+        <title>Java Architecture for XML Binding (JAXB)</title>
+        <biblioid class="uri">https://jcp.org/en/jsr/detail?id=222</biblioid>
+    </biblioentry>
+</bibliography>
+</article>

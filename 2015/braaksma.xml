@@ -1,0 +1,2681 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" version="5.0"
+  xml:lang="en">
+  <info>
+    <title>It's the little things that matter</title>
+    <subtitle>How certain small changes in XSLT 3.0 can improve your programming experience
+      drastically</subtitle>
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Abel</firstname>
+          <surname>Braaksma</surname>
+        </personname>
+        <email>abel@abrasoft.net</email>
+        <uri>http://abrasoft.net</uri>
+        <personblurb>
+          <para>Abel Braaksma is owner of Abrasoft (http://abrasoft.net) and creator or the new and
+            upcoming streaming XSLT 3.0 processor Exselt. He has more than 15 years experience with
+            XML and related technologies and is currently an Invited Expert of the XSLT and XPath
+            working groups at W3C. He can be reached about anything XML or F# related at
+            info@abrasoft.net or for the Exselt processor at info@exselt.net. For his current
+            thoughts on technologies, you can visit <link xl:href="http://undermyhat.org">his blog
+              at Under My Hat</link>.</para>
+        </personblurb>
+        <affiliation>
+          <jobtitle>consultant</jobtitle>
+          <orgname>Abrasoft</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+    <keywordset>
+      <keyword>XML</keyword>
+      <keyword>XSLT</keyword>
+      <keyword>XPath</keyword>
+    </keywordset>
+    <abstract>
+      <para>Some larger features of XSLT 3.0 and by extension XPath 3.0, like higher order
+        functions, packages and streaming, have been covered extensively in previous papers. This
+        paper aims to fill the gap of knowledge and shows you how several seemingly smaller changes
+        improve your life as a programmer, how they make common idioms easier to implement or how
+        they create a cleaner programming experience. Features covered in this paper include
+        try/catch and structured error handling, memoization of functions, iteration, merging, text
+        value templates, assertions, modes and enforcing mode declarations, shadow attributes,
+        forking and how it supports multi-threading, applying templates on atomic values, maps, 2.0
+        backwards compatibility and processing JSON input.</para>
+      <para>After reading this paper, you should have a firm grasp of what to expect from switching
+        from XSLT 2.0 to XSLT 3.0, if packages and streaming are not your primary concerns.</para>
+    </abstract>
+  </info>
+  <section>
+    <title>Disclaimer</title>
+    <para>This paper discusses new features defined in XSLT 3.0 and XPath 3.0. The XSLT 3.0
+        specification <citation>1</citation> is a Last Call Working
+        Draft <citation>2</citation> but the information in this paper may be extended to
+      features added after this public version, based on publicly available bug reports
+        <citation>3</citation>. XPath 3.0 <citation>4</citation> is a W3C Recommendation,
+      this paper focuses on XPath 3.0 and not on new features introduced in XPath 3.1.</para>
+    <para>This paper is based on the publicly available versions of XPath 3.0, XSLT 3.0 and XDM 3.0
+      as of March 12, 2015, see
+        <citation>2</citation> <citation>4</citation> <citation>5</citation>. Since XSLT 3.0
+      is not yet final, it is possible that references and details change before the final
+      specification receives Recommendation status.</para>
+  </section>
+  <section>
+    <title>An introduction</title>
+    <para>The XSLT 3.0 specification is long underway, in fact, since the XSLT 2.1
+        <citation>6</citation> document was published, almost 5 years have passed. During
+      the cause of its development, the main focus has naturally been on major new features like
+      streaming and packages. However, both from external and internal input, many smaller changes
+      have been introduced and have made their way normatively into the new specification. With the
+      specification being close to Candidate Recommendation status, it is a good moment to reflect
+      on the past half decade of specification development and review how XSLT 3.0 can improve the
+      lives of us programmers. </para>
+    <para>The <emphasis role="italic">bigger</emphasis> new features have received ample attention
+      in recent and less-recent talks and papers, with among others,
+        <citation>7</citation> on packaging<footnote>
+        <para>Florent's paper and talk were about the packaging extensions introduced by
+            <citation>8</citation>, but these features have since made it into the
+          specification and have become a major new feature of the language.</para>
+      </footnote>, <citation>9</citation> on streaming analysis,
+        <citation>10</citation> on the internals of a streaming processors,
+        <citation>11</citation> on streaming in XSLT 2.1 and from myself,
+        <citation>12</citation> on higher-order functions and
+        <citation>13</citation> on streamable functions.</para>
+    <para>The <emphasis role="italic">smaller</emphasis> features have been lightly touched during
+      standards update talks during conference time, but have received little attention in recent
+      papers or talks. This paper will introduce the interested reader to two handfuls of new
+      features introduced in XSLT 3.0. </para>
+    <para>Each of the following sections briefly describes a new feature, gives an introduction to
+      the main syntax and use, shows how it can improve your current, typically XSLT 2.0-style of
+      programming experience, summarizes some of the caveats you may encounter when using this new
+      feature and finally listing limitations imposed by the official specification text, or by
+      practical concerns from a programming standpoint.</para>
+
+  </section>
+  <section>
+    <title>Structured error handling with try/catch</title>
+    <para><emphasis role="bold">Availability in XSLT 2.0:</emphasis> Not available, unless through
+      extension mechanisms, like the one proposed in <citation>14</citation>.</para>
+    <para>The instructions <code>xsl:try</code> and <code>xsl:catch</code> provide a means for
+      catching and handling dynamic errors in XSLT 3.0. It is only possible to catch <emphasis
+        role="italic">dynamic</emphasis> errors, that is, errors that occur after compilation of the
+      stylesheet and after any static errors have been reported back by the processor, such as
+      incorrect XPath expressions, missing or wrong values of attributes etc. </para>
+    <section>
+      <title>Syntax and use</title>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:try
+   select? = expression
+   rollback-output? = boolean >
+   <!-- Content, must include an xsl:catch -->
+ </xsl:try>]]></programlisting>
+      </para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:catch
+   errors? = tokens
+   select? = expression>
+   <!-- Content -->
+ </xsl:catch>]]></programlisting>
+      </para>
+      <para>The <code>xsl:try</code> instruction wraps a piece of code for which you expect a
+        possible error to be raised. This is similar to the scoping rules in C++ style languages
+        where the <code>try{...}</code> block is used to scope a part of the code for which you want
+        to capture errors. It is allowed to nest <code>xsl:try</code> inside itself or indirectly
+        through templates or function calls, when an error is raised, the innermost
+          <code>xsl:try</code> block and its accompanying <code>xsl:catch</code> that matches the
+        error will be used for catching the error.</para>
+      <para>The <code>xsl:catch</code> element is a required part of each <code>xsl:try</code> block
+        and must be the last element in the sequence constructor (it cannot be followed by anything
+        else than whitespace or XML comments). You can have more than one <code>xsl:catch</code>
+        element, they are each other siblings. The first <code>xsl:catch</code> element for which
+        the <code>errors</code> attribute matches the thrown error (which is an EQName, that is,
+        both the namespace and the local-name part must match) will be evaluated and the result of
+        its sequence constructor will be returned instead. The body of the <code>xsl:try</code> will
+        be discarded and other <code>xsl:catch</code> elements will not be processed. The value of
+        the <code>errors</code> attribute is a space-separated sequence of NameTests, as used in
+        XPath. If absent or <code>*</code> it matches all errors. You can select all errors in one
+        namespace with <code>errors="err:*"</code> or all errors with a specific name in all
+        namespaces with <code>errors="*:ERR1234"</code>. A specific error is caught with a full
+        QName, as in <code>errors="err:FOAR0001"</code>.</para>
+      <para>Once an error is caught, its properties can be examined using special variables, such as
+          <code>$err:code</code>, <code>$err:description</code> and <code>$err:value</code>, the
+        latter being a user-supplied value with the <code>fn:error</code> function. Apart from the
+        error code, all these values are implementation dependent. A processor can further give
+        information on the location of the error by providing values for the
+          <code>$err:module</code>, <code>$err:line-number</code> and
+          <code>$err:column-number</code> variables. The namespace for <code>err</code> is the
+        standard error namespace <code>http://www.w3.org/2005/xqt-errors</code>, which must be in
+        scope to be able to use these special variables. The variables are only available within the
+        scope of <code>xsl:catch</code>.</para>
+      <para>If the <code>rollback-ouput</code> attribute is set, which is the default, any output
+        generated from the body of the <code>xsl:try</code> prior to catching the error, will be
+        rolled back. This attribute is available primarily for situations where memory is a
+        constraint, as with streaming, where keeping the entire output in memory to be able to
+        perform a rollback afterwards can mean that the processor will run out of memory
+        constraints. Another use-case is <code>xsl:result-document</code>, specifically if the
+        target does not allow a rollback, for instance if the target is a mail address, an online
+        resource or a database without checkpoint capabilities.</para>
+      <para>The effect of using the attribute may be slightly different than one might expect. If
+        the attribute is set to <code>no</code>, and the processor is not capable of rolling back, a
+        new dynamic error is raised, <code>XTDE3530</code> and further processing fails (unless that
+        error itself is wrapped in another try/catch). The reasoning behind this behavior and
+        raising an error instead of simply continuing processing is that if no rollback is possible,
+        the state of the result document will be in an undetermined state and further writing to the
+        same result document may yield unexpected results.</para>
+      <para>In conjunction with this new instruction, it is possible to raise your own errors in
+        XPath with the new <code>fn:error</code> function and in XSLT with the
+          <code>xsl:assert</code> and <code>xsl:message</code> instructions.</para>
+      <para>You can rethrow an error only by raising a new error. This will lose the context, as
+        inner errors are not maintained<footnote>
+          <para>Some languages provide a means for a field containing the inner exception, which
+            maintains thread information and location of an exception that was thrown previously.
+            Such mechanism is not available in XSLT 3.0.</para>
+        </footnote>. A typical function call to rethrow an error is <code>fn:error($err:code,
+          $err:description, $err:value)</code>. It is not possible to set line info for a newly
+        created error.</para>
+    </section>
+    <section>
+      <title>Improving your code</title>
+      <para>Since structured error handling was virtually absent in XSLT 2.0, this feature does not
+        have comparable examples in XSLT 2.0, except where external input is checked with code. For
+        instance, in the past you may have written something like the following to calculate the
+        average price of an article in an order:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:choose>
+  <xsl:when test="items = 0">
+    <xsl:message select="'Invalid input zero'"
+      terminate="no"/>
+  </xsl:when>
+  <xsl:otherwise>
+    <xsl:sequence
+      select="total-of-order div items"/>
+  </xsl:otherwise>
+</xsl:choose>
+]]></programlisting>
+      </para>
+      <para>But in XSLT 3.0, you can write this also (and opinions may vary whether this is clearer
+        or not), as
+        follows:<programlisting language="xml"><![CDATA[<xsl:try>
+  <xsl:sequence select="total-of-order div items"/>
+  <xsl:catch errors="err:FOAR0001">
+    <xsl:message select="'Invalid input zero'"
+      terminate="no"/>
+  </xsl:catch>
+</xsl:try>]]></programlisting></para>
+      <para>Another example is with <code>fn:doc-available</code>, which can raise an error if the
+        argument is not a valid URI. In XSLT 2.0, you probably wrote something like the
+        following:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:choose>
+  <xsl:when test="doc-available(settings-doc)">
+    <xsl:apply-templates
+      select="doc(settings-doc)"/>
+  </xsl:when>
+  <xsl:otherwise>
+    <xsl:copy-of select="$default-settings"/>
+  </xsl:otherwise>
+</xsl:choose>]]></programlisting>
+      </para>
+      <para>There are three issues with this code. First is that the <code>fn:doc-available</code>
+        function itself can raise an error and in XSLT 2.0 this would mean that the transformation
+        would fail. The second is that using the tandem of <code>fn"doc-available</code> with
+          <code>fn:doc</code> always leads to duplicate code. Lastly, there is no extra information
+        you can report back to the user, because you can only succeed or fail, but you cannot find
+        out in 2.0 what the reason of failure is. Using try/catch you can rewrite this as follows
+        and extend it for other error scenarios you would like to report on:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[
+<xsl:try>
+  <xsl:apply-templates select="doc(settings-doc)"/>
+  <xsl:catch errors="err:FODC0005">
+    <xsl:message select="'The settings doc cannot '
+|| 'be retrieved because it is not a valid URI.'"/>
+  </xsl:catch>
+  <xsl:catch errors="proc:ERR0005">
+    <xsl:message
+      select="'Access denied while trying to ' ||
+      'retrieve settings document.'"/>
+  </xsl:catch>
+  <xsl:catch errors="err:FODC0003">
+    <xsl:message
+      select="'The settings doc cannot be ' ||
+      'retrieved deterministically, possibly ' ||
+      'it is too big to fit in memory.'"/>
+  </xsl:catch>
+  <xsl:catch errors="err:FODC0002">
+    <xsl:message select="if(contains(
+      $err:description, 'available documents')
+      then 'Settings document not available in ' ||
+           'available documents, reason: ' ||
+           $err:description
+      else 'Settings document found but is not ' ||
+           'valid XML, reason: ' ||
+           $err:description"/>
+  </xsl:catch>
+  <xsl:catch errors="*">
+    <xsl:message select="'Unknown error raised ' ||
+    'while trying to retrieve settings document: '
+    || $err:description"/>
+  </xsl:catch>
+</xsl:try>]]></programlisting>
+      </para>
+      <para>This code shows several advantages over the previous example:<itemizedlist>
+          <listitem>
+            <para>The programmer can retrieve and return better information based on the error
+              raised</para>
+          </listitem>
+          <listitem>
+            <para>You can catch errors raised by the processor that are not also errors specified by
+              the specification. Note that in this example <code>proc:ERR0005</code> is used but
+              that essentially a processor should raise one of the predefined errors in such case.
+              However, the <code>fn:doc</code> function is allowed to return a document with error
+              information to prevent the transformation to blow up in XSLT 2.0. If such a processor
+              runs in XSLT 3.0 mode, it is likely that it will raise a proper error instead and that
+              you can catch that specific error. This also touches on a limitation of the error
+              catching mechanism: processors are typically not allowed to raise error codes other
+              than the ones specified in the specification, unless they cover a situation not
+              covered by the specification<footnote>
+                <para>It is possible that this may change and that processors may define more
+                  specific errors than the ones available in the specification, but whether this
+                  proposal will make it into the final Recommendation is unclear at this
+                  moment.</para>
+              </footnote>.</para>
+          </listitem>
+          <listitem>
+            <para>Repeated code with the same arguments for <code>fn:doc</code> and
+                <code>fn:doc-available</code>, which, as any repeated code, is a cause of concern
+              and maintainability, is not required anymore in scenarios such as this.</para>
+          </listitem>
+        </itemizedlist></para>
+    </section>
+    <section>
+      <title>Caveats</title>
+      <para>The biggest caveat that may come as a surprise to the unaware is when and how an error
+        is raised. Stylesheets can be processed in any order and instructions can be rearranged as a
+        processor sees fit as long as it doesn't change the semantics or the result. In cases of
+        try/catch, a processor must keep the instructions inside the try/catch wrapper, it cannot
+        rearrange it such that an instruction falls outside the try/catch. However, lazy
+        initialization of variables may mean that if such a variable contains an error, and it is
+        used only inside a try/catch block, you might expect the error to be raised and catchable
+        within that block, but they are not catchable in that way as it would pose a serious
+        processor dependency and it would violate the scoping rules.</para>
+      <para>To catch errors that are raised inside a variable, the body of the variable should be
+        wrapped in a try/catch instead and the handling of the error conditions should take place
+        inside the variable itself.</para>
+      <para>This can still mean that the error is not raised upon priming the stylesheet, but only
+        when the variable is actually used, which makes any reliance on the order in which errors
+        are raised futile.</para>
+      <para>This behavior is illustrated in the following example:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:variable name="haserror" select="1 div 0" />
+<xsl:template match="/">
+  <xsl:try>
+    <xsl:value-of select="$haserror"/>
+    <xsl:catch>
+      <!-- never triggered -->
+      <xsl:text>Error raised</xsl:text>
+    </xsl:catch>
+  </xsl:try>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>The variable <code>$haserror</code> does a division by zero. While this can be
+        statically detected, if the variable is never used, the processor does not need to raise the
+        error and furthermore, it is not required to statically raise the error. Most processors
+        will raise the error once it is used, in this case in the matching template. However, the
+          <code>xsl:catch</code>, here with an absent <code>errors</code> attribute to catch all
+        errors, will never be entered, because the error is lexically in the declaration of the
+        variable and even though it is raised within the try/catch block, it will not be catchable
+        from there.</para>
+      <para>Rewriting this code as follows would catch the error inside the variable, either upon
+        priming the stylesheet, or upon using the variable, but in both cases, the error is thrown
+        and caught from within the scope of the variable declaration. An extra try/catch block
+        within the termplate would therefore be
+        meaningless:<programlisting language="xml"><![CDATA[<xsl:variable name="haserror">
+  <xsl:try>
+    <xsl:value-of select="1 div 0" />
+    <xsl:catch>
+      <xsl:text>Error raised</xsl:text>
+    </xsl:catch>
+  </xsl:try>
+</xsl:variable>
+<xsl:template match="/">
+  <!-- will select 'Error raised' -->
+  <xsl:value-of select="$haserror"/>
+</xsl:template>]]></programlisting></para>
+      <para>This last example also emphasizes that the processor cannot raise the error statically
+        anymore, because it is inside a try/catch block and because the error itself is marked as
+        dynamic. Of course, as with anything, if a processor can evaluate the whole sequence
+        constructor statically, including catching the error and setting its value to the value of
+        the catch block, it is allowed to do so.</para>
+    </section>
+    <section>
+      <title>Limitations</title>
+      <para>The difference between dynamic and static errors is not always as clear-cut as one might
+        expect. For instance processors may detect certain type errors statically, in which case
+        catching these errors dynamically is not possible. Whether a processor chooses to raise such
+        errors dynamically or not is implementation dependent.</para>
+      <para>Another limitation is related to rolling back the output. If it is not possible to
+        rollback the output, a dynamic error will be raised from the <code>xsl:try</code>
+        instruction and any containing <code>xsl:try</code> instruction will raise this error as
+        well. This only occurs when the setting for <code>rollback-output</code> is <code>no</code>.
+        If it is <code>yes</code>, the processor will cache the result of the <code>xsl:try</code>
+        body and will always be capable of rolling back.</para>
+      <para>As mentioned in the example above, it may be cumbersome to catch more specific errors
+        than the rather generic errors that are defined in the specification. If such a mechanism is
+        not going to be provided, catching more specific errors can only be done by investigating
+        the information in the <code>$err:value</code> or the <code>$err:description</code>
+        variables.</para>
+      <para>It is not possible to catch errors in declarations that do not have a sequence
+        constructor (such as the select expression of a parameter), or to catch dynamic errors
+        caused by serializing the output to the principal result document. It is possible, however,
+        to catch errors raised by serializing to secondary result documents, by wrapping
+          <code>xsl:result-document</code> inside a try/catch block. An alternative for catching
+        errors from within expressions is to wrap the expression in a function that itself has a
+        try/catch block. This is not very flexible however unless you would resort to dynamic
+        evaluation using <code>xsl:evaluate</code>, which has its own drawbacks. A mechanism for
+        catching errors purely within XPath is not (yet) available<footnote>
+          <para>Also the new XPath 3.1, now in Candidate Recommendation phase, does not include a
+            mechanism for catching errors.</para>
+        </footnote>.</para>
+    </section>
+  </section>
+  <section>
+    <title>Forcing statically declared modes to prevent type errors</title>
+    <para><emphasis role="bold">Availability in XSLT 2.0:</emphasis> no related mechanism, known
+      extensions or workaround exists.</para>
+    <para>In all XSLT versions, including XSLT 3.0, when you apply templates to a mode, it magically
+      exists. There is no type- or name-checking of any kind. In XSLT 3.0, a new feature was
+      introduced on packages to force declaration of modes through <code>xsl:mode</code>, which
+      makes it a static error if you try to use a mode that is not declared.</para>
+    <para>In a way, this feature is the same as for statically typed OO and other languages, where
+      misstyping the name of a method, class or property would raise a static error.</para>
+    <section>
+      <title>Syntax and use</title>
+      <para>The new <code>declared-modes</code><footnote>
+          <para>The current text of the specification contains both <code>declared-modes</code> and
+              <code>declare-modes</code>, either of which is a typo, my assumption is that the
+            attribute name will be <code>declared-modes</code> in the final specification. See also
+              <link xl:href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=28232">Bug
+            28232</link>.</para>
+        </footnote> attribute is only available on the <code>xsl:package</code> element. To use this
+        feature, you do not need to create a packages hierarchy. A package, if it is the principal
+        package, behaves the same as the principal stylesheet: you can replace the
+          <code>xsl:stylesheet</code> or <code>xsl:transform</code> root element by
+          <code>xsl:package</code>.</para>
+      <para>The default of this attribute is <code>true</code>, which means that even if you do not
+        specify this attribute, you will need to declare all modes that you are intending to use, as
+        soon as you write packages. If you prefer the behavior of implicit modes, you can get the
+        classical XSLT 2.0 behavior back by setting this value to <code>false</code>.</para>
+      <para>This attribute, and its default, applies equally to named and unnamed modes.</para>
+      <para>Example of its use:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:package 
+  version="3.0" 
+  declared-modes="true"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  
+  <xsl:mode on-no-match="shallow-copy" />
+  
+  <xsl:template match="naam">
+    <name>
+      <xsl:copy-of select="@*" />
+      <xsl:apply-templates />
+    </name>
+  </xsl:template>
+</xsl:package>]]></programlisting>
+      </para>
+      <para>This example just sets the default of <code>declared-modes</code>, to make it explicit
+        and has a single template that changes a misspelled element from <code>&lt;naam></code> to
+          <code>&lt;name></code> in the default mode, which is declared in the only (unnamed)
+          <code>xsl:mode</code> declaration. Furthermore, this mode is declared to shallow-copy any
+        nodes not matched, meaning that it is not required to extend this stylesheet with a typical
+        copy-idiom.</para>
+      <para>If the (default) mode was not declared, static error XTSE3085 would be raised.</para>
+    </section>
+    <section>
+      <title>Improving your code</title>
+      <para>There are two typical cases that often cause frustration, especially in moderate to
+        larger XSLT projects. Consider the following XSLT snippet:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:stylesheet version="3.0"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+  <xsl:template match="para">
+    <xsl:apply-templates select="meta"
+      mode="processmeta"/>
+  </xsl:template>
+
+  <xsl:template match="meta" mode="process-meta">
+    <xsl:text>Changes made by: </xsl:text>
+    <xsl:value-of select="change/author/@name"/>
+  </xsl:template>
+</xsl:stylesheet>]]></programlisting>
+      </para>
+      <para>This, and many variants thereof, are common causes of frustration, because there is
+        nothing wrong with the stylesheet at first sight, until you find that you made a typo in the
+          <code>mode</code> attribute of <code>xsl:apply-templates</code>. The output here would be
+        the text value of the nodes, because it will trigger the default templates that always
+        exist. Quite possibly, the programmer would then try to find out why none of the templates
+        match (a typical cause of this behavior is the wrong or missing namespace) only to find out
+        much later that you incorrectly wrote <code>mode="processmeta"</code>.</para>
+      <para>If instead the processor would have raised an error that <code>processmeta</code> did
+        not exist, you would much quicker have found the issue.</para>
+      <para>In XSLT 3.0 you should write your stylesheets starting with <code>xsl:package</code>
+        instead of <code>xsl:stylesheet</code> or <code>xsl:transform</code>, which will
+        automatically add the need to declare modes before their use. In most if not all cases, it
+        means simply replacing the root element of your stylesheet, like so (it is not necessary to
+        include <code>declared-modes="true"</code> because that is the default):</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:package version="3.0"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+  <xsl:template match="para">
+    <xsl:apply-templates select="meta"
+      mode="processmeta"/>
+  </xsl:template>
+
+  <xsl:template match="meta" mode="process-meta">
+    <xsl:text>Changes made by: </xsl:text>
+    <xsl:value-of select="change/author/@name"/>
+  </xsl:template>
+</xsl:package>]]></programlisting>
+      </para>
+      <para>The result is now error <code>XTSE3085</code> on the lines containing
+          <code>xsl:apply-templates</code> and the declaration <code>xsl:template</code>, because
+        the modes have not been declared. To fix that, we must add the necessary
+          <code>xsl:mode</code> declarations, for instance as follows:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:package version="3.0"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+  <xsl:mode/>
+  <xsl:mode name="process-meta"
+    on-no-match="shallow-skip"/>
+
+  <xsl:template match="para">
+    <xsl:apply-templates select="meta"
+      mode="processmeta"/>
+  </xsl:template>
+
+  <xsl:template match="meta" mode="process-meta">
+    <xsl:text>Changes made by: </xsl:text>
+    <xsl:value-of select="change/author/@name"/>
+  </xsl:template>
+</xsl:package>]]></programlisting>
+      </para>
+      <para>Note the empty <code>xsl:mode</code> declaration, which is required for the unnamed mode
+        (the one used in the first template). After this change, the processor will still raise
+          <code>XTSE3085</code>, this time pointing to the line containing
+          <code>mode="processmeta"</code>. The typo is now detected and changing it to the
+        appropriate spelling solves the problem.</para>
+      <para>We can improve on this further, though. An error that I still make myself quite often
+        and I like to think I am not the only one, is forgetting to select the current mode:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:package version="3.0" declared-modes="true"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+  <xsl:mode/>
+  <xsl:mode name="process-meta"
+    on-no-match="shallow-skip"/>
+
+  <xsl:template match="para">
+    <xsl:apply-templates select="meta"
+      mode="process-meta"/>
+  </xsl:template>
+
+  <xsl:template match="meta" mode="process-meta">
+    <xsl:apply-templates select="change/author"/>
+  </xsl:template>
+
+  <xsl:template match="author" mode="process-meta">
+    <xsl:text>Changes made by: </xsl:text>
+    <xsl:value-of select="@name"/>
+  </xsl:template>
+</xsl:package>]]></programlisting>
+      </para>
+      <para>There is nothing inherently wrong with this example from the point of view of the
+        processor. All modes have been declared, but it is still not working. Why? Because in the
+        first template matching <code>meta</code>, I have forgotten to include
+          <code>mode="#current"</code> or <code>mode="process-meta"</code> on
+          <code>xsl:apply-templates</code>, resulting in switching to the default unnamed mode. </para>
+      <para>It is a common mistake. To remedy this, you should always remove the unnamed mode from
+        the declarations and <emphasis role="italic">only use named modes</emphasis>. This may seem
+        like a big extra effort, but once you get used to it, you will get clearer and easier to
+        read code and the processor will be able to more easily catch coding errors, resulting in
+        quicker and better development overall. The resulting stylesheet (or better: stylesheet
+        package) now becomes:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:package version="3.0" declared-modes="true"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+  <xsl:mode name="process-meta"
+    on-no-match="shallow-skip"/>
+
+  <xsl:template match="para" mode="main">
+    <xsl:apply-templates select="meta"
+      mode="process-meta"/>
+  </xsl:template>
+
+  <xsl:template match="meta" mode="process-meta">
+    <xsl:apply-templates select="change/author"
+      mode="#current"/>
+  </xsl:template>
+
+  <xsl:template match="author" mode="process-meta">
+    <xsl:text>Changes made by: </xsl:text>
+    <xsl:value-of select="@name"/>
+  </xsl:template>
+</xsl:package>]]></programlisting>
+      </para>
+      <para>This change also requires initiating the processor with a different default mode. All
+        processors support this. Using a common name for the named default mode and fixing all your
+        invocation scripts, code or command lines, will fix this. A simpler solution is perhaps
+        using a new XSLT 3.0 feature to initiate processing by a default mode, by setting the
+          <code>default-mode</code> attribute on the outermost element, in this case
+          <code>xsl:package</code>. This will force the processor to use that mode as the initial
+        mode:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:package 
+  version="3.0" 
+  declared-modes="true"
+  default-mode="main"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  .....]]></programlisting>
+      </para>
+      <para>This idiom, with an initial default mode and an absent unnamed template declaration,
+        forms a good basis for a cleaner programming style where the entry point is obvious and
+        errors resulting from incorrect mode names becomes a thing of the past. If you prefer the
+        (declared) default mode to be the unnamed mode, change this to have
+          <code>default-mode="#unnamed"</code>. See also the next section, which goes deeper into
+        the <code>default-mode</code> attribute.</para>
+    </section>
+    <section>
+      <title>Caveats</title>
+      <para>There are not many caveats, in fact, this feature removes many caveats you may have had
+        with typical XSLT programming. The only thing to look out for is one of education: everyone
+        in your team should stick to the new programming style.</para>
+      <para>Another thing to be aware of is that this feature is not available on
+          <code>xsl:stylesheet</code>, as mentioned above. That means that once you have changed
+        your principal stylesheet into a package, any imported and included modules (with
+          <code>xsl:import</code> or <code>xsl:include</code>), directly or indirectly, will have to
+        use declared modes as well, regardless the fact that those may still be rooted at an
+          <code>xsl:stylesheet</code> element. In fact, it is not even possible to simply rename
+        those into <code>xsl:package</code> for consistency, because it is not allowed to include or
+        import packages. This can cause confusion during development, because while you are
+        developing the individual imported modules, no static errors will be raised when compiling
+        or testing them. Only after importing them in the main package, missing mode declarations
+        will be found and trigger an error.</para>
+      <para>One way around this is to change the imported modules into packages, giving them a name,
+        making all declarations public using a single <code>&lt;xsl:expose names="*"
+          visibility="public" /></code> and changing the <code>xsl:import</code> into an
+          <code>xsl:use-package</code> referencing the new name.</para>
+    </section>
+    <section>
+      <title>Limitations</title>
+      <para>There are several limitations you should be aware of when using this feature, most have
+        already been mentioned in previous sections:</para>
+      <para>
+        <itemizedlist>
+          <listitem>
+            <para>The feature is not backward compatible and cannot be applied on
+                <code>xsl:stylesheet</code> or <code>xsl:transform</code>.</para>
+          </listitem>
+          <listitem>
+            <para>Once introduced in the main stylesheet by changing it into a package, its
+              influence extends to any imported stylesheets, which may cause confusion because they
+              start with <code>xsl:stylesheet</code> or <code>xsl:transform</code>, which on itself
+              does not have this option.</para>
+          </listitem>
+          <listitem>
+            <para>It does not extend to used packages, if a used package, imported through
+                <code>xsl:use-package</code> has <code>declared-modes="no"</code>, that package will
+              not need to have declared modes.</para>
+          </listitem>
+          <listitem>
+            <para>The default is that modes must be declared. Changing your stylesheet into a
+              package requires adding an <code>xsl:mode</code> declaration for every mode you use,
+              or if you don't want that, you should add <code>declared-modes="no"</code>.</para>
+          </listitem>
+          <listitem>
+            <para>If you only use named modes, the standard default mode, which is the unnamed mode,
+              will no longer be available and will cause errors when invoking your stylesheet. You
+              can fix this by setting the default mode on the <code>xsl:package</code> by using
+                <code>default-mode="yourdefaultmode"</code>.</para>
+          </listitem>
+        </itemizedlist>
+      </para>
+    </section>
+  </section>
+  <section>
+    <title>Setting an entry point for your XSLT stylesheet</title>
+    <para><emphasis role="bold">Availability in XSLT 2.0:</emphasis> In previous versions, only the
+      default mode could be set by the invocation API of the processor, which defaulted to the
+      unnamed mode if not set. The initial template did not have a default and could only
+      specifically be set by the invocation API of the processor.</para>
+    <para>The working group considered that there was no common way to invoke a stylesheet without
+      any arguments, or with only an initial match selection set, unless you would invoke the
+      unnamed default mode. To fix this scenario, it is now possible to set the default mode on the
+      outermost element (or any other element) and you can use a default initial named template as
+      default entry point of your transformation.</para>
+    <section>
+      <title>Syntax and use</title>
+      <para>You can set the default mode on the outermost element of your principal stylesheet or
+        the top level package<footnote>
+          <para>Essentially, in the absence of <code>xsl:package</code>, a stylesheet that starts
+            with <code>xsl:stylesheet</code> or <code>xsl:transform</code> is still considered a
+            (nameless) implicit package, where the <emphasis role="italic">principal stylesheet
+              module</emphasis> is the subtree rooted at the at the <code>xsl:stylesheet</code> or
+              <code>xsl:transform</code> element. In the case of a package, the principal stylesheet
+            module is the <emphasis role="italic">package manifest</emphasis>, which is essentially
+            the body of the <code>xsl:package</code>. In previous versions of 3.0, the body of a
+            package contained an <code>xsl:stylesheet</code> or <code>xsl:transform</code> element,
+            but this is no longer true, the body <emphasis role="italic">is</emphasis> the principal
+            stylesheet, the same way it used to be in XSLT 2.0 (except that the outermost element is
+            now <code>xsl:package</code>). The package containing the principal stylesheet module is
+            called the <emphasis role="italic">top level package</emphasis>, any other used packages
+            are called <emphasis role="italic">library packages</emphasis>.</para>
+        </footnote> by using the new <code>[xsl:]default-mode</code> attribute, which is also
+        available on all declarations, instructions and literal result elements. When set on the
+        outermost element, it will set the default mode for invoking the stylesheet, unless it is
+        overridden by the API or commandline arguments of the processor. You can set the default
+        mode to the special values <code>#unnamed</code> for the unnamed mode and
+          <code>#default</code> for the default mode, which is typically the same as the unnamed
+        mode, unless an ancestor element has another default mode set, or if the API of your
+        processor has the ability to override the default mode.</para>
+      <para>You can set the default initial template by using the special name
+          <code>xsl:initial-template</code>. Its intend is that in the absence of a name for the
+        initial template, and if the stylesheet is supposed to be invoked with an initial named
+        template, that it defaults to this name. In practice, this means that if you invoke your
+        processor with only the stylesheet as its argument, it will automatically select this
+        initial template as its starting point.</para>
+      <para>Example of its use:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template name="xsl:initial-template">
+  <xsl:text>Main entry-point</xsl:text>
+</xsl:template>]]></programlisting>
+      </para>
+    </section>
+    <section>
+      <title>Improving your code</title>
+      <para>It is a common scenario in stylesheet programming to switch to different modes,
+        especially when processing a certain input multiple times. To forget to continue in the
+        current mode is a common mistake. For instance, consider the following snippet:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template match="/">
+  <xsl:apply-templates mode="invoices" />
+</xsl:template>
+
+<xsl:template match="invoice" mode="invoices">
+  <xsl:value-of select="product"/>
+  <!-- unintended switching back to
+       the unnamed mode -->
+  <xsl:apply-templates select="price"/>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>In this example, applying templates on <code>price</code> ends up in using the unnamed
+        mode, because the programmer forgot to specify a new mode. To prevent this from happening,
+        you can use the new <code>default-mode</code> attribute, which is specifically helpful if
+        the code is deeper nested or contains a larger number of <code>xsl:apply-templates</code>
+        instructions. It is not required to specify both the <code>mode</code> and the
+          <code>default-mode</code>, unless you want the default mode for the containing
+        instructions to be different from the mode specified in the <code>mode</code>
+        attribute:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template match="invoice"
+  default-mode="invoices">
+  <xsl:value-of select="product"/>
+  <!-- this will remain inside mode "invoices" -->
+  <xsl:apply-templates select="price"/>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>Another handy use of setting the default mode is setting it on the outermost element,
+        i.e. <code>xsl:stylesheet</code> or <code>xsl:package</code>, which will instruct the
+        processor that, in absence of an initial mode specified on the command line or by the API,
+        to use the default mode specified in the outermost element.</para>
+      <para>A similar method now exists for the initial named template. Suppose you have a
+        transformation that is independent of an input document, for instance because it gets its
+        input elsewhere, a simplified way of coding your stylesheet, and of making it very clear
+        where the stylesheet starts, is to use the new <code>xsl:initial-template</code> name for
+        the initial named template:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:stylesheet version="3.0"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+  <xsl:template name="xsl:initial-template">
+    <xsl:apply-templates
+      select="doc('settings.xml')
+      /settings/input-doc"/>
+  </xsl:template>
+
+</xsl:stylesheet>]]></programlisting>
+      </para>
+      <para>The <code>xsl:initial-template</code> takes the role of what <code>int main(int argc,
+          char *argv[])</code> is for C and C++, and variants thereof for C#, Java and other
+        languages: it is the entry point of your stylesheet and your processor will select it
+        automatically in absence of a default mode and a default template name (though processors
+        may vary and may require you to specifically select the initial template, however, its
+        intent is that it is the default in the <emphasis role="italic">absence</emphasis> of an
+        initial template name). For instance, in the case of Exselt, invoking the stylesheet with
+        only an argument for the XML input tree and no other arguments, will invoke this stylesheet
+        with an <emphasis role="italic">initial match selection</emphasis><footnote>
+          <para>In XSLT 3.0, the initial context and the initial match selection do not need to be
+            the same anymore, though most processors are likely to default them to the same node.
+            Also, it is not a requirement that this is a node, the initial match selection and the
+            initial context item can both be atomic items as well.</para>
+        </footnote> of the root of the input tree and an initial named template of
+          <code>xsl:initial-template</code>. If there is also a default mode, the initial template
+        must be in the default mode, or an error is raised<footnote>
+          <para>Whether or not an error is raised depends on the API. The default mode only has
+            effect when the stylesheet is invoked using apply-templates invocation. In the absence
+            of information whether the user wants apply-templates or call-template invocation, it is
+            up to the processor to decide on a default. If there is no initial context item, the
+            only sensible default is call-template invocation, which will select the specified
+            initial template, or <code>xsl:initial-template</code> if no such initial template is
+            specified. If there is a context item, the processor has the option to choose between
+            call-template and apply-templates invocation, and is likely to choose apply-templates
+            invocation as a default. In that case, the default mode will be in effect.</para>
+        </footnote>.</para>
+    </section>
+    <section>
+      <title>Caveats</title>
+      <para>Typically, this new feature on default modes and initial template will work as expected.
+        There are, however, a few things to keep in mind:</para>
+      <para>It is processor dependent how a processor invokes a stylesheet. As a result, it is also
+        processor dependent how it behaves when there is not enough information to invoke a
+        stylesheet. The <code>default-mode</code> and the <code>xsl:initial-template</code> have
+        been introduced to define defaults in the absence of such information. But there is no way
+        to tell a processor to be invoked with call-template invocation or apply-templates
+        invocation from within the stylesheet itself.</para>
+      <para>If you invoke a stylesheet without an initial match selection, it can be expected that
+        it will default to call-template invocation, as apply-templates invocation will immediately
+        raise an error (the initial match selection is required for apply-templates invocation, as
+        otherwise there is nothing to match on). But when there is an initial match selection, but
+        no specific default mode, and there is an <code>xsl:initial-template</code> inside the
+        stylesheet, the processor may choose to invoke the stylesheet in either call-template or
+        apply-templates mode.</para>
+      <para>If you want to prevent your stylesheet to be called in either way, you can create a
+        template in the default mode that raises an error. For instance:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template name="xsl:initial-template">
+  <xsl:text>Correct invocation</xsl:text>
+</xsl:template>
+
+<xsl:template match="." default-mode="#default">
+  <xsl:message terminate="yes">
+    Please invoke this stylesheet
+    in call-template mode!
+  </xsl:message>
+</xsl:template>]]></programlisting>
+      </para>
+    </section>
+    <section>
+      <title>Limitations</title>
+      <para>The newly introduced difference between the initial match selection and the global
+        context item could have benefits for this feature in the sense that you could create a
+        stylesheet with global variables that depend on the global context item, and an initial
+        template that requires the initial match selection to be absent. However, at this moment,
+        both Saxon and Exselt do not differentiate between the global context item and the initial
+        match selection, but this may change in the future.</para>
+      <para>To test whether a processor differentiates between the global context item and the
+        initial match selection, you can write a stylesheet like the following:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:mode name="none" on-no-match="deep-skip" />
+
+<xsl:variable name="globctx">
+  <xsl:try>
+    <xsl:apply-templates select="." mode="none" />
+    <xsl:text>
+      There is a global context item
+    </xsl:text>
+    <xsl:catch>
+      <xsl:text>
+        There is no global context item
+      </xsl:text>
+    </xsl:catch>
+  </xsl:try>
+</xsl:variable>
+
+<xsl:template match="." default-mode="#default">
+  <xsl:text>
+    Invoked with apply-templates mode
+    There is an initial match selection
+  </xsl:text>
+  <xsl:value-of select="$globctx" />
+</xsl:template>
+
+<xsl:template name="xsl:initial-template">
+  <xsl:text>
+    Invoked with call-template mode
+  </xsl:text>
+  <xsl:value-of select="$globctx" />
+  <xsl:try>
+    <xsl:apply-templates select="." mode="none" />
+    <xsl:text>
+      There is an initial match selection
+    </xsl:text>
+    <xsl:catch>
+      <xsl:text>
+        There is no initial match selection
+      </xsl:text>
+    </xsl:catch>
+  </xsl:try>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>This code works by catching an error in the event of the absence of a context item when
+        applying templates to a context item (there is no requirement to use <code>.</code>, but it
+        makes it explicit that we are testing the current context item).</para>
+      <para>There is another way of coding this by using the new <code>xsl:context-item</code>
+        instruction, but that will raise an uncatchable error (you cannot wrap this instruction
+        inside a try/catch block). Using the pattern above allows you to actually differentiate
+        between the four different cases: no global context item and no initial match selection, no
+        global context item and an initial match selection, a global context item and no initial
+        match selection and a global context item and an initial match selection.</para>
+      <para>I have uses an empty catch-clause here because the specification does not give a
+        specific error code for this scenario, though XTTE3090 seems a good candidate, but it is
+        specific to cases where <code>xsl:context-item</code> is used.</para>
+    </section>
+  </section>
+  <section>
+    <title>Better performance with memoization</title>
+    <para><emphasis role="bold">Availability in XSLT 2.0:</emphasis> no related mechanism exists,
+      though Saxon has an extension attribute that works somewhat similarly, see
+        <citation>15</citation>.</para>
+    <para>For functions that require processor-intensive calculations or operations, it can be
+      beneficial to instruct the processor to only do that calculation once for the same input. The
+      new <code>cache</code> attribute on <code>xsl:function</code> was introduced for exactly that
+      purpose.</para>
+    <section>
+      <title>Syntax and use</title>
+      <para>The <code>cache</code> attribute works as a hint to the processor. The processor is not
+        required to follow that hint. The available values for this attribute are:</para>
+      <para>
+        <itemizedlist>
+          <listitem>
+            <para><code>cache="no"</code> this is the default, with no hints to the processor on
+              whether to cache this function or not.</para>
+          </listitem>
+          <listitem>
+            <para><code>cache="partial"</code> hints the processor to cache the result of the
+              function, but not necessarily to all extend possible. For instance, if the cached
+              value is large, it can decide to drop it to save memory, or if the invocations are
+              localized, it can drop the cache when it goes out of scope. It can also decide to only
+              cache a part of the function if it finds a way to do so.</para>
+          </listitem>
+          <listitem>
+            <para><code>cache="full"</code> hints the processor to cache as much as it can. Still, a
+              processor is not required to actually cache anything, but it is a strong hint to do
+              so. The difference between <code>full</code> and <code>partial</code> is that with
+                <code>full</code> the processor is not supposed to worry too much about memory
+              constraints, it should simply cache as aggressively as possible.</para>
+          </listitem>
+        </itemizedlist>
+      </para>
+      <para>The applied caching is dependent on the supplied arguments. If the argument is a node,
+        for instance, and the identity of that node is different but its contents is the same, the
+        processor will not be able to do any sensible caching because different node identities
+        means different arguments and different arguments means potentially different results. A
+        processor is not allowed to cache in such a way that the outcome of the function would be
+        different if the cache attribute would not be applied.</para>
+    </section>
+    <section>
+      <title>Improving your code</title>
+      <para>Scenarios where caching can be beneficial depend highly on the processor, your input,
+        and the different arguments of the function. Here are some rules of thumb to follow when
+        trying to improve performance by using memoization:</para>
+      <para>
+        <itemizedlist>
+          <listitem>
+            <para>Functions that take no arguments should always be cached, or turned into a
+              variable, unless the returned value is newly constructed node and the identity of that
+              node is important. In most cases the identity of the returned node will not matter for
+              your operations, or you will return an atomic result, in which case adding
+                <code>cache="full"</code> is the right thing to do. Even without adding this hint,
+              processors are known to turn functions into global variables internally, which has the
+              same effect. However, by adding this hint, you make this behavior
+              processor-independent.</para>
+          </listitem>
+          <listitem>
+            <para>Functions that take atomic arguments that change little and that do a significant
+              amount of processing or calculations. To know whether the overhead of caching
+              outperforms non-caching requires careful measurement. However, some scenarios are
+              trivial to find, for instance if your function uses an <code>xsl:stream</code> or
+                <code>fn:collection()</code> internally, which can be expensive and is typically
+              non-stable, meaning that on each invocation the processor would be required to load
+              the referenced documents again. If you don't expect these documents to change, you
+              should add memoization.</para>
+          </listitem>
+          <listitem>
+            <para>Functions that are recursive and the recursion is dependent on the input value,
+              where the performance is <code>O(n)</code> or worse. For instance, suppose that if the
+              input is <code>xs:integer(10)</code> and to calculate the result the function will
+              call itself with the values <code>n - 1</code> (i.e., 9, 8, 7 etc), it is almost a
+              requirement to add caching to prevent all these recursive calculations to happen
+              again. Adding memoization in such cases will change an initial call with an argument
+                <code>xs:integer(10)</code> from 10 iterations into 1 iteration, and a subsequent
+              call of <code>xs:integer(12)</code> into only 2 additional iterations, instead of 12
+              without caching.</para>
+          </listitem>
+          <listitem>
+            <para>Functions that depend on nodes but the supplied nodes are often identity-equal.
+              For instance, suppose you have a function that returns the settings from the first
+              child node of the root as a map. The settings node will be the same each time, so it
+              makes sense to memoize this.</para>
+          </listitem>
+        </itemizedlist>
+      </para>
+      <para>A trivial example can be seen in the calculation of factorial. There are several ways to
+        implement the factorial function and most will be suitable for memoization, but let's have a
+        look at a recursive implementation:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<!-- definition -->
+<xsl:function name="f:factorial" cache="full">
+  <xsl:param name="i" as="xs:integer" />
+  <xsl:sequence select="
+    if($i = 0 or $i = 1) then 1
+    else $i * f:factorial($i - 1)" />
+</xsl:function>
+
+<!-- usage -->
+<xsl:template name="xsl:intial-template">
+  <xsl:value-of select="
+    for $i in 1 to 12 
+    return f:factorial($i)" />
+</xsl:template>
+
+<!-- 
+expected output:
+1 2 6 24 120 720 5040 40320 362880 3628800
+                                 39916800 479001600
+-->]]></programlisting>
+      </para>
+      <para>Without the <code>cache="full"</code>, the factorial function will have to go over each
+        recursive call again and again, which is computationally intensive. With the cache attribute
+        in place, calculating each further factorial will require only one recursive call, which
+        returns the cached result of the previous calculation (the function
+          <code>cached-value</code> is meant to denote the implementor's internal function used for
+        retrieving a cached value of a function):</para>
+      <para>
+        <itemizedlist>
+          <listitem>
+            <para><code>f:factorial(1)</code> has no recursion and returns 1.</para>
+          </listitem>
+          <listitem>
+            <para><code>f:factorial(2)</code> calls recursively with <code>2 *
+              f:factorial(1)</code>, which is now cached and returns <code>2 *
+                cached-value(f:factorial#1, 1)</code>, which returns 2.</para>
+          </listitem>
+          <listitem>
+            <para><code>f:factorial(3)</code> calls recursively with <code>3 *
+              f:factorial(2)</code>, which is now cached and returns <code>3 *
+                cached-value(f:factorial#1, 2)</code>, which returns 6.</para>
+          </listitem>
+          <listitem>
+            <para><code>f:factorial(4)</code> calls recursively with <code>4 *
+              f:factorial(3)</code>, which is now cached and returns <code>4 *
+                cached-value(f:factorial#1, 3)</code>, which returns 24.</para>
+          </listitem>
+          <listitem>
+            <para>.....</para>
+          </listitem>
+          <listitem>
+            <para><code>f:factorial(12)</code> calls recursively with <code>12 *
+                f:factorial(11)</code>, which is now cached and returns <code>12 *
+                cached-value(f:factorial#1, 11)</code>, which returns 479001600. Without the cache
+              this would require 11 recursive function calls.</para>
+          </listitem>
+        </itemizedlist>
+      </para>
+      <para>The total number of operations is now 12, whereas without the caching it would be 1 + 2
+        + 3 + ... + 11 + 12 = 78 operations. A potential performance gain of 600%.</para>
+      <para>Another example where caching can be beneficial is where a single call is already
+        expensive. For instance, suppose the structure of your input XML contains a
+          <code>head</code> section with settings that you want to use in your pattern matching. A
+        trivial implementation can look something like the following:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template
+  match="project[f:setting(., 'debug')">
+  ... implementation ...
+</xsl:template>
+
+<xsl:function name="f:setting">
+  <xsl:param name="node" />
+  <xsl:param name="setting" />
+  <xsl:sequence select="
+    $node/(/)/head/settings[name() = $node/@name]
+    [setting = $setting]/@value" />
+</xsl:function>]]></programlisting>
+      </para>
+      <para>This is a potentially expensive function to be executed for each matching pattern where
+        it is used. It is, however, dependent on the current node, which is changing each time,
+        which makes it senseless to apply caching as it is written. However, if we modify the
+        function slightly, we do not have to change much in our code, but we have a potential large
+        benefit if it is called many times with the same argments:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template
+  match="project[f:setting(@name, 'debug')]">
+  ... implementation ...
+</xsl:template>
+
+<xsl:function name="f:setting" cache="full">
+  <xsl:param name="setting-name" as="xs:string" />
+  <xsl:param name="setting" as="xs:string" />
+  <xsl:sequence select="
+    $node/(/)/head/settings[name() = $setting-name]
+    [setting = $setting]/@value" />
+</xsl:function>]]></programlisting>
+      </para>
+      <para>This new function has changed its signature to accept strings instead of nodes, which
+        are much easier to cache. By specifying this explicitly on the <code>xsl:param</code>, the
+        processor will first atomize any node that is passed into it, which makes it independent on
+        the node identity and a good candidate for caching. While this function is a very
+        straightforward example, scenarios similar to these where a lookup table is used inside a
+        function occur very often in XSLT programming scenarios. Instead of processing the tree each
+        time, by caching the function subsequent invocations can become instantaneous, resulting in
+        a better overall performance.</para>
+    </section>
+    <section>
+      <title>Caveats</title>
+      <para>The main caveat with using caching is the concern for memory constraints. If you would
+        go about caching every function you write, it may be detrimental to performance because
+        caching itself adds a little overhead and unless a function is called multiple times with
+        the same arguments, this will decrease performance. In the event of functions that have
+        arguments that take nodes, the chances that a function can be actively cached are small and
+        it is not unlikely that with many function calls, your processor will run out of memory with
+          <code>cache="full"</code>. If your scenario can benefit from caching and your function is
+        called with many different arguments, consider using <code>cache="partial"</code>, to hint
+        the processor to limit the maximum amount of cached results.</para>
+      <para>If your function generates new nodes, a processor would typically have a hard time
+        deciding whether or not it can optimize this by returning the same node each time or by
+        returning a new node with its own identity. To hint the caching implementation, an extra
+        attribute was introduced, <code>identity-sensitive</code>, which can be <code>yes</code>,
+        the default, or <code>no</code>. If it is <code>no</code>, the returned node is not identity
+        sensitive and the processor can return the same node each time, allowing for better
+        optimization. This attribute does <emphasis role="italic">not</emphasis> apply to the
+        arguments passed to the function.</para>
+    </section>
+    <section>
+      <title>Limitations</title>
+      <para>Memoization is limited to available memory and to your processor supporting it to an
+        extend useful for your scenario. But even if a processor does not support caching fully,
+        using the feature will not change the result of your transformation. It may, however, run
+        much longer, especially in regards to recursive function calls.</para>
+      <para>There is currently no information on how processors support
+        <code>cache="partial"</code>. It can be expected that processors will allow user-control
+        over the amount of data cached, for instance with a setting that sets the maximum amount of
+        cacheable calls for a given function.</para>
+    </section>
+  </section>
+  <section>
+    <title>Simpler templates with text value templates</title>
+    <para><emphasis role="bold">Availability in XSLT 2.0:</emphasis> not available, you would use
+        <code>xsl:value-of</code> in combination with <code>xsl:text</code> instead.</para>
+    <para>We have all come to love the attribute value templates with the familiar curly braces that
+      are abundant in XSLT transformations. This syntax has now become available inside any sequence
+      constructor as well and makes writing certain stylesheets quite a bit more readable, and as a
+      side-effect it reduces the number of instructions to type.</para>
+    <section>
+      <title>Syntax and use</title>
+      <para>To use text value templates<footnote>
+          <para>Attribute value templates occur in attributes inside curly braces. Text value
+            templates occur inside any sequence constructor where literal text is allowed.
+            Collectively both types are called <emphasis role="italic">value templates</emphasis> in
+            the specification,</para>
+        </footnote>, you first have to enable them by adding the attribute
+          <code>expand-text="yes"</code> to an ancestor element. This attribute is available on
+        every instruction, declaration and literal result element. Once enabled, curly braces get
+        the same special meaning as they have in attribute value templates: any text outside curly
+        braces is considered normal text, any text inside curly braces is considered and XPath
+        expression and will be evaluated as if <code>xsl:value-of</code> was called with that
+        expression in that position<footnote>
+          <para>While this is indeed typically how it works, any potential <code>@separator</code>
+            on the <code>xsl:value-of</code> has no effect on text value templates.</para>
+        </footnote>. A typical example of using text value templates is the following:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:text expand-text="yes">
+  Dear {$title} {$firstname} {$lastname},
+  ....
+</xsl:text>]]></programlisting>
+      </para>
+    </section>
+    <section>
+      <title>Improving your code</title>
+      <para>Almost every XSLT programmer has encountered the situation where he ends up writing
+        endless combinations of <code>xsl:text</code> and <code>xsl:value-of</code> to get his
+        output nicely formatted the way he wants it. For instance, suppose you want to take some
+        vanilla XML<footnote>
+          <para>This is not a defined term anywhere, but when used, it typically means a flat XML
+            file with a single root node, an element for rows and an element for each field in the
+            row</para>
+        </footnote> and turn it into a comma-separated-value (CSV) format. In XSLT 2.0, you could do
+        this as follows:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template match="row">
+  <xsl:apply-templates />
+  <xsl:text>&#xA;</xsl:text>
+</xsl:template>
+
+<xsl:template match="field">
+  <xsl:text>"</xsl:text>
+  <xsl:value-of select="." />
+  <xsl:text>",</xsl:text>
+</xsl:template>
+
+<xsl:template match="field[last()]">
+  <xsl:text>"</xsl:text>
+  <xsl:value-of select="." />
+  <xsl:text>"</xsl:text>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>Not really rocket science, but using text value templates, it becomes quite a bit more
+        readable:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template match="row">
+  <xsl:apply-templates />
+  <xsl:text>&#xA;</xsl:text>
+</xsl:template>
+
+<xsl:template match="field" expand-text="yes">
+  <xsl:text>"{.}",</xsl:text>
+</xsl:template>
+
+<xsl:template match="field[last()]"
+              expand-text="yes">
+  <xsl:text>"{.}"</xsl:text>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>Of course, you could set the <code>expand-text="yes"</code> on the outermost
+          <code>xsl:stylesheet</code> or <code>xsl:package</code> element, so that you do not need
+        to repeat again and again. To futher simply the code above, you can write this now without
+        using <code>xsl:text</code>, and assuming you have placed the <code>expand-text="yes"</code>
+        at the stylesheet level, the final code looks like:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template match="row">
+  <xsl:apply-templates />
+  <xsl:text>&#xA;</xsl:text>
+</xsl:template>
+
+<xsl:template match="field">"{.}",</xsl:template>
+
+<xsl:template
+  match="field[last()]">"{.}"</xsl:template>]]></programlisting>
+      </para>
+      <para>This particular feature is surprisingly trivial to use and once you get used to it, same
+        as with attribute value templates, you find yourself using it everywhere<footnote>
+          <para>And exception can be cases where for clarity's sake it is simply better to write it
+            out in XSLT instructions instead. As with any feature, use it when it improves your
+            code, but stick to other techniques if it means that code becomes less readable.</para>
+        </footnote>.</para>
+    </section>
+    <section>
+      <title>Caveats</title>
+      <para>Using curlies within constructs that allow text value templates requires you to escape
+        them as respectively <code>{{</code> and <code>}}</code>.</para>
+      <para>Whitespace handling is not quite what you might expect. Consider the following
+        example:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:text expand-text="yes">
+  {@first-name}
+  {@last-name}:
+  {@age} years
+</xsl:text>]]></programlisting>
+      </para>
+      <para>This is very readable and you may have put the items on separate lines precisely to make
+        it more readable. But other than with attribute value templates, where whitespace is
+        normalized because it is inside attributes, that does not apply here. Whitespace is
+        significant in sequence constructors as soon as there are text nodes inside it (other than
+        the ones introduced with <code>xsl:text</code>), and when not inside a sequence constructor,
+        as in this example, whitespace is significant because whitespace is always significant
+        inside <code>xsl:text</code>. As a result, this example, when processed, will look as follows<footnote>
+          <para>There is an opening whiteline and a closing whiteline, which may not be visible
+            depending on the chosen rendering of the original DocBook code of this paper.</para>
+        </footnote>:</para>
+      <para>
+        <programlisting><![CDATA[
+  John
+  Doe:
+  23 years
+]]></programlisting>
+      </para>
+      <para>To prevent this from happening, simply remove the white-space by coding it
+        differently:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:text expand-text="yes">{@first-name} {@last-name}: {@age} years</xsl:text>]]></programlisting>
+      </para>
+      <para>But this can get ugly. Another way of writing this is:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:text expand-text="yes">{
+  @first-name,
+  @last-name}:{
+  @age} years</xsl:text>]]></programlisting>
+      </para>
+      <para>Still not ideal, because we, as XSLT and XML addicts usually like to close an element on
+        the same column it was opened<footnote>
+          <para>This is certainly my preference, and from most examples floating around on the Net,
+            this seems to be the preference of most programmers, though I do not have any
+            authorative resource to proof that.</para>
+        </footnote>. Let's try yet another potentially (less) ugly way of coding this (using the
+        string concatenation operator <code>||</code> from XPath 3.0):</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:text expand-text="yes">{
+  @first-name,
+  @last-name
+  || ': '
+  || @age 
+  || ' years'
+}</xsl:text>]]></programlisting>
+      </para>
+      <para>It would have been nicer if the Working Group had decided to remove the whitespace, i.e.
+        to let it work as if the curlies where replaced in-place by an <code>xsl:value-of</code> and
+        if, after such expansion, no significant whitespace remains, the insignificant whitespace is
+        removed or collapsed, similar to attribute value templates. However, processors typically
+        remove insignificant whitespace prior to instruction expansion and the whitespace processor
+        cannot distinguish between curlies that contain expressions and curlies that are normal
+        text, which has been the main reason not to let it behave that way.</para>
+    </section>
+    <section>
+      <title>Limitations</title>
+      <para>Using text value templates is limited to places where <code>expand-text="yes"</code> is
+        in scope. You cannot apply sequence normalization with a specified separator as you would
+        with <code>xsl:value-of</code> (sequences inside a text value template are normalized with a
+        space between the items and consecutive text value templates are concatenated without any
+        separator).</para>
+      <para>Text value templates, similarly to attribute value templates, do not apply to
+        themselves, that is, if the result of evaluating the expression contains curlies, this does
+        not result in re-evalution of the result of the expression.</para>
+    </section>
+  </section>
+  <section>
+    <title>Improve production stability by introducing assertions</title>
+    <para><emphasis role="bold">Availability in XSLT 2.0:</emphasis> limited, you could partially
+      mimic it with <code>xsl:if</code> and <code>xsl:message</code> with
+        <code>terminate="yes"</code>.</para>
+    <para>Assertions help in stabilizing your code by defining pre- and post-conditions for
+      functions, input documents, templates and other constructs. If the assertion is not met, the
+      transformation fails with an error, unless it is caught inside a try/catch construction. The
+      advantage over using regular <code>xsl:if</code> or <code>xsl:message</code> is that
+      assertions can be globally switched on or off.</para>
+    <section>
+      <title>Syntax and use</title>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:assert
+  test = expression
+  select? = expression
+  error-code? = { eqname } >
+  <!-- content -->
+</xsl:assert>]]></programlisting>
+      </para>
+      <para>Assertions can be inserted in your code with the new instruction
+        <code>xsl:assert</code>. It behaves much the same like <code>xsl:message</code> combined
+        with an <code>xsl:if</code>. If the <code>test</code> attribute evaluates to false, the
+        assertion instruction will raise an error, which is by default <code>XTMM9001</code>, but
+        can be set to anything else on the <code>error-code</code> attribute.</para>
+      <para>For instance, suppose that you want to ensure that the version attribute of the input is
+        of at least a certain value because you do not want to support older versions of the input,
+        you could write:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template match="header" expand-text="yes">
+  <xsl:assert test="number(@version) ge 2.0">
+    <xsl:text>
+      Incorrect version: {@version}
+    </xsl:text>
+  </xsl:assert>
+  <xsl:apply-templates />
+</xsl:template>]]></programlisting>
+      </para>
+      <para>Similarly to <code>xsl:message</code>, the result of evaluating the
+          <code>xsl:assert</code> instruction is the empty sequence.</para>
+      <para>By default, assertions are switched on. Processors should support switching it off by
+        any processor-dependent way through either command-line options or API settings. In the case
+        of Exselt, you can switch assertions off by using the command-line option
+          <code>-da=yes</code> or <code>-disable-assertions=yes</code>. For Saxon, I could not find
+        such a global instruction, but it may be introduced in a future version<footnote>
+          <para>The <link
+              xl:href="http://www.saxonica.com/html/documentation/using-xsl/commandline.html"
+              >commandline interface documentation</link> currently does not seem to list such
+            option. Once it becomes available it is likely that this documentation will get
+            updated.</para>
+        </footnote>.</para>
+    </section>
+    <section>
+      <title>Improving your code</title>
+      <para>You can use assertions to add invariants to your code, which makes testing your code
+        easier and can give you better information in cases when something goes wrong. Once your
+        XSLT program has been through rigorous testing and you know that your pre- and
+        post-conditions and invariants are always true, you can switch off the assertions in
+        subsequent processing.</para>
+      <para>A very common scenario for XSLT stylesheets is to depend on one or more external
+        resources, for instance, auxiliary files, catalog files, lookup tables etc. In XSLT 2.0 you
+        would write your code something like the following if you wanted to inform the user neatly
+        if some required document was absent:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template name="xsl:initial-template">
+  <xsl:choose>
+    <xsl:when
+      test="not(
+              document-available('settings.xml'))">
+      <xsl:message terminate="yes">
+        Settings.xml not found
+      </xsl:message>
+    </xsl:when>
+    <xsl:otherwise>
+      <xsl:apply-templates
+        select="document('settings.xml')"/>
+    </xsl:otherwise>
+  </xsl:choose>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>The extra required negation, plus the long-winded <code>xsl:choose</code> results in
+        many programmers not going through all the trouble of fool-proofing their code. With
+          <code>xsl:assert</code> it becomes a bit easier to do, plus the messages will have a bit
+        more meaning: programmers seeing such an instruction in your code will immediately
+        understand the purpose, while with a block of code like the one above, it requires a little
+        bit more thought to find out that you are actually asserting something and not just having a
+        normal program flow instruction.</para>
+      <para>With assertions, the above code becomes:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template name="xsl:initial-template">
+  <xsl:assert
+    test="document-available('settings.xml')">
+    <xsl:text>Settings.xml not found</xsl:text>
+  </xsl:assert>
+  <xsl:apply-templates
+    select="document('settings.xml')"/>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>This code, while more readable, may not do entirely what you expect: XSLT does not
+        depend on order of execution. The earlier example above forced the order of execution by
+        having and <code>xsl:choose</code> instruction. Several techniques can be used to force the
+        order of execution. One such method is the following:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template name="xsl:initial-template">
+  <xsl:variable name="$doc" select="
+    if(document-available('settings.xml')) 
+    then document('settings.xml') else ()"
+    <xsl:assert test="$doc">
+      <xsl:text>Settings.xml not found</xsl:text>
+    </xsl:assert>
+    <xsl:apply-templates select="$doc" />
+</xsl:template> ]]></programlisting>
+      </para>
+      <para>A similar problem arises with functions. Suppose you want to assert your input for
+        non-zero values. You could do that as follows:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:function name="f:div">
+  <xsl:param name="a" />
+  <xsl:param name="b" />
+  <xsl:assert test="$b != 0"
+              select="'Cannot div by zero'" />
+  <xsl:sequence select="$a div $b" />
+</xsl:function>]]></programlisting>
+      </para>
+      <para>But again, the error of divide-by-zero may kick in before the assertion is tested (if
+        the arguments are integers, otherwise <code>INF</code> is returned and the assertion will
+        kick in before the function ends). To avoid the error to be raised by the function, you
+        would have to rewrite it somewhat. One approach could be to simply duplicate the
+        logic:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:function name="f:div">
+  <xsl:param name="a" />
+  <xsl:param name="b" />
+  <xsl:assert test="$b != 0"
+              select="'Cannot div by zero'" />
+  <xsl:sequence
+    select="$a div (if($b = 0) then 1 else $b)" />
+</xsl:function>]]></programlisting>
+      </para>
+      <para>Once you have all your assertions in place, you probably want to be able to switch them
+        on and off. The XSLT 3.0 specifcation does not mandate how this can be done, but suggests to
+        do it using a <code>use-when</code> attribute. Personally, I think this is too much added
+        clutter for a feature that should be as easy to use as possible. In fact, I think it is
+        better to rely on the ability of the processor to switch this feature on and off. I think it
+        ought to be off by default, but the specification states the opposite and turns it on by
+        default.</para>
+    </section>
+    <section>
+      <title>Caveats</title>
+      <para>The main caveat was already discussed in the previous section: the inability to use
+          <code>xsl:assert</code> in an as non-obtrusive way as possible, caused by the default
+        behavior of how instructions are evaluated: in no pre-defined order.</para>
+      <para>There are some other things to look out for, though:</para>
+      <para>
+        <itemizedlist>
+          <listitem>
+            <para>Assertions should not have side-effects. The only way to cause side effects to
+              kick in in an assertion is by using an extension function or instruction, either
+              directly or indirectly. Such extension function could have a side-effect, like writing
+              to a file, sending a message etc. This side-effect will be gone once the assertions
+              are switched off which may result in unwanted and hard-to-predict behavior.</para>
+          </listitem>
+          <listitem>
+            <para>Assertions should not be used to control program flow. I.e., you should not rely
+              on the assertion to throw an exception and catch it, because again, once the
+              assertions are switched off, the exception will never be caught and your program flow
+              will behave differently than expected.</para>
+          </listitem>
+          <listitem>
+            <para>Assertions have empty result. However, the specification states that assertions,
+              other than other instructions, cannot be side-stepped for optimization purposes. That
+              means that any code in the <code>test</code> attribute will always be executed.</para>
+          </listitem>
+          <listitem>
+            <para>Assertions should not rely on unstable resources. If your code requires unstable
+              resources like streams or collections<footnote>
+                <para>Optionally, even <code>fn:doc</code> can be indeterministic. Here I use the
+                  term <emphasis role="italic">unstable</emphasis> to mean reliance on resources
+                  that by definition will cause your assertions to become non-deterministic</para>
+              </footnote>, you should not write an assertion with <code>test</code> being dependent
+              on such resource. Instead, use normal program flow instructions. The indeterministic
+              nature of instructions such as <code>xsl:stream</code> make them a poor candidate for
+              deterministic assertions.</para>
+          </listitem>
+          <listitem>
+            <para>If you use assertions in global variables or parameters, be aware that the
+              assertions only kick in if you actually use those variables, unless you processor does
+              eager evaluation, though most, if not all, currently available processors are known to
+              lazily evaluate variables.</para>
+          </listitem>
+        </itemizedlist>
+      </para>
+    </section>
+    <section>
+      <title>Limitations</title>
+      <para>There are no inherent limitations with this instruction, other than limitations posed by
+        your processor on instructions in general.</para>
+    </section>
+  </section>
+  <section>
+    <title>Meta programming with shadow attributes</title>
+    <para><emphasis role="bold">Availability in XSLT 2.0:</emphasis> None. The only way to do
+      meta-programming was to create a stylesheet with a stylesheet.</para>
+    <para>While this is a feature that could warrant a whole paper on itself, I will mention and
+      touch on the essence of it here, as it is a seemingly small new feature, but one that is
+      particularly powerful. Each and every attribute in your XSLT stylesheet can be turned into a
+      shadow attribute and as such, it will take an attribute value template that is processed in
+      the same way static expressions are evaluated for static parameters and <code>use-when</code>
+      attributes.</para>
+    <section>
+      <title>Syntax and use</title>
+      <para>To create a shadow attribute, prepend it with an underscore. It then takes an attribute
+        value template and takes precedence over any existing attribute by the same name. For
+        instance, the following example uses an expression in the select statement of
+        apply-templates that is equal to whatever atomized string is inside
+          <code>$initial-select</code>:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:param name="initial-select" static="yes" />
+
+<xsl:template match="/">
+  <xsl:apply-templates
+    _select="{$initial-select}" />
+</xsl:template>]]></programlisting>
+      </para>
+      <para>Because shadow attributes are evaluated in the static phase, they can only use static
+        variables and parameters and whatever else, like document and other resources, that are
+        available in the static context. The set of functions is limited to the functions defined in
+        XPath, including the functions in the <code>map</code>, <code>array</code><footnote>
+          <para>The <code>array</code> namespace is only avaialable if your processor support XPath
+            3.1.</para>
+        </footnote> and <code>math</code> namespaces.</para>
+      <para>Any static variable or parameter that you want to use must be a global variable (static
+        variables can never be local) and they must precede the element in which they are used in
+        document order. You cannot use the current variable or parameter on itself, i.e. the
+        following is illegal:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:param name="debug" select="true()"
+           _use-when="$debug" />]]></programlisting>
+      </para>
+      <para>Shadow attributes can be any attribute, including the <code>static</code> attribute on
+          <code>xsl:param</code> and <code>xsl:variable</code>, the <code>use-when</code> attribute
+        and the <code>version</code> attribute on your outermost <code>xsl:stylesheet</code> or
+          <code>xsl:package</code> declaration.</para>
+      <para>Attributes in a namespace, including attributes in the xsl namespace cannot be turned
+        into a shadow attribute. As a result, default attributes such as <code>default-mode</code>
+        on a literal result element appear as <code>xsl:default-mode</code> and they cannot be used
+        as a shadow attribute by changing them into <code>_xsl:default-mode</code> or
+          <code>xsl:_default-mode</code>.</para>
+      <para> Shadow attributes cannot appear on literal result elements as a result of this, they
+        can only appear on XSLT instructions, declarations and other constructs.</para>
+    </section>
+    <section>
+      <title>Improving your code</title>
+      <para>The main purpose of this feature is to make it easier to write conditional inclusion of
+        specific attributes. This was already possible using <code>use-when</code>, but for each
+        variant of a particular instruction, it would require a full copy of the whole instruction.
+        For instance, in XSLT 2.0 you would write something like the following to have a conditional
+        include for a debug and a release import of a stylesheet:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:import href="release.xsl"
+  use-when="if(document-available('release.xml')
+              then true() else false()" />
+<xsl:import href="debug.xsl"
+  use-when="if(document-available(debug.xml')
+              then true() else false()" />]]></programlisting>
+      </para>
+      <para>The absence of the ability to use variables inside <code>use-when</code> and the
+        inability to use it on attributes made it rather cumbersome in such situations. And suppose
+        both the release and debug versions of the stylesheet are in the same path, it would become
+        even more troublesome to code this correctly in XSLT 2.0. Enter shadow attributes:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:param name="version" static="yes"
+           select="'release'" />
+<xsl:import _href="{$version}.xsl" />]]></programlisting>
+      </para>
+      <para>This simple example shows the power of the combination of static parameters with shadow
+        attributes.</para>
+      <para>If we take that one big step further, you could, for instance, create a stylesheet that
+        evaluates a user-input expression as follows:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:param name="expression" static="yes"
+           select="()" />
+<xsl:template name="xsl:initial-template"
+              expand-text="yes">
+  <xsl:text>
+    Evaluation expression: {$expression}
+  </xsl:text>
+  <xsl:value-of _select="{$expression}"/>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>A stronger example of its power is when you have a stylesheet that must be executed in a
+        certain order, dependent on a given input. There are multiple ways of programming such a
+        requirement, but suppose you have an input configuration file as follows:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<config>
+  <step name="run-invoices" />
+  <step name="aggregate-invoices" />
+</config>]]></programlisting>
+      </para>
+      <para>And you have a stylesheet as follows:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template name="run-invoices">
+  <xsl:apply-templates select="//invoice"
+                       mode="html" />
+</xsl:template>
+
+<xsl:template name="aggregate-invoices">
+  <xsl:apply-templates select="//invoice"
+                       mode="aggregate" />
+</xsl:template>
+
+<xsl:template name="send-invoices">
+  <!-- the message listener is set to
+       sending emails -->
+  <xsl:message>
+    <xsl:apply-templates select="//invoice"
+                         mode="email" />
+  </xsl:message>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>Depending on the flow, the moment of the week or other requirements, not all of these
+        templates need to be executed. As in the config file above, we only want to execute the
+          <code>run-invoices</code> and the <code>aggregate-invoices</code>.</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:variable name="step" static="yes" 
+  select="function($step) { 
+    (doc('config.xml')/config/step[$step],
+      'none')[1] 
+    }" />
+
+<xsl:template name="none" />
+
+<xsl:template name="xsl:initial-template">
+  <xsl:call-template _name="{$step(1)}" />
+  <xsl:call-template _name="{$step(2)}" />
+  <xsl:call-template _name="{$step(3)}" />
+  <xsl:call-template _name="{$step(4)}" />
+  <xsl:call-template _name="{$step(5)}" />
+</xsl:template>]]></programlisting>
+      </para>
+      <para>This example uses a few advanced concepts, so let's go over them in detail:</para>
+      <para>
+        <itemizedlist>
+          <listitem>
+            <para>The static variable named <code>step</code> returns a function item that takes one
+              argument. In XSLT 3.0 (and in XPath 3.0 using let-binding) it is possible to bind a
+              function to a variable and to call the contained function using
+                <code>$variablename($arg1, $arg2, ...)</code> syntax, i.e., the variable name,
+              followed by parentheses containing the arguments. This is considered higher-order
+              functions, which is a feature of XPath 3.0 and by extension a feature of XSLT
+              3.0.</para>
+            <para>In this case, the returned function item has a body that opens a document
+                <code>config.xml</code> and queries it for a <code>step</code> element based on the
+              position given in the argument to the function. </para>
+          </listitem>
+          <listitem>
+            <para>The result of this query is placed in a sequence of two. Since sequences eliminate
+              empty sequences, a sequence like <code>((), 'none')</code> is the same as
+                <code>('none')</code>. That means that if the step is not found, the first item will
+              be the empty sequence and will be ignored. The filter expression at the end,
+                <code>[1]</code> takes the first item of this sequence, which will be either the
+              step, or the value <code>'none'</code> .</para>
+          </listitem>
+          <listitem>
+            <para>The function is called five times, which suggests that our stylesheet can at most
+              execute five steps. The result of a call like <code>$step(1)</code> is
+                <code>'none'</code> or the name of whatever is in our configuration file at that
+              location.</para>
+          </listitem>
+          <listitem>
+            <para>After the static phase and with our example configuration file above, our
+              stylesheet will look as follows:</para>
+            <para>
+              <programlisting language="xml"><![CDATA[<xsl:template name="xsl:initial-template">
+  <xsl:call-template name="run-invoices" />
+  <xsl:call-template name="aggregate-invoices" />
+  <xsl:call-template name="none" />
+  <xsl:call-template name="none" />
+  <xsl:call-template name="none" />
+</xsl:template>]]></programlisting>
+            </para>
+          </listitem>
+          <listitem>
+            <para>Adding the no-op named template <code>none</code> helps us in keeping this code
+              tidy and simple. If a step is not needed, it executed this no-op template and no harm
+              is done.</para>
+          </listitem>
+        </itemizedlist>
+      </para>
+      <para>While this particular use-case can be coded using traditional means as well, I used it
+        here as an example of how powerful static expressions in conjunction with shadow attributes
+        can be.</para>
+      <para>Another major use-case for shadow attributes and static parameters is for testing. For
+        instance, suppose you want to test whether division works properly in XSLT, you could write
+        a test-case as follows, where each argument, including the division operator, is
+        parameterized:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:param name="numerator" static="yes" />
+<xsl:param name="denominator" static="yes" />
+<xsl:param name="operator" static="yes" />
+<xsl:param name="result" static="yes" />
+
+<xsl:template name="xsl:initial-template">
+  <xsl:assert _select="{
+    $numerator
+    $operator
+    $denominator}
+    eq
+    {$result}">
+    <xsl:text>Not succeeded</xsl:text>
+  </xsl:assert>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>This code will either raise an error, or it will succeed in which case it returns
+        nothing. The calling application can now simply define all the parameters for all cases it
+        wants to test and, when these params are invoked with this stylesheet, the calling
+        application only needs to check whether or not an error is raised.</para>
+      <para>While it is unlikely that you would want to test yourself for the stability of the
+        division operators of a processor, it is an example that you can use in your own code, for
+        instance by having it call your own functions with a static parameter for each argument.
+        That would greatly simplify writing a testing framework for your functions.</para>
+    </section>
+    <section>
+      <title>Caveats</title>
+      <para>Any attribute that used to take either <code>yes</code> or <code>no</code> or
+          <code>true</code>
+        <code>false</code> can now take the corresponding synonyms. That means that any value that
+        takes <code>yes</code> also accepts <code>true</code> and <code>1</code> and likewise,
+          <code>no</code>, <code>false</code> and <code>0</code> are interchangeable. This was done
+        to make it easier to use shadow attributes that operate on such boolean values. If you write
+        an expression for a boolean shadow attribute, all your expression needs to do is evaluate to
+          <code>true()</code> or <code>false()</code>, which will then be atomized as
+          <code>true</code> or <code>false</code>.</para>
+      <para>If you have both a shadow-attribute and a non-shadow attribute, the shadow attribute
+        takes precedence. For instance:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:text expand-text="yes"
+          _expand-text="{$expand-text}" />]]></programlisting>
+      </para>
+      <para>The effective attribute for <code>expand-text</code> will be from evaluating the
+        expression in <code>_expand-text</code>, the other attribute is ignored and may even contain
+        an invalid value without leading to an error. For instance, if you would write the
+        following, it is legal, as long as <code>$expand-text</code> evaluates to something
+        sensible:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:text expand-text="invalid-value"
+          _expand-text="{$expand-text}" />]]></programlisting>
+      </para>
+      <para>Other things to look out for is the order of evaluation of static parameters and
+        variables: they must appear prior to their static usages in document order. Generally, the
+        normal import precedence rules apply, however if a collision is detected, i.e. when two
+        parameters have the same name and the same import precedence, than their effective values
+        must be the same<footnote>
+          <para>As a result of this rule, if your static parameter returns a function item, it
+            cannot be compared if the same parameter appears with the same name and the same import
+            precedence, because function items are not comparable.</para>
+        </footnote>.</para>
+      <para>Be aware of the fact that shadow attributes take attribute value templates that in turn
+        take static expressions and that <code>use-when</code> expressions take a static expression
+        directly. This subtle difference is easily overlooked. I.e., the following will throw a
+        compile-time error:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:param name="test" _static="true()" />]]></programlisting>
+      </para>
+      <para>Instead, write it as follows:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:param name="test" _static="{true()}" />]]></programlisting>
+      </para>
+    </section>
+    <section>
+      <title>Limitations</title>
+      <para>Shadow attributes take static expressions and static expressions, while allowing the
+        full XPath syntax, are relatively limited. A few of the more prominent limitations
+        are:</para>
+      <para>
+        <itemizedlist>
+          <listitem>
+            <para>Static expressions cannot reference variables or parameters other than static
+              variables or parameters.</para>
+          </listitem>
+          <listitem>
+            <para>Static variables or parameters must appear prior to their usage in document
+              order.</para>
+          </listitem>
+          <listitem>
+            <para>The set of statically known documents, collections and unparsed text resources is
+              implementation defined. Make sure you check with your processor what set of documents
+              it makes available. In the case of Exselt, the available documents is only limited by
+              whatever the resource allocator is able to return, which is generally the same set as
+              the dynamic set, assuming that the static and dynamic phase follow each other in the
+              same environment.</para>
+          </listitem>
+          <listitem>
+            <para>Static expressions are unlikely to be re-evaluated in a compiled stylesheet. If
+              your processor supports compiled stylesheet, keep in mind that however you distribute
+              your compiled stylesheet that your static expressions will be cast in stone. This is
+              similar in behavior to constants in other programming languages, or compile directives
+              in C.</para>
+          </listitem>
+          <listitem>
+            <para>Shadow attributes do not apply to shadow attributes, that means, you cannot change
+              a shadow attribute into a shadowed shadow attribute by prepending it with another
+              underscore.</para>
+          </listitem>
+          <listitem>
+            <para>Static variables and parameters are scoped to the current package. That means that
+              you cannot override any static parameter or variables from a used package. XSLT 3.0
+              does not give any instrumentation to influence the static parameters in an
+                <code>xsl:use-package</code> declaration, but your processor may<footnote>
+                <para>Packages are supposed to be allowed to be precompiled. As such, it makes no
+                  sense to allow static parameters to be overridden, as that would require you
+                  package to be recompiled each time it is used. Processors may, however, allow you
+                  to specify defaults for static parameters in packages, for instance, Exselt allows
+                  you to set parameters in the Package Catalog configuration file.</para>
+              </footnote>.</para>
+          </listitem>
+        </itemizedlist>
+      </para>
+    </section>
+  </section>
+  <section>
+    <title>Apply templates on atomic values</title>
+    <para><emphasis role="bold">Availability in XSLT 2.0:</emphasis> None, it was not possible to
+      apply templates or have an initial context item other than a selection of nodes.</para>
+    <para>XSLT 3.0 introduces new pattern syntax to be able to match on atomic values. Such patterns
+      are called <emphasis role="italic">predicate patterns</emphasis><footnote>
+        <para>This name seems a bit redundant, because many patterns can have predicates. But in the
+          case patterns matching any item, the only thing to distinguish between one item and
+          another, is by a predicate, hence the name.</para>
+      </footnote> and apply both to atomic items and nodes. They allow you to apply templates on
+      other things than just nodes, for instance, a sequence of strings, singleton numeric values,
+      maps, a sequence of functions etc.</para>
+    <section>
+      <title>Syntax and use</title>
+      <para>The syntax of a predicate pattern is surprisingly straightforward: a dot followed by one
+        or more predicates. A dot without any predicates matches any item.</para>
+      <para>Examples of valid predicate patterns are:</para>
+      <para>
+        <itemizedlist>
+          <listitem>
+            <para><code>.</code> matches any item, whether it is a node, an atomic value, a map an
+              array or a function item.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[self::para]</code> matches any item that is an element node that matches
+              the node test <code>para</code>.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. = 'father']</code> matches any item that, when atomized, matches the
+              string <code>'father'</code>.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of xs:string]</code> matches any item that is a string.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of function(*)]</code> matches any function item.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of function(xs:integer, xs:integer) as item()]</code> matches
+              any function item that takes two integers<footnote>
+                <para>You cannot just test a function for its arguments or just for its return type.
+                  You must specify both the arguments and the return type.</para>
+              </footnote>.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[function-arity(.) = 3]</code> matches any function item that has arity
+              3.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[position()]</code> matches any item that has a position. Atomic items do
+              not have a position, so in effect, this only matches node items.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[empty(.)]</code> matches nothing<footnote>
+                <para>It does not literally <emphasis role="italic">match</emphasis> nothing, it
+                  actually never matches anything, because nothingness, as in empty sequences,
+                  cannot be matched.</para>
+              </footnote>.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of xs:integer][. le 100]</code> matches integer less then or
+              equal to 100.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. castable as xs:double]</code> matches any item that can be cast to a
+              double, like <code>xs:byte</code>, <code>xs:integer</code> and
+              <code>xs:double</code></para>
+          </listitem>
+          <listitem>
+            <para><code>.[..]</code> matches any item that has a parent, this is the same as
+                <code>node()[..]</code>.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[1]</code> matches any item, the position of atomic values inside a
+              sequence is always 1.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[xs:float(.)]</code> matches any item, including attributes and elements,
+              that successfully parse as an <code>xs:float</code>.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[matches(., '^.{2}-.{3}')]</code> matches any item that, after atomization,
+              starts with two characters, followed by a dash, followed by three characters.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of xs:string][matches(., '^.{2}-.{3}')]</code> limits the
+              previous pattern to match only string items.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of xs:string][not(.)]</code> matches any empty string.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of map(*)]</code> matches any map.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of map(*)][.('date')]</code> matches any map that has a key by
+              the name <code>'date'</code>.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of map(*)][let $keys := map:keys(.) return .($keys[1]) instance
+                of map(*)]</code> matches any map that contains a nested map for each key<footnote>
+                <para>This is an example of how cumbersome it is to match nested maps. If you need
+                  matching nested maps, you are better of writing a bunch of handy functions to do
+                  the magic. While at some stage an alternative maps syntax was proposed,
+                  specifically for use in patterns, it never made it into the specification. Also
+                  note that the <code>map:keys</code> function returns the keys in an
+                  implementation-defined order, so this specific pattern is rather hit-or-miss and
+                  may behave differently under different browsers.</para>
+              </footnote>.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of xs:string][tokenize(., ',')[10]]</code> matches any
+              CSV-style string with at least 10 fields in it.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of xs:string or .[self::node()]][contains(., 'hello')]</code>
+              matches any string or node that contains the word "hello".</para>
+          </listitem>
+          <listitem>
+            <para><code>.[.[self::number] or (. instance of xs:anyAtomicType and number(.) =
+                'NaN')]</code> matches either an element <code>number</code> or any atomic type that
+              is convertible to a number.</para>
+          </listitem>
+        </itemizedlist>
+      </para>
+      <para>Just as with other patterns, if a pattern raises an error, it is considered to be a
+        negative match. Many examples above would raise an error depending on the item that is
+        currently being matched, but these errors are never visible, they simply mean that the match
+        failed.</para>
+    </section>
+    <section>
+      <title>Improving your code</title>
+      <para>The extra freedom of possibilities that opens up with this is so big that it is
+        impossible to fit it into a short chapter here, but I'll give a few examples to get a
+        general idea.</para>
+      <para>Suppose you want to process a CSV file. The XSLT 2.0 way of doing that would be inside a
+        nested for-each loop, which can quickly get rather entangled. Using pattern matching, you
+        can use a much cleaner approach<footnote>
+          <para>I know that there are proponents of either of matching patterns and using for-each,
+            my personal preference is matching patterns as it reduces nesting and generally "looks"
+            cleaner and I just find it easier to read.</para>
+        </footnote>. Assuming a simple CSV style where we don't have to deal with escaping all kinds
+        of corner cases and error scenarios, a straight-forward approach in XSLT 2.0 would look
+        something like as follows:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template name="main">
+  <xsl:for-each select="
+    tokenize(
+    unparsed-text('file.csv'),
+    '\r?\n')">
+    <row>
+      <xsl:for-each select="
+        tokenize(., ',')" >
+        <cell>
+          <xsl:value-of select="." />
+        </cell>
+      </xsl:for-each>
+    </row>
+  </xsl:for-each>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>In XSLT 3.0, we can rewrite that as follows (warning: not necessary less lines):</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template name="xsl:initial-template">
+  <xsl:apply-templates select="
+    unparsed-text-lines('file'csv')" />
+</xsl:template>
+
+<xsl:template match=".">
+  <row>
+    <xsl:apply-templates select="
+      tokenize(., ',')" mode="cell" />
+  </row>
+</xsl:template>
+
+<xsl:template match="." mode="cell"
+              expand-text="yes">
+  <cell>{.}</cell>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>Whether you like the approach of matching templates and patterns to structure your code
+        or not is a personal flavor. The advantages of this approach are similar to normal push vs
+        pull processing <citation>16</citation>, where you are embracing change instead of
+        trying to fight it. A more balanced comparison that favors neither approach can be find in
+          <citation>17</citation>.</para>
+      <para>In this example I simply matched <emphasis role="italic">anything</emphasis> using the
+        dot-matches-all predicate pattern. The thought behind this is that we don't know what is
+        inside the CSV so it doesn't make much sense to match on something more specific. Of course,
+        we could change this matching pattern to <code>.[. instance of xs:string]</code>, but in
+        this particular scenario it wouldn't add anything.</para>
+      <para>Another scenario is where we take the same CSV matching as above, but now we want to
+        only process those rows that have a third column with a color and we only want the color
+        "red". We could then do as follows:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template
+  match=".[tokenize(., ',')[3] = 'red']">
+  <row color="red">
+    <xsl:apply-templates select="
+      tokenize(., ',')" mode="cell" />
+  </row>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>Of course, we are now tokenizing twice and that is perhaps not very handy, but a good
+        processor will cache this action, it may even recognize that the body of the template
+        containing this match contains the same function call, and it can re-use the result without
+        extensive caching. If not, and you want to explicitly cache this, you can write your own
+        function and use the <code>cache="full"</code> to make it more performant. Though unless
+        these rows are very large, I doubt it will bring much performance gain in this particular
+        scenario, especially considering that building the result tree is likely much more expensive
+        than breaking up a small string into smaller chunks.</para>
+      <para>Atomized values do not only appear inside unparsed text files. They can appear in
+        generated sequences, or for instance in attributes that are of type <code>xs:token</code>.
+        Here's an example, suppose your input is like the following, where the <code>ids</code>
+        attribute contains the ISBN-10, ISBN-13 and the internally used ID value:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<books>
+  <book ids="0618640150 978-0618640157 95867425" 
+        title="Lord of the Rings" />
+  <book ... />
+</books>]]></programlisting>
+      </para>
+      <para>If we take this example and want to make the XML a bit more readable by expanding the
+          <code>ids</code> attribute, a common task in XSLT processing<footnote>
+          <para>Not necessarily this task, but enriching an input file, or turning attributes into
+            elements and vice versa is very common.</para>
+        </footnote>, we could use the following transformation:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:mode on-no-match="shallow-copy" />
+
+<xsl:template match="book">
+  <xsl:copy-of select="@* except @ids" />
+  <xsl:apply-templates select="
+    tokenize(@ids, ' ')" />
+  <xsl:apply-templates />
+</xsl:template>
+
+<xsl:template match=".[string-length(.) = 10]"
+              expand-text="yes">
+  <isbn-10>{.}</isbn-10>
+</xsl:template>
+
+<xsl:template match=".[string-length(.) = 14]"
+              expand-text="yes">
+  <isbn-13>{.}</isbn-13>
+</xsl:template>
+
+<xsl:template match=".[string-length(.) = 8]"
+              expand-text="yes">
+  <internal-id>{.}</internal-id>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>Essentially, this transformation works as an identity transform by virtue of the
+        presence of <code>on-no-match="shallow-copy"</code>. By applying templates on the tokenized
+        value of the <code>ids</code> attribute we create an easily manageable approach for any kind
+        of items that is inside this tokenized attribute. Since we do not need the <code>ids</code>
+        attribute anymore, we use the <code>except</code> expression to remove it from any
+        attributes we might be copying that we do not yet know about (as opposed to explicitly
+        copying only the <code>title</code> attribute).</para>
+      <para>As with the other examples in this paper, the <code>expand-text="yes"</code> is better
+        suited to be placed on the outermost element of your stylesheet.</para>
+    </section>
+    <section>
+      <title>Caveats</title>
+      <para>There are a number of things to be aware of when processing non-node items using pattern
+        matching. A summary:</para>
+      <para>
+        <itemizedlist>
+          <listitem>
+            <para>The default priority of a predicate pattern without predicates is -1, which is
+              lower than any other default priority.</para>
+          </listitem>
+          <listitem>
+            <para>The default priority of any other predicatge pattern is 1 and is therefore higher
+              than any other default priority. That means, for instance, that
+                <code>.[self::para]</code> will match before <code>para</code> or even
+                <code>para[@bold]</code> is matched.</para>
+          </listitem>
+          <listitem>
+            <para>Errors in predicate patterns are ignored and result in a failing match.</para>
+          </listitem>
+          <listitem>
+            <para>The default template rule matching an atomic item is to output that item
+              unchanged, after applying the <code>fn:string()</code> function on it, except in the
+              case of maps and functions, which are skipped.</para>
+          </listitem>
+          <listitem>
+            <para>Because of the default priority rules, it doesn't matter how many predicates you
+              use. The new default behavior in XSLT 3.0 for equal priority conflict resolution is to
+              take the last in declaration order. This may lead to surprising results, to more often
+              than not, when using this kind of pattern matching, you should resort to either using
+              explicit priorities, or switch to different modes.</para>
+          </listitem>
+          <listitem>
+            <para>Applying templates on string items that are significantly large can be detrimental
+              to performance. In such case it is better to use pull processing and to split the
+              string into smaller chunks if the problem domain allows that.</para>
+          </listitem>
+        </itemizedlist>
+      </para>
+    </section>
+    <section>
+      <title>Limitations</title>
+      <para>You cannot mix predicate patterns with normal patterns. In fact, you cannot even mix a
+        predicate pattern with a predicate pattern using the <code>union</code> operator, because
+        that operator expects nodes on either side. If you want to match both nodes and other items
+        in one pattern, you have to do that with a single predicate pattern, as some examples above
+        show how to. If you want to mix multiple predicate patterns into a single pattern you should
+        use the <code>or</code> operator, or if that doesn't work, you should split your pattern in
+        multiple matching templates or place the matching logic inside a helper function. If the
+        function is small enough, you can even do that inside the pattern itself:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template match=".[let $f := function($m) { 
+  if($m instance of xs:string
+      and string-length($m) gt 4)
+      then true()
+  else if($m instance of xs:integer
+      and $m gt 9999) then true()
+  else if($m instance of xs:float
+      and $m lt 9.9999) then true()
+  else 
+      false() }
+  return $f(.)]" expand-text="yes">
+
+  <xsl:text>{
+  'Found an item "' || . 
+  ||' " that is '
+  || 'a string of size above 4 '
+  || 'or an integer larger than 9999 '
+  || 'or a float smaller than 9.9999'
+  }</xsl:text>
+
+</xsl:template>]]></programlisting>
+      </para>
+      <para>And you maybe surprised, but the above pattern, however absurd it may look, actually
+        works. For instance, try to apply it to an integer:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:apply-templates select="12000" />]]></programlisting>
+      </para>
+      <para>Result:</para>
+      <para>
+        <programlisting>Found an item "12000 " that is a string of size above 4 or an integer larger than 9999 or a float smaller than 9.9999</programlisting>
+      </para>
+      <para>Other limitations include that it is far from trivial to match maps or items in maps. It
+        gets even harder if you need to match on a map containing a map. A typical pattern to use
+        when matching on the content of maps is build up of several steps.</para>
+      <para>Step 1, generically match a map of a certain type:</para>
+      <para>
+        <itemizedlist>
+          <listitem>
+            <para><code>.[. instance of map(*)]</code> matches any map.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of map(xs:integer, item())]</code> matches a map with <emphasis
+                role="italic">all</emphasis> keys of type <code>xs:integer</code>, or an empty
+              map.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of map(xs:anyAtomicType, person)]</code> matches a map with
+                <emphasis role="italic">all</emphasis> values being of element <code>person</code>,
+              the key being any key, or an empty map.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[. instance of map(xs:string, person)]</code> matches a map with <emphasis
+                role="italic">all</emphasis> keys being of type <code>xs:string</code> and <emphasis
+                role="italic">all</emphasis> values being of element <code>person</code>, or an
+              empty map.</para>
+          </listitem>
+        </itemizedlist>
+      </para>
+      <para>Step 2, match a specific item in the map (replace the three dots with anything from the
+        previous step):</para>
+      <para>
+        <itemizedlist>
+          <listitem>
+            <para><code>...[.('name') = 'John']</code> matches a map that has a key "name" bound to
+              the value "John".</para>
+          </listitem>
+          <listitem>
+            <para><code>...[map:keys(.)[. = 'name']]</code> matches a map that has a key "name",
+              regardless of its contents.</para>
+          </listitem>
+          <listitem>
+            <para><code>...[map:contains(., 'name')]</code> same as previous.</para>
+          </listitem>
+          <listitem>
+            <para><code>...[let $m := . return map:keys($m)!(if($m(.) = 123) then true() else
+                ())]</code> matches a map that contains any value that equals <code>123</code><footnote>
+                <para>This particular pattern is not foolproof: if the map contains maps or function
+                  items, the item cannot be atomized and it will raise an error, resulting in a
+                  failing match. To accommodate for such scenarios, you will need to also test each
+                  map item whether it is a function item or not. Generally, once matching becomes
+                  this complex, it is better to wrap it in a function.</para>
+              </footnote>.</para>
+          </listitem>
+          <listitem>
+            <para><code>...[.('invoice') instance of map(*)]</code> matches if a map item with the
+              key "invoice" is itself a map item.</para>
+          </listitem>
+          <listitem>
+            <para><code>...[.('invoice')('billing')('total')]</code> matches if a map item contains
+              a key "invoice" with a value of a map that contains a key "billing" with again a value
+              of a map that contains a key "total" that is non-empty, not numerically zero and not
+                <code>false()</code>.</para>
+          </listitem>
+        </itemizedlist>
+      </para>
+      <para>In cases where you simply want to interrogate whether a certain key has a certain value,
+        you can simplify this logic by writing expressions like the following:</para>
+      <para>
+        <itemizedlist>
+          <listitem>
+            <para><code>.[.('invoice')('billing')('total')]</code> same as the last above, without
+              the predicate determining whether it is a map. This works, because this pattern only
+              ever matches if the currently matching item is indeed a map.</para>
+          </listitem>
+          <listitem>
+            <para><code>.[.('invoice')('total') lt 48.50]</code> matches a map that has key
+              "invoice" mapping to a map that has a key "total" that itself contains value that is
+              numerically less than <code>48.50</code>.</para>
+          </listitem>
+        </itemizedlist>
+      </para>
+      <para>In general, not just for maps, to match certain items you will typically do an
+          <code>instance of</code> to limit your matching to a given atomic type, which makes this
+        kind of matching rather verbose to begin with. If you have an often repeated (part of a)
+        pattern, you can wrap it inside a static variable and turn the match attribute in a shadow
+        attribute:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:variable name="matchme" static="yes" select="
+  . instance of xs:float or 
+  . instance of xs:integer or 
+  . instance of xs:double" />
+
+<xsl:template _match=".[{$matchme}][. = 0]">
+  <xsl:text>Found a zero!</xsl:text>
+</xsl:template>
+
+<xsl:template
+  _match=".[{$matchme}][. lt 10][. != 0]">
+  <xsl:text>Found less then 10!</xsl:text>
+</xsl:template>
+
+<xsl:template _match=".[{$matchme}][. ge 10]">
+  <xsl:text>Found greater/equal than 10!</xsl:text>
+</xsl:template>]]></programlisting>
+      </para>
+    </section>
+  </section>
+  <section>
+    <title>Improve performance helping the processor decide where to apply forking</title>
+    <para><emphasis role="bold">Availability in XSLT 2.0:</emphasis> not available and no known
+      extension mechanism that does the same exists, however, Saxon has a somewhat similar attribute
+      that can be applied to <code>xsl:for-each</code> that specifies how many threads should be
+      used, see <citation>18</citation>.</para>
+    <para>The instruction <code>xsl:fork</code> is primarily intended for use with streaming, in
+      that it enables a programming model that would otherwise require multiple passes over the
+      input document, which is not always possible, let alone feasible, in streaming scenarios. At
+      first sight, it looks like this instruction is a no-op in non-streaming scenarios, but because
+      it introduces a logical forking of data, it can be used as a hint to the processor to open up
+      multiple threads for each fork, and so to improve performance.</para>
+    <section>
+      <title>Syntax and use</title>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:fork>
+  <!-- 
+    content, either:
+    - zero or more xsl:sequence     
+    - one xsl:for-each-group
+  -->
+</xsl:fork>]]></programlisting>
+      </para>
+      <para>If you can split your sequence constructor into a bunch of <code>xsl:sequence</code>
+        instructions, you can also modify it to use <code>xsl:fork</code>, because that instruction
+        only takes <code>xsl:sequence</code> instructions as its children<footnote>
+          <para>Not entirely true. A late change, that just made it into the current Working Draft,
+            allows <code>xsl:for-each-group</code> to appear as a child as well, which allows for a
+            form of complex streamed grouping. For this scenario, we are only interested in
+              <code>xsl:sequence</code> children.</para>
+        </footnote>. The <code>xsl:fork</code> instruction itself changes nothing to the generated
+        sequences, the result would be exactly the same if the <code>xsl:fork</code> instruction
+        were not there. A typical fork instruction could look something like the following:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:fork>
+  <xsl:sequence select="beer" />
+  <xsl:sequence select="lemonade" />
+  <xsl:sequence select="other-drink" />
+</xsl:fork>]]></programlisting>
+      </para>
+      <para>Here, the result would be the sequence of all <code>beer</code> elements, followed by
+        the sequence of all <code>lemonade</code> elements, followed by the sequence of all
+          <code>other-drink</code> elements. The only difference is that the processer gets a hint
+        that it should use multi-threading. The user here says to the processor that it knows enough
+        of the input data that the overhead of starting up new threads is insignificant compared to
+        collecting these elements concurrently from the input tree.</para>
+      <para>Since XSLT is largely side-effect free, a strong hint like the one above can be easily
+        picked up in a processor-independent way. At this moment, Exselt allows for this kind of
+        hints to be followed up, I am not sure if Saxon also fires up multiple threads<footnote>
+          <para>In fact, Saxon currently doesn't fire up new threads for streaming, but there is no
+            mention of non-streaming scenarios in the <link
+              xl:href="http://www.saxonica.com/documentation/index.html#!xsl-elements/fork">Saxon
+              documentation</link>.</para>
+        </footnote>.</para>
+      <para>Note that, even without <code>xsl:fork</code>, processors are known to apply
+        multi-threading where possible, often depending on the edition of the processor you
+        have.</para>
+    </section>
+    <section>
+      <title>Improving your code</title>
+      <para>Suppose your XSLT 2.0 code looked like this:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template match="publication">
+  <xsl:apply-templates select="book" />
+  <xsl:apply-templates select="magazine" />
+  <xsl:apply-templates select="paper" />
+  <xsl:sequence select="f:sum-totals(.)" />
+</xsl:template>]]></programlisting>
+      </para>
+      <para>Then you can turn that into a fork as follows:</para>
+      <para>
+        <programlisting language="xml"><![CDATA[<xsl:template match="publication">
+  <xsl:fork>
+    <xsl:sequence>
+      <xsl:apply-templates select="book" />
+    </xsl:sequence>
+    <xsl:sequence>
+      <xsl:apply-templates select="magazine" />
+    </xsl:sequence>
+    <xsl:sequence>
+      <xsl:apply-templates select="paper" />
+    </xsl:sequence>
+    <xsl:sequence select="f:sum-totals(.)" />
+  </xsl:fork>
+</xsl:template>]]></programlisting>
+      </para>
+      <para>This is obviously a lot more code, but if your input has a significant size and the
+        individual sequences take some time to be processed, it makes sense to let the processor do
+        these actions in parallel.</para>
+      <para>Whether or not it really improves performance will depend on processing vs. startup
+        overhead, input size, computational intensity of the stylesheet and many other factors. To
+        really find out whether it improves performance there's only one thing you can do: profile
+        and measure it.</para>
+    </section>
+    <section>
+      <title>Caveats</title>
+      <para>Processors not supporting multi-threading or not supporting streaming, may remove the
+          <code>xsl:fork</code> completely, as it doesn't change its outcome.</para>
+      <para>Using <code>xsl:fork</code> abundantly may result in many threads being opened, which in
+        itself is not necessarily good for performance. It typically depends on the way threading is
+        implemented (through enveloping, actors, tasks, divide and conquer algorithms, map/reduce
+        algorithms, lightweight approaches or heavyweight approaches etc). As a result, on one
+        processor it may be beneficial to have as many threads as there are processors, but not
+        more, on other processors it can be beneficial to have as many "threads" (which in itself
+        are not necessarily physical threads) as possible because the overhead is very light and the
+        algorithm will automatically choose the best way to spread the tasks across waiting
+        threads.</para>
+      <para>Again, the only way to find out what is best for a given scenario or processor is by
+        profiling the stylesheet.</para>
+      <para>It is possible to have an empty <code>xsl:fork</code>, but this has no effect. This was
+        only introduced to make it easier to auto-generate instructions like this and to make it
+        orthogonal with the rest of the specification.</para>
+    </section>
+    <section>
+      <title>Limitations</title>
+      <para>There are no inherent limitations imposed by the XSLT language itself, though processors
+        can either support this or not and it may be hard to actually find out to what level they
+        support it if they do. In addition, for processors that will spawn actual threads, the
+        physical processing environment may impose limitations on the amount of threads. Finally,
+        different editions of processors may support different amounts of CPUs, threads or
+        otherwise.</para>
+    </section>
+  </section>
+
+  <section>
+    <title>Conclusion</title>
+    <para>XSLT 3.0 comes with a host of new functionality that can improve your current XSLT 2.0
+      programming experience significantly. This paper introduced some of the possibly lesser known
+      improvements that have been made to the language in the past couple of years. Many of the
+      "larger" improvements have been covered in web blogs, papers and conferences, but at least
+      some of the smaller improvements have not. By showing how these seemingly small changes can
+      improve your programming experience, clarity of programming or speed of execution, these
+      changes, or at least some of them, have now received the attention to detail as they
+      deserve.</para>
+    <para>This paper can impossibly be complete, the features discussed here are, in my opinion,
+      significant, but many other features are as well. I hope that in a subsequent paper I can
+      discuss some of these other features that certainly warrant to be known just as much as
+      these.</para>
+  </section>
+  
+  <bibliography>
+    
+    <biblioentry>
+      <abbrev>1</abbrev>
+      <title>XSL Transformations (XSLT) Version 3.0, Latest Version</title>
+      <editor>
+        <personname>
+          <firstname>Michael</firstname>
+          <surname>Kay</surname>
+        </personname>
+      </editor>
+      <biblioid class="uri">http://www.w3.org/TR/xslt-30/</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>2</abbrev>
+      <title>XSL Transformations (XSLT) Version 3.0, W3C Working Draft 1 February 2013</title>
+      <editor>
+        <personname>
+          <firstname>Michael</firstname>
+          <surname>Kay</surname>
+        </personname>
+      </editor>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/2013/WD-xslt-30-20130201/</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>3</abbrev>
+      <title>Bugzilla - Public W3C Bug / Issue tracking system</title>
+      <pubdate>2014</pubdate>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Miscellaneous authors</firstname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <biblioid class="uri">https://www.w3.org/Bugs/Public/</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>4</abbrev>
+      <title>XML Path Language (XPath) 3.0, Latest Version</title>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Jonathan</firstname>
+            <surname>Robie</surname>
+          </personname>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>Don</firstname>
+            <surname>Chamberlin</surname>
+          </personname>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>Michael</firstname>
+            <surname>Dyck</surname>
+          </personname>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>John</firstname>
+            <surname>Snelson</surname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/xpath-30/</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>5</abbrev>
+      <title>XQuery and XPath Data Model 3.0, W3C Candidate Recommendation 08 January
+        2013</title>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Norman</firstname>
+            <surname>Walsh</surname>
+          </personname>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>Anders</firstname>
+            <surname>Berglund</surname>
+          </personname>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>John</firstname>
+            <surname>Snelson</surname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/2013/CR-xpath-datamodel-30-20130108/</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>6</abbrev>
+      <title>Requirements and Use Cases for XSLT 2.1</title>
+      <editor>
+        <personname>
+          <firstname>Petr</firstname>
+          <surname>Cimprich</surname>
+        </personname>
+      </editor>
+      <pubdate>2010</pubdate>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/xslt-21-requirements/</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>7</abbrev>
+      <title>The EXPath Packaging System</title>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Florent</firstname>
+            <surname>Georges</surname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <edition>Proceedings of Balisage 2010</edition>
+      <biblioid class="doi">10.4242/BalisageVol5.Georges01</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>8</abbrev>
+      <title>Collaboratively Defining Open Standards for Portable XPath Extensions</title>
+      <editor>
+        <personname>
+          <firstname>Collaborative</firstname>
+        </personname>
+      </editor>
+      <biblioid class="uri">http://expath.org/</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>9</abbrev>
+      <title>Analysing XSLT Streamability</title>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>John</firstname>
+            <surname>Lumley</surname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <edition>Proceedings of Balisage 2014</edition>
+      <biblioid class="doi">10.4242/BalisageVol13.Lumley01</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>10</abbrev>
+      <title>A Streaming XSLT Processor</title>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Michael</firstname>
+            <surname>Kay</surname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <edition>Proceedings of Balisage 2010</edition>
+      <biblioid class="doi">10.4242/BalisageVol5.Kay01</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>11</abbrev>
+      <title>Streaming in XSLT 2.1</title>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Michael</firstname>
+            <surname>Kay</surname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <edition>Proceedings of XML Prague 2010</edition>
+      <biblioid class="uri">http://archive.xmlprague.cz/2010/files/XMLPrague_2010_Proceedings.pdf#page=21</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>12</abbrev>
+      <title>Efficient XML processing with XSLT 3.0 and higher order functions</title>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Abel</firstname>
+            <surname>Braaksma</surname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <edition>Proceedings of XML Prague 2013</edition>
+      <biblioid class="uri">http://archive.xmlprague.cz/2013/files/xmlprague-2013-proceedings.pdf#page=35</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>13</abbrev>
+      <title>In pursuit of streamable stylesheet functions in XSLT 3.0</title>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Abel</firstname>
+            <surname>Braaksma</surname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <edition>Proceedings of Balisage 2014</edition>
+      <biblioid class="doi">10.4242/BalisageVol13.Braaksma01</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>14</abbrev>
+      <title>Try/Catch in XSLT 2.0</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Florent</firstname>
+            <surname>Georges</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2007</pubdate>
+      <biblioid class="uri">http://fgeorges.blogspot.nl/2007/01/trycatch-in-xslt-20.html</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>15</abbrev>
+      <title>saxon:memo-function</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Michael</firstname>
+            <surname>Kay</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2015</pubdate>
+      <publisher>
+        <publishername>Saxonica</publishername>
+      </publisher>
+      <biblioid class="uri">http://www.saxonica.com/documentation/index.html#!extensions/attributes/memo-function</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>16</abbrev>
+      <title>Advantages of push-style XSLT over pull-style</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>E.</firstname>
+            <surname>Welker</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2008</pubdate>
+      <biblioid class="uri">http://www.eddiewelker.com/2008/11/25/push-style-xslt-vs-pull-style/</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>17</abbrev>
+      <title>XML for Data: XSL style sheets: push or pull?</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Kevin</firstname>
+            <surname>Williams</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2008</pubdate>
+      <biblioid class="uri">http://www.ibm.com/developerworks/library/x-xdpshpul.html</biblioid>
+    </biblioentry>
+    <biblioentry>
+      <abbrev>18</abbrev>
+      <title>saxon:threads</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Michael</firstname>
+            <surname>Kay</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2015</pubdate>
+      <publisher>
+        <publishername>Saxonica</publishername>
+      </publisher>
+      <biblioid class="uri">http://www.saxonica.com/documentation/index.html#!extensions/attributes/threads</biblioid>
+    </biblioentry>
+    
+
+  </bibliography>
+</article>

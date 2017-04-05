@@ -1,0 +1,947 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-21" version="5.0" xml:lang="en">
+
+  <info xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <title>Scalability of an Open Source XML Database for Big Data</title>
+
+    
+      <author>
+        <personname>
+          <firstname>John</firstname>
+          <surname>Chelsom</surname>
+        </personname>
+        <email>john.chelsom.1@city.ac.uk</email>
+        <affiliation>
+          <orgname>City University, London</orgname>
+        </affiliation>
+      </author>
+    
+
+    <keywordset>
+      <keyword>Native XML Database</keyword>
+      <keyword>Big Data</keyword>
+      <keyword>Scalability</keyword>
+      <keyword>Electronic Health Records</keyword>
+      <keyword>XRX</keyword>
+      <keyword>HL7 CDA</keyword>
+    </keywordset>
+
+    <abstract>
+      <para> Big Data tools and techniques are starting to make significant contributions in
+        clinical research and studies. We explore the use of XML for holding data in an electronic
+        health record, where the primary data storage is an open source XML database of clinical
+        documents. We evaluate the feasibility of using such a data store for Big Data and describe
+        the techniques used to extend to the massive data sets required for meaningful clinical
+        studies. </para>
+      <para> Using an open source Electronic Health Records system we have loaded the database with
+        a set of patient records and measured the size of the database from 1 to 20,000 patients,
+        together with the execution time of a typical query to retrieve and combine data across a
+        cohort of patients. </para>
+      <para> We describe the implementation of a federated data store, whereby we can scale to
+        millions of patient records. We then make projections for the size and search execution time
+        at Big Data scale. </para>
+    </abstract>
+
+  </info>
+
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <title>Introduction</title>
+    <para> In healthcare, the application of Big Data tools and techniques is revolutionizing
+      clinical research has already contributed to breakthroughs in cancer treatments and management
+      of long term conditions such as diabetes and coronary heart disease <xref linkend="paper-21_chelsom-ref1"/>
+      <xref linkend="paper-21_chelsom-ref2"/>. </para>
+    <para> In this paper we explore the scalability of the eXist open source, native XML database
+      for Big Data. We have used an open source Electronic Health Records (EHR) system to load the
+      database with a set of patient records and measured the size of the database from 1 to 20,000
+      patients, together with the execution time of a typical query to retrieve and combine data
+      across a cohort of patients. Extrapolating these results, we have estimated the largest single
+      database instance which would produce acceptable query performance.</para>
+    <para> In order to reach the scale required for Big Data in clinical research, which we have
+      assumed to be the full records for 55 million patients, we have investigated the use of
+      federated search across multiple instances of the native XML database. By combining the
+      results from this federated search we are able to achieve the scalability required for Big
+      Data. Our approach to testing the scalability of the XML database follows the same principles
+      described in the BigBench data benchmark proposal <xref linkend="paper-21_chelsom-ref3"/>. </para>
+  </section>
+
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <title>Electronic Health Records in XML</title>
+
+    <para> Health records typically contain a mix of structured and unstructured data, with some
+      data highly structured (laboratory test results, for example), some lightly structured (clinic
+      attendance notes) and some with no structure, other than meta data (diagnostic images). This
+      variation makes XML an ideal candidate for the basic data representation and storage of health
+      care data and has led to the development of a number of standard representations, the most
+      commonly used being the Health Level 7 Clinical Document Architecture (HL7 CDA) <xref linkend="paper-21_chelsom-ref4"/>. </para>
+
+    <para>cityEHR <xref linkend="paper-21_chelsom-ref5"/> is an open source EHR which is currently deployed
+      in five hospitals in the National Health Service in England, as well as being used for
+      research and teaching of health informatics. It is built as an XRX application (XForms – REST
+      – XQuery) on existing open source Enterprise Java components, primarily Orbeon Forms <xref linkend="paper-21_chelsom-ref6"/>, the eXist XML database <xref linkend="paper-21_chelsom-ref7"/> and the
+      Mirth messaging engine <xref linkend="paper-21_chelsom-ref8"/> running in Apache Tomcat. The study
+      described in this paper used Orbeon version 3.9 and eXist version 2.2. The architecture of
+      cityEHR, shown in <xref linkend="paper-21_chelsom-fig1"/>, was inspired by a previous commercial
+      product called Case Notes, which was implemented using a relational database <xref linkend="paper-21_chelsom-ref9"/>. </para>
+
+    <figure xml:id="paper-21_chelsom-fig1">
+      <title>cityEHR as an XRX Application</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/2016-cityEHRxrx.svg" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+
+    <para> We have used the eXist XML database for developing XML applications in healthcare since
+      soon after its first release in 2000; a version of eXist also ships with Orbeon as the default
+      persistent store for XML. It was therefore a natural choice to use eXist for cityEHR, although
+      there are several open source alternatives, most notably BaseX <xref linkend="paper-21_chelsom-ref10"/>
+      and Berkeley DB XML Edition <xref linkend="paper-21_chelsom-ref11"/>. </para>
+
+    <para> eXist ships with the Jetty Java Servlet container by default and for this study we have
+      used that default installation running as a service in the MS Windows operating system. For
+      live deployments of cityEHR in hospitals we can also run the eXist database in the same Tomcat
+      instance as Orbeon, which is a simpler environment to deploy and maintain. </para>
+  </section>
+
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <title>Scalability of the XML Database</title>
+
+    <section>
+
+      <title>Database Size</title>
+
+      <para>To measure the scalability of the XML database we used the test data generation feature
+        of cityEHR to create databases ranging in size from 1 to 20,000 records. This data
+        generation feature imports a sample patient record and replicates that record in the
+        database, varying key data for each test instance created. These key data include the
+        patient identifiers (which are anonymised), dates (which are offset by a random time period)
+        and gender (the proportion of male/female patients can be set for the generated test
+        data).</para>
+
+      <para> For the current study, we used a sample record containing 34 clinical documents, which
+        when stored on disk as a single XML file (HL7 CDA format) was approximately 1.35Mb in size.
+        When imported to the XML database, the database of 20k patients was 31.6Gb, including
+        indexes. The equivalent size of the raw XML for this number of patients is 27Gb, so the
+        database 'bloat' is about 17%, which compares well with other databases. The database size
+        up to 20k patients (680k documents) is shown in <xref linkend="paper-21_chelsom-fig2"/>. Based on
+        these results, our estimate of the size of a database of 100,000 patients is 156Gb, 500,000
+        patients is 780Gb and 1 million patients is 1.56Tb. </para>
+
+      <figure xml:id="paper-21_chelsom-fig2">
+        <title>Database Size with Increasing Record Count</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/2016-DatabaseBloat.png" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+
+      <para>The eXist database is indexed with a range index on two XML attributes and a full text
+        (Lucene) index on the same two attributes. These indexes are sufficient to retrieve any
+        patient data from the HL7 CDA records, since all data follow the same pattern in terms of
+        XML markup.</para>
+
+      <example xml:id="paper-21_chelsom-prog-list1">
+        <title>Definition of eXist Indexes</title>
+        <programlisting language="xml">&lt;collection 
+xmlns="http://exist-db.org/collection-config/1.0"&gt;
+  &lt;index&gt;
+    &lt;!-- Disable the standard full text index --&gt;
+    &lt;fulltext default="none" attributes="no"/&gt;
+
+    &lt;!-- Full text index based on Lucene --&gt;
+    &lt;lucene&gt;
+      &lt;analyzer class="
+org.apache.lucene.analysis.standard.StandardAnalyzer
+      "/&gt;
+      &lt;text qname="@extension"/&gt;
+      &lt;text qname="@value"/&gt;
+    &lt;/lucene&gt;
+       
+    &lt;!-- New range index for eXist 2.2 --&gt;
+    &lt;range&gt;
+      &lt;create qname="@extension" type="xs:string"/&gt;
+      &lt;create qname="@value" type="xs:string"/&gt;
+    &lt;/range&gt;
+  &lt;/index&gt;
+&lt;/collection&gt;</programlisting>
+      </example>
+    </section>
+
+    <section>
+
+      <title>XQuery Formulation and Indexing</title>
+
+      <para>For scalability testing we used a single test XQuery which finds all Female patients,
+        returning the patient identifier. This query is typical of any query that finds clinical
+        data in a set of HL7 CDA documents and uses both the range and Lucene full text indexes in
+        eXist.</para>
+
+      <para>We also ran similar queries with fewer predicates, so that just the range or full text
+        indexes were used and queries with XQuery for, let and return clauses. The purpose of these
+        additional queries was to verify that the performance results reported here for the
+        documented test query are representative of a wider range of queries that may be run in
+        cityEHR. That said, all queries on clinical data in HL7 CDA are accessing the same extension
+        and value attributes used in the test query.</para>
+
+      <example xml:id="paper-21_chelsom-prog-list2">
+        <title>XQuery for performance testing.</title>
+        <programlisting language="xquery">
+xquery version "1.0"; 
+declare namespace cda="urn:hl7-org:v3"; 
+
+/descendant::cda:value
+[ft:query(@value,'Female')]
+[@extension eq '#ISO-13606:Element:Gender']
+[../cda:id/@extension eq '#ISO-13606:Entry:Gender']             
+/ancestor::cda:ClinicalDocument
+/descendant::cda:patientRole/cda:id          
+</programlisting>
+
+      </example>
+
+    </section>
+
+    <section>
+
+      <title>Query Execution Time</title>
+
+      <para>The results of loading the database with up to 20,000 patients and running the test
+        query are shown below. <xref linkend="paper-21_chelsom-table1"/> shows the database size and number
+        of search hits returned; <xref linkend="paper-21_chelsom-fig3"/> shows these as a graph. </para>
+
+      <table xml:id="paper-21_chelsom-table1">
+        <title>Database size and search hits from 1 to 20,000 patients.</title>
+        <tgroup cols="10">
+          <colspec colname="c1"/>
+          <colspec colname="c2"/>
+          <colspec colname="c3"/>
+          <colspec colname="c4"/>
+          <colspec colname="c5"/>
+          <colspec colname="c6"/>
+          <colspec colname="c7"/>
+          <colspec colname="c8"/>
+          <colspec colname="c9"/>
+          <colspec colname="c10"/>
+          <thead>
+            <row>
+              <entry>Patient Records</entry>
+              <entry>0</entry>
+              <entry>1</entry>
+              <entry>10</entry>
+              <entry>100</entry>
+              <entry>1000</entry>
+              <entry>2000</entry>
+              <entry>5000</entry>
+              <entry>10000</entry>
+              <entry>20000</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry>Database Size (Mb)</entry>
+              <entry>80.3</entry>
+              <entry>82.1</entry>
+              <entry>97.3</entry>
+              <entry>248</entry>
+              <entry>1700</entry>
+              <entry>3210</entry>
+              <entry>7950</entry>
+              <entry>16000</entry>
+              <entry>31600</entry>
+            </row>
+            <row>
+              <entry>Hits</entry>
+              <entry/>
+              <entry>1</entry>
+              <entry>4</entry>
+              <entry>49</entry>
+              <entry>499</entry>
+              <entry>999</entry>
+              <entry>2499</entry>
+              <entry>5025</entry>
+              <entry>9775</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+
+      <figure xml:id="paper-21_chelsom-fig3">
+        <title>Database size and search hits from 1 to 20,000 patients.</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/2016-ResultsSize.png" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+
+      <para><xref linkend="paper-21_chelsom-table2"/> shows the execution times for the first and repeated
+        queries; <xref linkend="paper-21_chelsom-fig4"/> shows these as a graph. These results were obtained
+        on a quad-core Intel i7 processor, with 16Gb RAM running Windows 8. cityEHR was running
+        under Apache Tomcat with 4096Mb Java heap; eXist was running under Jetty with 4096Mb Java
+        heap.</para>
+
+      <table xml:id="paper-21_chelsom-table2">
+        <title>Execution time for first and repeated queries from 1 to 20,000 patients.</title>
+        <tgroup cols="10">
+          <colspec colname="c1"/>
+          <colspec colname="c2"/>
+          <colspec colname="c3"/>
+          <colspec colname="c4"/>
+          <colspec colname="c5"/>
+          <colspec colname="c6"/>
+          <colspec colname="c7"/>
+          <colspec colname="c8"/>
+          <colspec colname="c9"/>
+          <colspec colname="c10"/>
+          <thead>
+            <row>
+              <entry>Patient Records</entry>
+              <entry>0</entry>
+              <entry>1</entry>
+              <entry>10</entry>
+              <entry>100</entry>
+              <entry>1000</entry>
+              <entry>2000</entry>
+              <entry>5000</entry>
+              <entry>10000</entry>
+              <entry>20000</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry>First Query Time (sec)</entry>
+              <entry/>
+              <entry>0.61</entry>
+              <entry>0.58</entry>
+              <entry>0.59</entry>
+              <entry>0.98</entry>
+              <entry>1.15</entry>
+              <entry>1.92</entry>
+              <entry>3.02</entry>
+              <entry>6.7</entry>
+            </row>
+            <row>
+              <entry>Repeat Query Time (sec)</entry>
+              <entry/>
+              <entry>0.016</entry>
+              <entry>0,016</entry>
+              <entry>0.06</entry>
+              <entry>0.18</entry>
+              <entry>0.34</entry>
+              <entry>0.58</entry>
+              <entry>0.98</entry>
+              <entry>2.49</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+
+      <figure xml:id="paper-21_chelsom-fig4">
+        <title>Execution time for first and repeated queries from 1 to 20,000 patients.</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/2016-ResultsTime.png" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+
+      <para>When a slightly different search is performed (e.g. to search for Male rather than
+        Female patients) the execution time reverts to the first query time, so the cache used by
+        eXist does not assist in this case. We have therefore based our projections and conclusions
+        on the slower first query time, rather than the cached query, and ensured during this study
+        that services were restarted and the cache cleared before each measurement was taken.</para>
+
+      <para> To check the impact of the Java heap size allocated to the eXist process, we ran the
+        same query at heap sizes from 128Mb to 4096Mb (on a 1000 patient database running on a dual
+        core server, with 8Gb RAM). We found that the query did not complete at 128Mb, completed in
+        2.9 seconds at 256Mb and then completed consistently in around 2 seconds for heap sizes from
+        512Mb to 4096Mb. Our conclusion is that once the Java heap is above a sufficient threshold
+        it has no effect on query execution time.</para>
+    </section>
+
+  </section>
+
+
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <title>Extension to Big Data Scale</title>
+
+    <section>
+
+      <title>Federated Search</title>
+
+      <para>To reach Big Data scale requires a step change in the scale of the XML database which is
+        unlikely to be achieved through simple expansion of a single database instance. A large
+        acute hospital in the NHS might cover a population of 1.5 million patients and a national
+        database for England should cover up to 55 million patients.</para>
+
+      <para> Fortunately, the fact that each patient record is a discrete data set allows us to
+        scale the database as a set of separate database instances, over which a federated search
+        can be run. Such replication or clustering could be implemented at the database level, using
+        whatever support the database offered for this type of scaling. For example, the eXist
+        database has some support for clustering using the Apache ActiveMQ messaging system to
+        marshal a master and slave databases.</para>
+
+      <para> Our objective has been to create a federated database using the components of cityEHR
+        (namely Orbeon and eXist) 'out of the box' with no additional software components and no
+        database-specific implementation. Such an approach ensures that the solution can be deployed
+        easily on any network of servers or virtual machines.</para>
+
+      <para> So rather than use database-level replication or clustering facilities, we replicated
+        the same database on five separate network servers. For the purposes of this test we used a
+        1000 patient database on dual core servers with 4Gb memory, using 1024Mb of Java heap for
+        eXist.</para>
+
+      <para> Before testing the federated search, we ran the same test query on each database
+        separately with the results shown in <xref linkend="paper-21_chelsom-table3"/>. Each individual query
+        returned 499 hits. Node 1 was running on the same server as the cityEHR (Tomcat) instance,
+        whereas nodes 2 to 5 were running on network servers.</para>
+
+      <table xml:id="paper-21_chelsom-table3">
+        <title>Execution time for database nodes of 1000 patients.</title>
+        <tgroup cols="6">
+          <colspec colname="c1"/>
+          <colspec colname="c2"/>
+          <colspec colname="c3"/>
+          <colspec colname="c4"/>
+          <colspec colname="c5"/>
+          <colspec colname="c6"/>
+          <thead>
+            <row>
+              <entry>Network Node</entry>
+              <entry>Node 1</entry>
+              <entry>Node 2</entry>
+              <entry>Node 3</entry>
+              <entry>Node 4</entry>
+              <entry>Node 5</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry>Query Time (sec)</entry>
+              <entry>0.24</entry>
+              <entry>0.68</entry>
+              <entry>0.58</entry>
+              <entry>0.58</entry>
+              <entry>0.53</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+
+    </section>
+
+    <section>
+
+      <title>Using XML Pipelines</title>
+
+      <para>Our first implementation of a federated search process was implemented using an XML
+        Pipeline in Orbeon, which iterates through the available database nodes, makes a submission
+        to each node to run the XQuery and then aggregates the results set. The results for running
+        on the five database nodes are shown in <xref linkend="paper-21_chelsom-table4"/>.</para>
+
+      <table xml:id="paper-21_chelsom-table4">
+        <title>Results of federated search on 1 to 5 database nodes, using an XML pipeline.</title>
+        <tgroup cols="6">
+          <colspec colname="c1"/>
+          <colspec colname="c2"/>
+          <colspec colname="c3"/>
+          <colspec colname="c4"/>
+          <colspec colname="c5"/>
+          <colspec colname="c6"/>
+          <thead>
+            <row>
+              <entry>Nodes Queried</entry>
+              <entry>1 node</entry>
+              <entry>2 nodes</entry>
+              <entry>3 nodes</entry>
+              <entry>4 nodes</entry>
+              <entry>5 nodes</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry>Query Time (sec)</entry>
+              <entry>6.2</entry>
+              <entry>12.54</entry>
+              <entry>18.65</entry>
+              <entry>24.25</entry>
+              <entry>30.22</entry>
+            </row>
+            <row>
+              <entry>Hits</entry>
+              <entry>499</entry>
+              <entry>998</entry>
+              <entry>1497</entry>
+              <entry>1996</entry>
+              <entry>2495</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+
+      <para>Were the submissions from the pipeline asynchronous, we would expect that the time taken
+        to complete the federated query would be equivalent to the slowest query to any database
+        instance plus the time required to aggregate the results from all queries. The results show
+        that not only are the submissions synchronous (i.e. each waits for the previous iteration to
+        complete before it submits) but the overhead of the aggregation in the XML pipeline is
+        unacceptably high. We concluded that this is not a viable approach for implementation of the
+        federated search.</para>
+    </section>
+
+    <section>
+
+      <title>Using Iteration Within XForms</title>
+
+      <para>Following the disappointing results using XML pipelines, we made a second implementation
+        using iteration of the XQuery submissions from within XForms. The results of this
+        implementation on five database nodes are shown in <xref linkend="paper-21_chelsom-table5"/>.</para>
+
+      <table xml:id="paper-21_chelsom-table5">
+        <title>Results of federated search on 1 to 5 database nodes, using XForms.</title>
+        <tgroup cols="6">
+          <colspec colname="c1"/>
+          <colspec colname="c2"/>
+          <colspec colname="c3"/>
+          <colspec colname="c4"/>
+          <colspec colname="c5"/>
+          <colspec colname="c6"/>
+          <thead>
+            <row>
+              <entry>Nodes Queried</entry>
+              <entry>1 node</entry>
+              <entry>2 nodes</entry>
+              <entry>3 nodes</entry>
+              <entry>4 nodes</entry>
+              <entry>5 nodes</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry>Query Time (sec)</entry>
+              <entry>0.28</entry>
+              <entry>0.49</entry>
+              <entry>0.82</entry>
+              <entry>0.94</entry>
+              <entry>1.15</entry>
+            </row>
+            <row>
+              <entry>Hits</entry>
+              <entry>499</entry>
+              <entry>998</entry>
+              <entry>1497</entry>
+              <entry>1996</entry>
+              <entry>2495</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+
+      <para> These results are more encouraging, showing that the overhead in the aggregation of
+        results sets within XForms iterations is minimal; indeed the results seem to suggest
+        performance that is better than a simple synchronous aggregation, since the combined query
+        time for each node running as the single database instance is 2.61 seconds, whereas the
+        federated search on all five nodes was only 1.15 seconds.</para>
+
+      <para> The XForms 1.1 standard does specify asynchronous submissions as the default, but in
+        the version of Orbeon we used for these tests (3.9, community edition) only synchronous
+        submissions are documented as being available. Assuming this to be the case, we would
+        therefore expect a significant improvement in the federated search performance were
+        asynchronous submissions used.</para>
+    </section>
+
+  </section>
+
+
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Conclusions</title>
+
+    <para>The results presented here show that the eXist database scales adequately as the number of
+      patient records increases from 1 to 20,000. Our experiments have shown that to achieve
+      satisfactory performance, it is vital to formulate each XQuery to ensure optimal use of the
+      database indexes. This may explain why some other independent analyses have reached different
+      conclusions regarding the scalability of eXist <xref linkend="paper-21_chelsom-ref12"/>.</para>
+
+    <para>There is a considerable difference between the execution time for the first call of a
+      query and the times for subsequent calls. This is due to caching in eXist, which would appear
+      to be based on the pages touched by the query, rather than the full indexes. For this
+      particular implementation in cityEHR, it is unlikely that an identical query will be run more
+      than once in a single session and so the benefit of caching will not necessarily be seen.
+      However, it is very likely that similar queries will be repeated in the same session,
+      accessing the same indexes; it would therefore be more beneficial for cityEHR if the indexes
+      themselves were cached. Therefore for our purposes we must look at the performance of the
+      first query execution as our benchmark for performance.</para>
+
+    <para>Big Data queries on complex data sets can be expected to take some time to return results.
+      It is not obvious where the threshold of acceptable performance lies for such queries, since
+      results on larger or more complex data sets are more valuable and therefore longer execution
+      times are likely to be more acceptable than times for queries driving a user interface (for
+      example).</para>
+
+    <para> In the experiments described here, we have used the eXist database in its 'out of the
+      box' configuration and have not attempted any database tuning beyond creating indexes,
+      carefully formulating XQueries and setting the Java heap above the minimum required to execute
+      the queries. Performance does seem to degrade between 10,000 and 20,000 patients and this is
+      therefore an area for future investigation which may require more sophisticated tuning or
+      knowledge of eXist to address. Assuming we can avoid further degradation, then we would
+      project that a search on a 100,000 patient would complete in under 35 seconds. Limitation of
+      time and resources have so far prevented us from implementing a database of this size, which
+      is an obvious next step for our research.</para>
+
+    <para> To implement a federated search using databases of 100,000 patients (100k nodes) would
+      require 10 nodes for one million patients and 550 nodes for 55 million. Using the benchmark of
+      35 seconds for a 100,000 patient database node and the results of our tests on federated
+      search, we project a search time of just under 6 minutes for 1 million patients, one hour for
+      10 million and about 5.5 hours for 55 million. Total database sizes (aggregate of the
+      federated databases) for 1, 10 and 55 million would be approximately 1.5Tb, 15Tb and
+      85Tb.</para>
+
+    <para> In conclusion, we can say that although the projected search times on an 85Tb database of
+      55 million records seem slow, they are based on a fairly unsophisticated approach to
+      implementation. A comparable implementation of the Secondary Uses Service (SUS) <xref linkend="paper-21_chelsom-ref13"/>, to hold data on 55 million patients in the NHS in England, was
+      originally designed to use clustered relational database technology and hardware accelerators
+      to hold far less structured data than we propose in this paper. Hence we conclude that the
+      results obtained so far show enough promise to justify an extension to the next order of
+      magnitude and we will report those results at a future date.</para>
+
+  </section>
+
+  <bibliography xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <biblioentry xml:id="paper-21_chelsom-ref1" xreflabel="[1]">
+      <abbrev>1</abbrev>
+      <title>Big data and clinicians: a review on the state of the science.</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>W.</firstname>
+            <surname>Wang</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>E.</firstname>
+            <surname>Krishnan</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2014</pubdate>
+      <publishername>JMIR medical informatics, 2(1).</publishername>
+      <biblioid class="uri">http://www.ncbi.nlm.nih.gov/pmc/articles/4288113/</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-21_chelsom-ref2" xreflabel="[2]">
+      <abbrev>2</abbrev>
+      <title>The meaningful use of big data: four perspectives--four challenges.</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>C.</firstname>
+            <surname>Bizer</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>P.</firstname>
+            <surname>Boncz</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>M.L.</firstname>
+            <surname>Brodie</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>O.</firstname>
+            <surname>Erling</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2012</pubdate>
+      <publishername>ACM SIGMOD Record, 40(4), pp.56-60</publishername>
+      <biblioid class="uri">http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.446.6604&amp;rep=rep1&amp;type=pdf</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-21_chelsom-ref3" xreflabel="[3]">
+      <abbrev>3</abbrev>
+      <title>BigBench: towards an industry standard benchmark for big data analytics.</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>A.</firstname>
+            <surname>Ghazal</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>T.</firstname>
+            <surname>Rabl</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>M.</firstname>
+            <surname>V</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>F.</firstname>
+            <surname>Raab</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>M.</firstname>
+            <surname>Poess</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>A.</firstname>
+            <surname>Crolotte</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>H.A.</firstname>
+            <surname>Jacobsen</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2013, June.</pubdate>
+      <publishername>n Proceedings of the 2013 ACM SIGMOD international conference on Management of
+        data (pp. 1197-1208).</publishername>
+      <biblioid class="uri">http://www.msrg.org/publications/pdf_files/2013/Ghazal13-BigBench:_Towards_an_Industry_Standa.pdf</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-21_chelsom-ref4" xreflabel="[4]">
+      <abbrev>4</abbrev>
+      <title>HL7 Clinical Document Architecture, Release 2</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>RH.</firstname>
+            <surname>Dolin</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>L.</firstname>
+            <surname>Alschuler</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>S.</firstname>
+            <surname>Boyer</surname>
+          </personname>
+        </author>
+        <othercredit>
+          <orgname>et al.</orgname>
+        </othercredit>
+      </authorgroup>
+      <pubdate>2006</pubdate>
+      <publishername>J Am Med Inform Assoc. 2006;13(1):30-9. </publishername>
+      <biblioid class="uri">http://ssr-anapath.googlecode.com/files/CDAr2.pdf</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-21_chelsom-ref5" xreflabel="[5]">
+      <abbrev>5</abbrev>
+      <title>Ontology-driven development of a clinical research information system.</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>JJ.</firstname>
+            <surname>Chelsom</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>I.</firstname>
+            <surname>Pande</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>R.</firstname>
+            <surname>Summers</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>I.</firstname>
+            <surname>Gaywood</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2011</pubdate>
+      <publishername>24th International Symposium on Computer-Based Medical Systems, Bristol. June
+        27-June 30</publishername>
+      <biblioid class="uri">http://openhealthinformatics.org/wp-content/uploads/2014/11/2011-06-CMBS.pdf</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-21_chelsom-ref6" xreflabel="[6]">
+      <abbrev>6</abbrev>
+      <title>eXist: An open source native XML database.</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>W.</firstname>
+            <surname>Meier</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2002</pubdate>
+      <publishername>In Web, Web-Services, and Database Systems (pp. 169-183). Springer Berlin
+        Heidelberg.</publishername>
+      <biblioid class="uri">http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.11.4808&amp;rep=rep1&amp;type=pdf</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-21_chelsom-ref7" xreflabel="[7]">
+      <abbrev>7</abbrev>
+      <title>Are Server-Side Implementations the Future of XForms?</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>E.</firstname>
+            <surname>Bruchez</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2005</pubdate>
+      <publishername>XTech 2005</publishername>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-21_chelsom-ref8" xreflabel="[8]">
+      <abbrev>8</abbrev>
+      <title>Experiences with Mirth: an open source health care integration engine.</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>G.</firstname>
+            <surname>Bortis</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2008</pubdate>
+      <publishername>In Proceedings of the 30th international conference on Software engineering
+        (pp. 649-652). ACM.</publishername>
+      <biblioid class="uri">http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.212.5384&amp;rep=rep1&amp;type=pdf</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-21_chelsom-ref9" xreflabel="[9]">
+      <abbrev>9</abbrev>
+      <title>XML data warehousing for browser-based electronic health records.</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Dave</firstname>
+            <surname>Nurse</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>John</firstname>
+            <surname>Chelsom</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2000</pubdate>
+      <publishername>Proceedings of XML Europe, 2000. IDE Alliance.</publishername>
+      <biblioid class="uri">https://www.infoloom.com/media/gcaconfs/WEB/paris2000/S32-03.HTM</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-21_chelsom-ref10" xreflabel="[10]">
+      <abbrev>10</abbrev>
+      <title>Visually exploring and querying XML with BaseX.</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>C.</firstname>
+            <surname>Grün</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>A.</firstname>
+            <surname>Holupirek</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>M.H.</firstname>
+            <surname>Scholl</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2007</pubdate>
+      <publishername/>
+      <biblioid class="uri">https://kops.uni-konstanz.de/bitstream/handle/123456789/3007/visually_scholl.pdf?sequence=1</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-21_chelsom-ref11" xreflabel="[11]">
+      <abbrev>11</abbrev>
+      <title>Berkeley DB XML: An Embedded XML Database.</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Paul</firstname>
+            <surname>Ford</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2003</pubdate>
+      <publishername>O'Reilly, xml.com</publishername>
+      <biblioid class="uri">http://www.xml.com/pub/a/2003/05/07/bdb.html</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-21_chelsom-ref12" xreflabel="[12]">
+      <abbrev>12</abbrev>
+      <title>eXist-db: Not Ready for High Scale.</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Robert</firstname>
+            <surname>Elwell</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2014</pubdate>
+      <publishername/>
+      <biblioid class="uri">http://robertelwell.info/blog/exist-db-not-ready-for-high-scale</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-21_chelsom-ref13" xreflabel="[13]">
+      <abbrev>13</abbrev>
+      <title>Electronic health records should support clinical research.</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>J.</firstname>
+            <surname>Powell</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>I.</firstname>
+            <surname>Buchan</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <pubdate>2005</pubdate>
+      <publishername>Journal of Medical Internet Research, 7(1), p.e4.</publishername>
+      <biblioid class="uri">http://www.jmir.org/2005/1/e4/</biblioid>
+    </biblioentry>
+
+
+  </bibliography>
+
+</article>

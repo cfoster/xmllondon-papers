@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-13" version="5.0">
+  <info xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Extremes of XML</title>
+    <author>
+      <personname>Philip Fennell</personname>
+      <email>philip.fennell@gmail.com</email>
+    </author>
+  </info>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Introduction</title>
+    <para>The <link xlink:href="http://www.w3.org/XML/">Extensible Markup Language</link> (<acronym>XML</acronym>) is a meta language, it is used to describe other languages and as such it has been phenomenally successful, it has been drawn into just about every information domain imaginable, not to mention some you really can't. Although it might be unfair to term the extremes as lurching from the sublime to the ridiculous it is, however, fair to say that some applications of <acronym>XML</acronym> are incredibly useful whilst others are insanely convoluted and frustrating to work with. </para>
+    <para><acronym>XML</acronym>, originally envisaged as a lingua franca for the Web, was born of the <link xlink:href="http://en.wikipedia.org/wiki/Standard_Generalized_Markup_Language">Standard Generalized Markup Language</link> (<acronym>SGML</acronym>) but with rather neater, tighter rules to make it more concise. Some of the earliest applications of <acronym>XML</acronym> hinted at the diversity of uses to which it would be put. However, of more recent times the <acronym>XML</acronym> community has been reflecting upon the very nature of <acronym>XML</acronym>, its processing rules and serialisation, and has been looking for ways to simplify it in order that it might find a more amicable position along side, for example, the <link xlink:href="http://www.json.org/">JavaScript Object Notation</link> (<acronym>JSON</acronym>).</para>
+    <para>As hinted at above, <acronym>XML</acronym> has been applied, sometimes ill advisedly, throughout the IT industry and beyond. Over the last 15 years, looking at the applications of <acronym>XML</acronym> as a whole, they can be broadly boiled-down to the following categories:</para>
+    <itemizedlist>
+      <listitem>
+        <para>Describing</para>
+      </listitem>
+      <listitem>
+        <para>Modeling</para>
+      </listitem>
+      <listitem>
+        <para>Processing</para>
+      </listitem>
+      <listitem>
+        <para>Publishing</para>
+      </listitem>
+      <listitem>
+        <para>Interacting</para>
+      </listitem>
+      <listitem>
+        <para>Presenting</para>
+      </listitem>
+    </itemizedlist>
+    <para>At the heart of what we do with <acronym>XML</acronym> is describe things, essentially it is used for marking-up information to be published unless it is metadata about those published entities or how the marked-up information is to be modelled, processed,interacted with or presented.</para>
+    <para>When looking at the extremes of <acronym>XML</acronym>, what I find fascinating is not how much or how fast but the breadth of applications to which <acronym>XML</acronym> has been applied, and this is what one could call the '<phrase><acronym>XML</acronym> Envelope</phrase>'. </para>
+    <mediaobject>
+      <imageobject>
+        <imagedata fileref="images/xml_envelope.png" depth="256" width="256"/>
+      </imageobject>
+    </mediaobject>
+    <para>Whilst periods of introspection are often fruitful, we should also, on occassion, turn our attention outwards towards the edges of this envelope and see where <acronym>XML</acronym> has pushed itself into some new or unusual applications.</para>
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Describing</title>
+    <para>Describing things is not an edge-case for <acronym>XML</acronym>, it is at the centre because it is at the heart of what we do with <acronym>XML</acronym>. By description we actually mean information about things, metadata which, we capture as annotations within or in reference to these structures. We'll push outwards towards the edges of our envelope and work around the categories.</para>
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Modeling</title>
+    <para>We use <acronym>XML</acronym> to help us capture how we model a specific information domain using <link xlink:href="http://www.w3.org/XML/Schema">XML Schema</link> (<acronym>XSD</acronym>) and <link xlink:href="http://relaxng.org/">Relax NG</link>, however, at the very edge of current data modeling interest lies the Semantic Web where the boundary between <acronym>XML</acronym> and the Semantic Web has been and still is somewhat blurred.</para>
+    <para><acronym>XML</acronym> and the Semantic Web have something of a mixed and, it should be said, confused relationship. <acronym>XML</acronym> has become, for many applications, a singular standard for information representation and interchange whilst the Semantic Web has managed to adopt at least four, and rising, representations of the <link xlink:href="http://www.w3.org/RDF/">Resource Description Format</link> (<acronym>RDF</acronym>) and for many people the existence of one of them, <link xlink:href="http://www.w3.org/TR/rdf-syntax-grammar/">RDF/XML</link>, has posed a problem. A very real problem because it was seen as an information markup language rather that an <acronym>XML</acronym> representation of a graph. There is a subtle but important difference.</para>
+    <para>Whilstit can still be advocated that there's is nothing wrong with using <acronym>XML</acronym> technologies, like <link xlink:href="http://www.w3.org/TR/xslt20/"><acronym>XSLT</acronym></link> for transform RDF/XML, the querying of it with non-graph based languages, like <link xlink:href="http://www.w3.org/TR/xquery-30/"><acronym>XQuery</acronym></link>, is analogous to querying <acronym>XML</acronym> with text based techniques like <link xlink:href="http://en.wikipedia.org/wiki/Regular_expression">Regular Expressions</link>. Whilst you can do it, in their respective cases you fail to see the underlying structures to the information without a lot of additional work.</para>
+    <para>When we stand at the edge, the interface between the Document and Semantic Web, we see that <acronym>XML</acronym>'s usage within Semantic Web technologies is somewhat on the slide. Compared to <link xlink:href="http://www.w3.org/TeamSubmission/n3/">Notation 3</link> (<acronym>N3</acronym>), <link xlink:href="http://www.w3.org/TR/n-triples/">N-Triples</link>, <link xlink:href="http://www.w3.org/TeamSubmission/turtle/"><acronym>Turtle</acronym></link> and the upcoming <link xlink:href="http://en.wikipedia.org/wiki/JSON-LD"><acronym>JSON-LD</acronym></link>. RDF/XML is increasingly becoming a legacy format and with <acronym>RDF</acronym> 1.1 it will no longer be the 'required' interchange format for <acronym>RDF</acronym> implementations.</para>
+    <para>So, leaving aside questions of graph serialisation, <acronym>XML</acronym> content does still intersect with the Semantic Web because much of the information it marks-up has, or is, metadata that could, and should, be modelled as <acronym>RDF</acronym>
+      <link xlink:href="http://linkeddata.org/">Linked Data</link>. The question is how do the two sides meet and to what extent should they overlap. By way of a related example, mappings between Relational Data and <acronym>RDF</acronym> already exist in the form of the W3C's '<link xlink:href="http://www.w3.org/TR/r2rml/"><acronym>RDB</acronym> to <acronym>RDF</acronym> Mapping Language</link>' (R2RML) and the '<link xlink:href="http://www.w3.org/TR/rdb-direct-mapping/">Direct Mapping of Relational Data to <acronym>RDF</acronym></link>'. These two concepts provide a means to create <acronym>RDF</acronym> 'views' of relational data that could be queried with the <link xlink:href="http://www.w3.org/TR/sparql11-overview/"><acronym>SPARQL</acronym></link> query language. This is a solution for structured data but what of semi-structured data? </para>
+    <para>Schema Lifting and Lowering are terms coined by the Semantic Web community to describe the process of mapping XML Schemas to <acronym>RDF</acronym> Ontologies and back again. The idea being that you can enhance the basic semantics of <acronym>XML</acronym> fragments by converting them to <acronym>RDF</acronym>. Buried deep within the myriad of <acronym>W3C</acronym> Web Services recommendations lies the '<link xlink:href="http://www.w3.org/TR/sawsdl/">Semantic Web Annotations for WSDL and XML Schema</link>' (<acronym>SAWSDL</acronym>) which uses foreign attributes to embed references between schema types and ontology classes and properties.</para>
+    <para>
+      <programlisting language="xml">&lt;xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+                xmlns:sawsdl="http://www.w3.org/ns/sawsdl" name="entryType"
+                sawsdl:modelReference="http://bblfish.net/work/atom-owl/2006-06-06/#Entry"&gt;
+  &lt;xs:annotation&gt;
+    &lt;xs:documentation&gt; The Atom entry construct... &lt;/xs:documentation&gt;
+  &lt;/xs:annotation&gt;
+  ...
+&lt;/xs:complexType&gt;</programlisting>
+    </para>
+    <para>To bring <acronym>SAWSDL</acronym> into line with the next part of this we'll translate the model references into proper schema appinfo annotations.</para>
+    <para>
+      <programlisting language="xml">&lt;xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+  xmlns:sawsdl="http://www.w3.org/ns/sawsdl" name="entryType"&gt;
+  &lt;xs:annotation&gt;
+    &lt;xs:appinfo&gt;
+      &lt;sawsdl:modelReference 
+        href="http://bblfish.net/work/atom-owl/2006-06-06/#Entry"/&gt;
+    &lt;/xs:appinfo&gt;
+    &lt;xs:documentation&gt; The Atom entry construct... &lt;/xs:documentation&gt;
+  &lt;/xs:annotation&gt;
+  ...
+&lt;/xs:complexType&gt;</programlisting>
+    </para>
+    <para>The next question is, how do you utilise these annotations to build a mapping from a document tree to a graph? An <acronym>XSLT</acronym> transform is a good option but the variability in schema construction has always made this task more complicated than we would care for. Alternatively, <link xlink:href="http://www.balisage.net/Proceedings/vol8/html/Holstege01/BalisageVol8-Holstege01.html">Type Introspection in <acronym>XQuery</acronym></link>, as described by Mary Holstege in her paper 2012 Balisage paper of the same title, is a useful tool to aid this process. The ability to access schema annotations, through an <acronym>XQuery</acronym>
+      <acronym>API</acronym>, whilst processing an instance of that schema provides a quick and easy root for interpreting the schema to ontology references and thus extracting an <acronym>RDF</acronym> graph derived from information within an <acronym>XML</acronym> document that has not been otherwise explicitly marked-up as such in the first place.</para>
+    <para>
+      <programlisting language="xml">&lt;!-- OWL Class definition of an Atom Entry. --&gt;
+&lt;owl:Class xmlns:owl="http://www.w3.org/2002/07/owl#"
+          xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+          xmlns:rdfschema="http://www.w3.org/2000/01/rdf-schema#" 
+          rdf:about="http://bblfish.net/work/atom-owl/2006-06-06/#Entry"&gt;
+  &lt;rdfs:label xml:lang="en"&gt;Entry Class&lt;/rdfschema:label&gt;
+  &lt;rdfs:comment xml:lang="en"&gt;see 4.1.2 of the rfc 4287 spec&lt;/rdfs:comment&gt;
+  ...
+&lt;/owl:Class&gt;</programlisting>
+      <programlisting language="xml">&lt;!-- Source Atom XML Fragment. --&gt;
+&lt;entry xmlns="http://www.w3.org/2005/Atom"&gt;
+  &lt;title&gt;Atom-Powered Robots Run Amok&lt;/title&gt;
+  ...
+&lt;/entry&gt;</programlisting>
+      <programlisting># Triple from the shadow graph (Turtle). 
+@prefix rdf:  &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt; .
+@prefix awol: &lt;http://bblfish.net/work/atom-owl/2006-06-06/#&gt; .
+
+[ a awol:Entry ] .</programlisting>
+    </para>
+    <para>This technique may have uses beyond the domain of Web Services as it has the potential to describe mappings between semi-structured <acronym>XML</acronym> data and <acronym>RDF</acronym> ontologies that enable hybrid Content / Graph stores to index content for both tree and graph based querying from the same source <acronym>XML</acronym>. To be able to almost seamlessly mix <acronym>XQuery</acronym> and <acronym>SPARQL</acronym> querying over the same content would be a powerful toolset in deed. Initial experiments have gone some way to proving that this technique works by generating an <acronym>RDF</acronym> dataset that can be loaded into a graph store and queried separately, but to fully realise this concept would require an indexer to be able to build the 'shadow' graph index via the these rules rather than create an entire graph and thus duplicate much, if not all of the original information.</para>
+    <para>In a world that's throwing itself at the notion of schemaless databases it seems to fly-in-the-face of the this current vogue to suggest using schemas and ontologies to define these mappings up-front. But, where better should we do such a thing than in declarative languages that are independent of implementation.</para> 
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Processing</title>
+    <para>There are many processes that can been seen as a series of transformations of static information from one form or structure to another but the same can also be said for application state. As surely as a document's structure is a snapshot of its current revision so is an application's data structures a snapshot of its current state. XML has often been used to describe an application's initial configuration or to maintain a set of preferences but what about using it in the actual manipulation of that application's state. Crossing the line from passive state representation to active state manipulation.</para>
+    <para>The <link xlink:href="http://www.w3.org/TR/xproc/"><acronym>XML</acronym> Pipeline Language</link> (<acronym>XProc</acronym>) succeeds as a mechanism for orchestrating sequences of XML processing steps but what is potentially a more interesting and useful aspect of XProc is its ability to create a <link xlink:href="http://en.wikipedia.org/wiki/Domain-specific_language">Domain-specific Language</link> (<acronym>DSL</acronym>) for a particular set of steps. You can create, what could be call 'naked' pipelines that use the underlying <acronym>XProc</acronym> grammar or, alternatively, you can abstract that away behind typed step descriptions. </para>
+    <para>The new state processing grammar that you create becomes your <acronym>DSL</acronym> for this particular task and which is hosted within the <acronym>XProc</acronym> framework. A practical example of this being the ability to manipulate the configuration of an application; the consumption and transformation of application state and the execution of update instructions to the application.</para>
+    
+    <para>
+      <programlisting language="xml">&lt;admin:get-configuration/&gt;
+
+&lt;admin:forest-create forest-name="forest1" 
+    host-id="hp6910-772" data-directory=""/&gt;
+
+&lt;admin:database-create ml-database-name="data" 
+    security-db="Security" schema-db="Schemas"/&gt;
+
+&lt;admin:save-configuration-without-restart/&gt;</programlisting>
+    </para>
+    
+    <para>Application configuration can be viewed as a pipeline of instructions that involve a source input as the current state, a set of actions that may be ordered due to dependencies, and an instruction to commit the changes. Such a set of steps, that make a specific configuration change, can be regarded as compound action and can themselves be composed into large sets of changes.</para>
+    
+    <programlisting language="xml">&lt;admin:get-configuration/&gt;
+
+&lt;mla:create-database database="data" 
+    schema-db="Schemas" security-db="Security"&gt;
+  &lt;p:input port="forests"&gt;
+    &lt;p:inline&gt;
+      &lt;mla:forests&gt;
+        &lt;mla:forest name="forest1" host="hp6910-772"
+                    data-dir=""/&gt;
+      &lt;/mla:forests&gt;
+    &lt;/p:inline&gt;
+  &lt;/p:input&gt;
+&lt;/mla:create-database&gt;</programlisting>
+    
+    <para>The composability of <acronym>XProc</acronym> processing steps is an incredibly powerful tool that, allied with the ability to define your own steps and abstractions, has applications outside of its originally intended domains.</para> 
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Publishing</title>
+    <para>For the most part, publishing appears to be a reasonably straightforward process of marking-up textual content with semantically meaningful elements that tell us more about the author's intent than just the plain words, it gives structure. There are extensive grammars for this process, <link xlink:href="http://www.docbook.org/">DocBook</link> and <link xlink:href="http://en.wikipedia.org/wiki/XHTML"><acronym>XHTML</acronym></link> being the more notable but markup is only the first part.</para>
+    <para>The separation of concerns tells us to keep the markup of content free from presentation and layout. Whilst keeping them separate is the goal, at some point they meet in order to present a finished result.</para>
+    <para>Taking the publishing of information in an intriguing direction is the <link xlink:href="http://www.hpl.hp.com/techreports/2005/HPL-2005-95R1.pdf">Document Description Format</link> (<acronym>DDF</acronym>), a framework that looks at documents as Functions over a dataset and as such presents new opportunities for the merging of data and documents. As we attempt to tackle the problems of handling vast amounts of data and getting it to the point of consumption in a manner tailored to the recipient, <acronym>DDF</acronym> is, quite possibly unique, as a publishing format in that it can consume many and varied sources of information, transform them to a common structure and then apply presentation constraints that can build flexible page layouts that adapt to variability in the source data.</para>
+    <para><acronym>DDF</acronym> defines three layers:</para>
+    <itemizedlist>
+      <listitem>
+        <para>Data Binding</para>
+      </listitem>
+      <listitem>
+        <para>Common Structure</para>
+      </listitem>
+      <listitem>
+        <para>Presentation</para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      <programlisting language="xml">&lt;doc&gt;
+  &lt;data&gt;
+    Source data for the document.
+  &lt;/data&gt;
+  &lt;struct&gt;
+    Structure and Transforms.
+  &lt;/struct&gt;
+  &lt;pres&gt;
+    Presentation and Transforms.
+  &lt;/pres&gt;
+&lt;/doc&gt;</programlisting>
+    </para>
+    <para>Through these layers the separation of concerns in aggregation, structuring and presenting information are maintained, within a portable document structure. </para>
+    <para><acronym>DDF</acronym>'s main design decision was to 'consider the document as a function of some variable application data'. When the document is evaluated, data (may be from a number of sources), is transformed into a common structure from which a view can be generated for presentation. Embedding <acronym>XSLT</acronym> syntax and semantics into the document provides the mechanism for transforming within and between the layers.</para>
+    <para>Partial evaluation is also possible where processing results in new transformations to be applied in subsequent document workflow steps.</para>
+    <para>Along with the idea of 'document as a function', another aspect of <acronym>DDF</acronym> that is worth noting is the presentation system that extends the notions of layout beyond both the conventional flow and and copy-hole concepts. Although supporting flows, as can be found in <acronym>HTML</acronym> viewers, the introduction of constraints between components that ensure their spatial relationship is maintained within a variable data environment.</para>
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Interaction</title>
+    <para>An area where <acronym>XML</acronym> applications have found mixed success is in user interaction. <link xlink:href="http://www.w3.org/MarkUp/Forms/"><acronym>XForms</acronym></link> is our most notable success which, despite having a long history of partial implementations, which have come and gone over the years, <acronym>XForms</acronym> has managed to retain and has even grown enthusiasm for it with the more recent rise of Native <acronym>XML</acronym> databases.</para>
+    <para>That said, there's another area of interaction, that goes beyond conventional form filling, and that involves animation. The <link xlink:href="http://www.w3.org/AudioVideo/">Synchronised Multimedia Integration Language</link> (<acronym>SMIL</acronym>) has a whole subset of its extensive specification set aside for animation and it is a specification that is shared by <link xlink:href="http://www.w3.org/Graphics/SVG/">Scalable Vector Graphics</link> (<acronym>SVG</acronym>).</para>
+    <para>Whilst there is a lot of effort that goes into building scripting libraries for every form of user interaction and animation these are mostly reinventions of the same basic principles of user interface or temporal event driven alterations to the properties of some object in the page. <acronym>SMIL</acronym>, like <acronym>XForms</acronym> has been there, in the background, for many years and <acronym>SMIL</acronym> 1.0 is the oldest of the applications of <acronym>XML</acronym>, becoming a recommendation in June 1998 (four months after <acronym>XML</acronym> 1.0 itself).</para>
+    <para><acronym>SMIL</acronym> Animation has, historically, been tied to its host document types: <acronym>SMIL</acronym>, <link xlink:href="http://www.w3.org/TR/NOTE-HTMLplusTIME"><acronym>HTML</acronym>+TIME</link> and <acronym>SVG</acronym> but with the advent of <link xlink:href="http://www.w3.org/TR/timesheets/"><acronym>SMIL</acronym> Timesheets</link> that dependecmcy was broken, enabling the principles of event sequencing and orchestration being applied, out-of-line. Normally we might consider animation techniques being applied to presentation, timing of slide decks, linking steps in a configuration wizard or just simple page display effects. But, if you can orchestrate the display processes of information in a web page, why not orchestrate the aggregation and transformation of information in a workflow?</para>
+    <para>A value of <acronym>XProc</acronym> has been to lift the orchestration of <acronym>XML</acronym> transformations out of programming language dependency and into the domain of declarative programming. However, any additional sequencing of pipeline executions is still controlled outside of the pipeline. <acronym>XProc</acronym> step execution can be seen as inherently event driven due to the fact that steps start when an input is received at a source input port and end when a result appears on a result output port. </para>
+    <para>The sequencing is implementation dependant therefore allowing the possibility of asynchronous step processing. Now, imagine an XProc Pipeline that aggregates information from one or more sources. Through the use of SMIL Timesheets it is quite conceivable that you can orchestrate the execution of steps in a pipeline to explicitly execute steps concurrently, like requesting information from multiple web services: </para>
+    
+    <para>
+      <programlisting language="xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;p:pipeline xmlns:p="http://www.w3.org/ns/xproc" 
+    xmlns:terms="http://example.org/service/terms/" 
+    name="term-aggregation"
+    version="1.0"&gt;
+  
+  &lt;p:pipeinfo&gt;
+    &lt;smil:timesheet xmlns:smil="http://www.w3.org/ns/SMIL30"&gt;
+      &lt;smil:par&gt;
+        &lt;smil:item select="#service1" 
+            begin="term-aggregation.begin" dur="30s"/&gt;
+        &lt;smil:item select="#service2" 
+            begin="term-aggregation.begin" dur="30s"/&gt;
+        &lt;smil:item select="#service3" 
+            begin="term-aggregation.begin" dur="30s"/&gt;
+      &lt;/smil:par&gt;
+    &lt;/smil:timesheet&gt;
+  &lt;/p:pipeinfo&gt;
+  
+  &lt;terms:get xml:id="service1" name="OpenCalais" 
+      href="http://opencalais.com/"/&gt;
+  &lt;p:sink/&gt;
+  &lt;terms:get xml:id="service2" name="MetaCarta" 
+      href="http://www.metacarta.com/"/&gt;
+  &lt;p:sink/&gt;
+  &lt;terms:get xml:id="service3" name="Yahoo" 
+      href="http://search.yahooapis.com/"/&gt;
+  &lt;p:sink/&gt;
+  
+  &lt;p:wrap-sequence xml:id="aggregate-terms" name="aggregate" 
+      wrapper="terms:group"&gt;
+    &lt;p:input port="source"&gt;
+      &lt;p:pipe step="OpenCalais" port="result"/&gt;
+      &lt;p:pipe step="MetaCarta" port="result"/&gt;
+      &lt;p:pipe step="Yahoo" port="result"/&gt;
+    &lt;/p:input&gt;
+  &lt;/p:wrap-sequence&gt;
+&lt;/p:pipeline&gt;
+</programlisting>
+    </para>
+    <para>The above example illustrates how three calls to separate web services, that would conventionally run sequentially, could orchestrated to run explicitly in parallel. Each step is defined to begin when the pipeline starts and to have a maximum buration (timeout) of 30 seconds. </para>
+    <para>This is another example where bringing together seemingly unrelated applications of <acronym>XML</acronym> can extend their respective usefulness and push the boundaries of what can be achieved with <acronym>XML</acronym>.</para>
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Presentation</title>
+    <para>The final step from information to presentation is the conversion of text, values and graphics into a visual representation, a rasterization of shapes for display or printed media.</para>
+    <para>When it comes to vector graphics on the web, <acronym>SVG</acronym> is on the ascendant again which is primarily due to increased browser support. As a vector format, <acronym>SVG</acronym> has had the lion's share of people's attention whilst <link xlink:href="http://www.web3d.org/x3d/">X3D</link>, the <acronym>XML</acronym> representation of the <link xlink:href="http://en.wikipedia.org/wiki/VRML">Virtual Reality Modeling Language</link> (<acronym>VRML</acronym>) has never really taken the web by storm. Alongside these public facing vector graphics markup grammars there are 'behind the scenes' formats like Collada which is squarely aimed at 3D digital assets interchange and archiving. But, in all these cases the objects or scenes they represent end-up being rendered into raster image formats for presentation on some form of device or media.</para>
+    <para>Experts at Pixar, the Computer Generated Imagery (<acronym>CGI</acronym>) film studio that brought us Toy Story and the like developed a 3D image rendering architecture called Reyes. The principle behind the <link xlink:href="http://en.wikipedia.org/wiki/Reyes_rendering">Reyes rendering architecture</link> is to take complex 3D graphics primitives and break them down into smaller, simpler components that can be more easily processed for visibility, depth, colour and texture. Reyes defines a processing pipeline that applies a series of transforms to the source primitives until they are finally at the point where sampling can take place to generate the resultant pixels.</para>
+    <para>But what has this to do with <acronym>XML</acronym>? Another boundary, at the edge of the XML envelope is that between text and binary data formats. <acronym>XSLT</acronym> is designed for generating text-based representations of information. When <acronym>XSLT</acronym> 2.0 came along it introduced the concept of sequences. A sequence can be made of nodes or atomic values, including integers. A rasterized image is just one long sequence of integer values with some header info to tell you, amongst other things, the format of a pixel's colour values. To push the boundaries of the <acronym>XML</acronym> envelope still further, using <acronym>XSLT</acronym> 2.0 and <acronym>SVG</acronym>, it is possible to develope a constrained implementation of the Reyes rendering pipeline and a <link xlink:href="http://en.wikipedia.org/wiki/Tagged_Image_File_Format"><acronym>TIFF</acronym></link> encoder that proves the point that <acronym>XSLT</acronym> is not just limited to text and markup
+      output but can deliver, in effect, binary data too.</para>
+    <mediaobject>
+      <imageobject>
+        <imagedata fileref="images/opacity-small.png" depth="256" width="324"/>
+      </imageobject>
+    </mediaobject>
+    <para>The image you see here was created from a simple <acronym>SVG</acronym> graphic where all the rectangles are sub-divided down into pixel sized micro-polygons upon which depth sorting, transparency, colour and final sampling calculations are applied to generate a sequence of pixel value integers before finally encoded according to the <acronym>TIFF</acronym> format and then serialised as a Base64 encoded file, to make it possible to output the resultant image data. The icing on the cake would be to create a new serializer for the XSLT processor so that a binary file could be generated directly as the output.</para>
+    <para>This example is somewhat extreme as it is highly questionable as to whether <acronym>XSLT</acronym> is the right technology for rendering simple images let alone complex photo realistic ones. Certainly it is not fast and it is not very efficient either but it illustrates that the boundaries are not hard and fast. In fact the main components of the pipeline processing were relatively straight forward as <acronym>XSLT</acronym> provides the tools to transform and <acronym>XML</acronym> the means to represent the graphic primitive information.</para>
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Overlapping Edges</title>
+    <para>In the <phrase><acronym>XML</acronym> Envelope</phrase> there is no clear dividing line between the categories:</para>
+    <orderedlist>
+      <listitem>
+        <para>All the categories require description.</para>
+      </listitem>
+      <listitem>
+        <para>Modeling relies upon processing to enable mappings between data models.</para>
+      </listitem>
+      <listitem>
+        <para>Information and application state can be transformed through processing.</para>
+      </listitem>
+      <listitem>
+        <para>Publishing utilises processing at every point of its life-cycle.</para>
+      </listitem>
+      <listitem>
+        <para>Interaction can be applied to the orchestration processing.</para>
+      </listitem>
+      <listitem>
+        <para>Processes of presentation can be enhanced by mechanisms of interaction.</para>
+      </listitem>
+    </orderedlist>
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Conclusion</title>
+    <para>This walk around the edges of this so called <phrase><acronym>XML</acronym> Envelope</phrase> has illustrated, I believe, that whilst so much has been accomplished over the last 15 years and from which we have very robust tools, techniques and design patterns that we can apply, I'm convinced that <acronym>XML</acronym> does not really have any hard and fast limits to its application and whilst we may dwell upon issues of serialisation and simplification the essence of what has been created is right and good and that there are many more applications to which <acronym>XML</acronym> and its attendant technologies can be put than we might have originally imagined...</para>
+  </sect1>
+</article>

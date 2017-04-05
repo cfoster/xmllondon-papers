@@ -1,0 +1,905 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" version="5.0"
+  xml:lang="en">
+  <info>
+    <title>Validating XSL-FO with Relax NG and Schematron</title>
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Tony</firstname>
+          <surname>Graham</surname>
+        </personname>
+        <email>tgraham@antenna.co.jp</email>
+        <email>tony@antennahouse.com</email>
+        <affiliation>
+          <orgname>Antenna House, Inc.</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+    <keywordset>
+      <keyword>XSL-FO</keyword>
+      <keyword>Relax NG</keyword>
+      <keyword>Schematron</keyword>
+    </keywordset>
+    <abstract>
+      <para> XSL-FO defies conventional validation, so much so that it hasn&#x2019;t been done
+        successfully before now. This paper describes a combination of hand-written and
+        auto-generated Relax NG plus hand-written and auto-generated Schematron that can validate
+        XSL-FO markup. The project is available on GitHub at <link
+          xl:href="https://github.com/AntennaHouse/focheck"/></para>
+    </abstract>
+  </info>
+  <section>
+    <title>Introduction</title>
+    <para>XSL-FO documents are typically generated as the result of an XSLT transformation and are
+      rarely edited by hand. However, validating generated XSL-FO markup is useful as a check of the
+      correctness of the transformation. Also, people do edit XSL-FO by hand either when prototyping
+      the XSL-FO markup that will later be generated using XSLT or when debugging generated XSL-FO.
+      Being able to validate the XSL-FO in an XML editor helps in both scenarios.</para>
+    <para>Validating XSL-FO is not easy because:</para>
+    <itemizedlist>
+      <listitem>
+        <para>Constraints in the definitions of FOs are hard or impossible to express in
+          structure-checking schema languages.</para>
+      </listitem>
+      <listitem>
+        <para>Some FOs can appear almost anywhere in an XSL-FO document but, equally, cannot appear
+          where they are not allowed.</para>
+      </listitem>
+      <listitem>
+        <para>The properties of an FO are expressed in the XML as attributes of the XML element
+          representing the FO, but inherited properties<footnote>
+            <para><link xl:href="http://www.w3.org/TR/xsl/#inheritance">Section 5.1.4 Inheritance, in Extensible Stylesheet Language (XSL) Version 1.1</link> <xref linkend="b2"/></para>
+          </footnote> are allowed to appear
+          on any FO, not just on the FOs for which they are defined.</para>
+      </listitem>
+      <listitem>
+        <para>While the XSL 1.1 Recommendation <xref linkend="b2"/> defines the allowed values of
+          properties, most properties can contain expressions in the expression language<footnote xml:id="tg-59" label="expressions">
+            <para><link xl:href="http://www.w3.org/TR/xsl/#d0e5032">Section 5.9 Expressions, in Extensible Stylesheet Language (XSL) Version 1.1</link> <xref linkend="b2"/></para>
+          </footnote> that is defined in the spec, so determining the correctness of an
+          attribute in the XML initially requires evaluating it.</para>
+      </listitem>
+    </itemizedlist>
+    <para>A schema for XSL-FO was in the requirements for XSL 2.0 <xref linkend="b12"/>, but the
+      design of XSL was shaped by the requirements of formatting rather than any requirement to
+      conform to a schema language. The result has been that XSL-FO was hard to validate except by
+      running it through an FO formatter. Systems for checking the formatted result exist <xref
+        linkend="b8"/><xref linkend="b9"/>, but they require usable input.</para>
+    <para>Schemas for XSL-FO do exist, including several from RenderX <xref linkend="b10"/> and the
+      schema that is provided by the oXygen XML Editor<footnote>
+        <para><link xl:href="http://www.oxygenxml.com/"/></para>
+      </footnote>, but they do not cover
+      XSL 1.1, they each cut corners in their models for element content, and they do not properly
+      evaluate property value expressions. Also, none of them cover the numerous extensions
+      supported by Antenna House AH Formatter.</para>
+    <para>One of the validation methods tried by RenderX but noted as longer used <xref
+        linkend="b10"/> is a validator written in XSLT<footnote>
+          <para><link xl:href="http://xep.xattic.com/xep/resources/validators/folint/folint.xsl"/></para>
+        </footnote>. A 2004 paper <xref linkend="b14"/> by
+      Alexander Peshkov of RenderX describes the XSLT approach as powerful but
+      requiring more resources than, for example, DTD validation and also not being suitable for
+        <quote>visual XSL-FO editors or document builders.</quote> That paper then describes a Relax
+      NG schema that includes a limited ability to handle property value expressions.</para>
+    <para>The approach taken by Antenna House combines Relax NG and Schematron for detailed
+      validation of the XSL-FO. The Relax NG handles structural validation and is, we believe, more
+      correct than pre-existing schemas. The Schematron handles the additional constraints that
+      cannot be expressed in Relax NG. The Schematron parses property value expressions using an
+      XSLT-based parser generated by the REx parser generator <xref linkend="b15"/> plus an XSLT
+      library for reducing the parse tree to XSL-FO datatypes.</para>
+    <para>The Relax NG and Schematron is available on GitHub (<link
+        xl:href="https://github.com/AntennaHouse/focheck"/>) and you can download an oXygen add-on
+      framework for XSL-FO validation directly from the GitHub page<footnote>
+        <para>Oxygen add-on hosted on GitHub - 
+          <link xl:href="http://inasmuch.as/2013/10/23/oxygen-add-on-hosted-on-github/"/>
+        </para>
+      </footnote>.</para>
+    <para>We also considered wiring the Schematron directly to the expression parser built into an
+      FO formatter through XSLT extension functions. However, doing the interfacing would have been
+      a non-trivial task, plus the Antenna House AH Formatter is a native application on each
+      platform and wouldn&#x2019;t be as portable as purely-XSLT Schematron.</para>
+  </section>
+  <section>
+    <title>Why Relax NG?</title>
+    <para>Three features of Relax NG made it the best choice for the schema:</para>
+    <itemizedlist>
+      <listitem>
+        <para>Non-deterministic content models</para>
+      </listitem>
+      <listitem>
+        <para>Easy extensibility by redefining or extending patterns</para>
+      </listitem>
+      <listitem>
+        <para>Ability to interleave elements in content models</para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section>
+    <title>Why Relax NG Compact Syntax?</title>
+    <para>The schema is written in Relax NG compact syntax and then converted into the XML syntax
+      for use with oXygen. It is not written directly in the XML syntax for multiple reasons:</para>
+    <itemizedlist>
+      <listitem>
+        <para>It was easy to write and check the initial patterns that would be replicated by the
+          programmatically generated schema.</para>
+      </listitem>
+      <listitem>
+        <para>Relax NG compact syntax closely matches the syntax of the content models in the spec,
+          which made it easier to include them in the generated schema.</para>
+      </listitem>
+      <listitem>
+        <para>Reading the generated schema to check it is easier with the compact syntax than with
+          the XML syntax.</para>
+      </listitem>
+      <listitem>
+        <para>The handwritten parts, including the schema module defining Antenna House extensions,
+          were only ever going to be written in the compact syntax.</para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section>
+    <title>Generating the Relax NG and Schematron</title>
+    <para>The bulk of the FO portion of the Relax NG and Schematron is generated by transforming the
+      XML source<footnote><para><link xl:href="http://www.w3.org/TR/2006/REC-xsl11-20061205/xslspec.xml"/></para></footnote>
+      for the XSL 1.1 Recommendation using XSLT. The XML is
+      consistent enough for this to be feasible: it&#x2019;s not the first time that I&#x2019;ve
+      generated code from the XML, nor am I the only person to have done it.</para>
+  </section>
+  <section>
+    <title>Validating FOs</title>
+    <para>At first glance, this seems quite straightforward to do using Relax NG: the content models
+      are in the spec, where every FO is in a separate div3 element and the FO&#x2019;s content
+      model is easy to identify:</para>
+    <programlisting language="xml"><![CDATA[
+<div3 id="fo_block">
+  <head>fo:block</head>
+
+  <p>
+    <emph>Common Usage:</emph>
+  </p>
+
+  <p>The fo:block formatting object is commonly
+  used for formatting paragraphs, titles,
+  headlines, figure and table captions, etc.</p>
+...
+  <p>
+    <emph>Contents:</emph>
+  </p>
+<eg xml:space="preserve">
+(#PCDATA|<loc href="#inline.fo.list"
+xlink:type="simple"
+xlink:show="replace" xlink:actuate="onRequest"
+xmlns:xlink="http://www.w3.org/1999/xlink">%inline;
+</loc>|<loc
+href="#block.fo.list" xlink:type="simple"
+xlink:show="replace"
+xlink:actuate="onRequest"
+xmlns:xlink="http://www.w3.org/1999/xlink">%block;
+</loc>)*
+</eg>
+
+<p>In addition this formatting object may have a
+sequence of zero or more fo:markers as its initial
+children, optionally followed by an
+fo:initial-property-set.</p>]]></programlisting>
+    <para>The <code>%inline;</code> and <code>%block;</code> behave like parameter entities in a
+      DTD, though there isn&#x2019;t a DTD, and their expansions are given in the text of the
+      Recommendation<footnote xml:id="tg-foc" label="FOC">
+        <para><link xl:href="http://www.w3.org/TR/xsl/#d0e6532">6.2 Formatting Object Content, in Extensible Stylesheet Language (XSL) Version 1.1</link> <xref linkend="b2"/></para>
+      </footnote>:</para>
+    <blockquote>
+      <para>The parameter entity, "%block;" in the content models below, contains the following
+        formatting objects:</para>
+      <literallayout> block
+ block-container
+ table-and-caption
+ table list-block</literallayout>
+      <para>The parameter entity, "%inline;" in the content models below, contains the following
+        formatting objects:</para>
+      <literallayout> bidi-override
+ character
+ external-graphic
+ instream-foreign-object
+ inline
+ inline-container
+ leader
+ page-number
+ page-number-citation
+ page-number-citation-last
+ scaling-value-citation
+ basic-link
+ multi-toggle
+ index-page-citation-list</literallayout>
+    </blockquote>
+    <para>So far, so good; the corresponding Relax NG pattern generated for <code>fo:block</code>
+      looks like:</para>
+    <programlisting language="relaxng">fo_block.model =
+    (text|inline.fo.list|block.fo.list)*</programlisting>
+    <para>where <code>inline.fo.list</code> and <code>block.fo.list</code> are defined in literal
+      text that is included in the generated schema.</para>
+    <para>However, the XSL 1.1 Recommendation defines <code>neutral</code> and
+        <code>out-of-line</code> classes of FOs that can appear anywhere where <code>#PCDATA</code>,
+        <code>%inline;</code> or <code>%block;</code> is allowed in FO content models (although
+      additional constraints apply). Handling those simply required matching on
+      <code>#PCDATA</code>, <code>%inline;</code>, or <code>%block;</code> in the content models in
+      the spec. The generated pattern for <code>fo:block</code> then becomes:</para>
+    <programlisting language="relaxng">fo_block.model =
+   (text|inline.fo.list|block.fo.list |
+    neutral.fo.list)* &amp;
+   (inline.out-of-line.fo.list)*</programlisting>
+    <para>The <code>neutral</code> and <code>out-of-line</code> FO classes were also in XSL 1.0. XSL
+      1.1 added <code>fo:change-bar-begin</code> and <code>fo:change-bar-end</code> as
+        <code>point</code> FOs that <quote>may be used anywhere as a descendant of fo:flow or
+          fo:static-content</quote><footnoteref linkend="tg-foc"/>. Since that couldn&#x2019;t be handled by just looking at either the FO
+      or its content model, the XSLT contains a list of FOs to which to not add the
+        <code>point</code> FOs:</para>
+    <programlisting language="xml"><![CDATA[<xsl:variable name="no-point-fos"
+    select="'root layout-master-set declarations
+bookmark-tree page-sequence page-sequence-wrapper
+color-profile title folio-prefix folio-suffix
+simple-page-master page-sequence-master flow-map
+single-page-master-reference
+repeatable-page-master-reference
+repeatable-page-master-alternatives
+conditional-page-master-reference region-body
+region-before region-after region-start
+region-end flow-assignment flow-source-list
+flow-target-list flow-name-specifier
+region-name-specifier'" as="xs:string" />
+
+<xsl:variable
+     name="no-point-fo-list"
+     select="tokenize($no-point-fos, '\s+')"
+     as="xs:string+" />]]></programlisting>
+    <para>such that every FO <emphasis>not</emphasis> in the list will allow
+        <code>fo:change-bar-begin</code> and <code>fo:change-bar-end</code>, so the model for
+        <code>fo:block</code> becomes:</para>
+    <programlisting language="relaxng">fo_block.model =
+   ( ( (text|inline.fo.list|block.fo.list |
+         neutral.fo.list)* &amp;
+       (inline.out-of-line.fo.list)* ) &amp;
+    (point.fo.list)* )</programlisting>
+    <para>But there&#x2019;s also the additional constraints about allowing <code>fo:marker</code>
+      and <code>fo:initial-property-set</code> as initial children of an <code>fo:block</code>. This
+      is handled adding those elements to content models only where the significant <quote>zero or
+        more fo:markers</quote> or <quote>optionally followed by an fo:initial-property-set</quote>
+      text occurs in the FO&#x2019;s definition. The complete, and completely auto-generated, model
+      for <code>fo:block</code> is:</para>
+    <programlisting language="relaxng">fo_block.model =
+   fo_marker*,
+   fo_initial-property-set?,
+   ( ( (text|inline.fo.list|block.fo.list |
+         neutral.fo.list)* &amp;
+       (inline.out-of-line.fo.list)* ) &amp;
+    (point.fo.list)* )</programlisting>
+    <para><code>fo:block</code> is actually a quite straightforward FO to validate.
+        <code>fo:footnote</code><footnote xml:id="tg-footnote" label="fo-footnote">
+          <para><link xl:href="http://www.w3.org/TR/xsl/#fo_footnote">Section 6.12.3 fo:footnote, in Extensible Stylesheet Language (XSL) Version 1.1</link> <xref linkend="b2"/></para>
+        </footnote>, for example, would appear to be even easier, since its content model
+      is:</para>
+    <programlisting language="relaxng">(inline,footnote-body)</programlisting>
+    <para>The <code>neutral</code> and <code>out-of-line</code> FOs don&#x2019;t apply, but the
+        <code>point</code> FOs do, so the generated model is:</para>
+    <programlisting language="relaxng">fo_footnote.model =
+    ( (fo_inline,fo_footnote-body) &amp;
+      (point.fo.list)* )</programlisting>
+    <para>If only it was that simple. There are additional constraints in the text of the XSL 1.1
+      Recommendation:</para>
+    <blockquote>
+      <para>It is an error if the fo:footnote occurs as a descendant of a flow that is not assigned
+        to one or more region-body regions, or of an fo:block-container that generates absolutely
+        positioned areas...</para>
+      <para>...</para>
+      <para>An fo:footnote is not permitted to have an fo:float, fo:footnote, or fo:marker as a
+        descendant.</para>
+      <para>Additionally, an fo:footnote is not permitted to have as a descendant an
+        fo:block-container that generates an absolutely positioned area.</para>
+    </blockquote>
+    <para>from its content model, <code>fo:retrieve-table-marker</code><footnote>
+      <para><link xl:href="http://www.w3.org/TR/xsl/#fo_retrieve-table-marker">Section 6.13.7 fo:retrieve-table-marker, in Extensible Stylesheet Language (XSL) Version 1.1</link> <xref linkend="b2"/></para>
+    </footnote> (added in XSL 1.1) would appear to be even simpler:</para>
+    <literallayout>EMPTY</literallayout>
+    <para>producing:</para>
+    <programlisting language="relaxng">fo_retrieve-table-marker.model =
+    ( empty )</programlisting>
+    <para>but it has its own constraints:</para>
+    <blockquote>
+      <para>An fo:retrieve-table-marker is only permitted as the descendant of an fo:table-header or
+        fo:table-footer or as a child of fo:table in a position where fo:table-header or
+        fo:table-footer is permitted.</para>
+    </blockquote>
+    <para>These are the sorts of constraints that can&#x2019;t be expressed in Relax NG (except by
+      exploding the size of the schema through making separate versions of every FO that can appear
+      in each constrained context) but that are well suited to Schematron. There aren&#x2019;t
+      enough of these constraints that are expressed in a consistent way for it to be worthwhile
+      autogenerating them, so they have to be written by hand. For example, this is the
+        <code>fo:retrieve-table-marker</code> constraint as a Schematron rule:</para>
+    <programlisting language="xml"><![CDATA[<rule context="fo:retrieve-table-marker">
+  <assert test="
+exists(ancestor::fo:table-header) or
+exists(ancestor::fo:table-footer) or
+(exists(parent::fo:table) and
+ empty(preceding-sibling::fo:table-body) and
+ empty(following-sibling::fo:table-column))">An
+ fo:retrieve-table-marker is only permitted as
+ the descendant of an fo:table-header or
+ fo:table-footer or as a child of fo:table in a
+ position where fo:table-header or
+ fo:table-footer is permitted.</assert>
+</rule>]]></programlisting>
+  </section>
+  <section>
+    <title>Validating properties</title>
+    <para>Generating Relax NG patterns for the properties is straightforward. The XML for each FO
+      includes a list of its allowed properties or groups of properties. For example, for
+      <code>fo:footnote</code><footnoteref linkend="tg-footnote"/>:</para>
+    <programlisting language="xml"><![CDATA[<p>
+ <emph>The following properties apply to this
+ formatting object:</emph>
+</p>
+<slist>
+ <sitem>
+   <specref ref="common-accessibility-properties"/>
+ </sitem>
+ <sitem>
+   <specref ref="id"/>
+ </sitem>
+ <sitem>
+   <specref ref="index-class"/>
+ </sitem>
+ <sitem>
+   <specref ref="index-key"/>
+ </sitem>
+</slist>]]></programlisting>
+    <para>Here, the <code>specref/@ref</code> refers either to a <code>div2</code> containing the
+        <code>div3</code> for multiple properties or to a <code>div3</code> for a property. The
+        <code>div2</code> each generate a named pattern, so the pattern for the properties of
+        <code>fo:footnote</code> is:</para>
+    <programlisting language="relaxng">fo_footnote.attlist =
+    common-accessibility-properties,
+    id,
+    index-class,
+    index-key</programlisting>
+    <para>where <code>common-accessibility-properties</code> is:</para>
+    <programlisting language="relaxng">common-accessibility-properties =
+    source-document,
+    role</programlisting>
+    <para>Because, as stated previously, the properties are evaluated as expressions, each property
+      is generated in the Relax NG as containing only text. For example, for the
+        <code>column-count</code> property:</para>
+    <programlisting language="relaxng"><![CDATA[column-count =
+    ## <number> | inherit
+    attribute column-count { text }?]]></programlisting>
+    <para>where <code>##</code> begins an annotation that is the property&#x2019;s allowed value as
+      extracted from the XML for the XSL 1.1 spec (and, similarly, annotations for FOs are also
+      extracted from the spec). The annotations appear in oXygen as tool-tips, as shown in <xref
+        linkend="tooltip-detail"/>.</para>
+    <figure xml:id="tooltip-detail">
+      <title>Tool-tip in oXygen</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/tooltip-detail.png"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>Whether or not a particular property is required for an FO is not easy to automatically
+      determine from the XML for the XSL 1.1 spec, so that is enforced by the Schematron, not by the
+      Relax NG.</para>
+    <para>Some properties values are described in terms of compound datatypes<footnote>
+      <para><link xl:href="http://www.w3.org/TR/xsl/#datatype">Section 5.11 Property Datatypes, in Extensible Stylesheet Language (XSL) Version 1.1</link>
+        <xref linkend="b2"/>
+      </para>
+    </footnote>, which are expressed
+      in the XML as multiple attributes. For example a "space-before" property may be specified
+      as:</para>
+    <programlisting language="xml">space-before.minimum="2.0pt"
+space-before.optimum="3.0pt"
+space-before.maximum="4.0pt"
+space-before.precedence="0"
+space-before.conditionality="discard"</programlisting>
+    <para>so properties that may have a value that is a compound datatype each generate multiple
+      attribute definitions. For example:</para>
+    <programlisting language="relaxng">space-before =
+    ## &lt;space> | inherit
+    attribute space-before { text }?,
+    attribute space-before.minimum { text }?,
+    attribute space-before.optimum { text }?,
+    attribute space-before.maximum { text }?,
+    attribute space-before.precedence { text }?,
+    attribute space-before.conditionality { text }?</programlisting>
+    <para>As stated previously, property values are evaluated using a parser generated by the REx
+      parser generator <xref linkend="b15"/>. The productions in the XSL 1.1 spec<footnoteref linkend="tg-59"/>
+      were mostly suitable for feeding to REx, although it took a lot of making modifications
+      based on the grammar for XPath 2.0<footnote>
+        <para><link xl:href="http://www.bottlecaps.de/rex/xpath20.ebnf"/></para>
+      </footnote> that is provided on the REx website
+      to get a functioning parser.</para>
+    <para>Running the parser on a property value expression produces markup corresponding to the
+      productions in the grammar. For example, for <quote>-1 - -2</quote>, the expression parser
+      produces:</para>
+    <programlisting language="xml"><![CDATA[<Expression>
+   <Expr>
+      <AdditiveExpr>
+         <MultiplicativeExpr>
+            <UnaryExpr>
+               <TOKEN>-</TOKEN>
+               <UnaryExpr>
+                  <PrimaryExpr>
+                     <Numeric>
+                        <AbsoluteNumeric>
+                           <AbsoluteLength>
+                              <Number>1</Number>
+                           </AbsoluteLength>
+                        </AbsoluteNumeric>
+                     </Numeric>
+                  </PrimaryExpr>
+               </UnaryExpr>
+            </UnaryExpr>
+         </MultiplicativeExpr>
+         <TOKEN>-</TOKEN>
+         <MultiplicativeExpr>
+            <UnaryExpr>
+               <TOKEN>-</TOKEN>
+               <UnaryExpr>
+                  <PrimaryExpr>
+                     <Numeric>
+                        <AbsoluteNumeric>
+                           <AbsoluteLength>
+                              <Number>2</Number>
+                           </AbsoluteLength>
+                        </AbsoluteNumeric>
+                     </Numeric>
+                  </PrimaryExpr>
+               </UnaryExpr>
+            </UnaryExpr>
+         </MultiplicativeExpr>
+      </AdditiveExpr>
+   </Expr>
+   <EOF/>
+</Expression>]]></programlisting>
+    <para>This, obviously, has little resemblance to an XSL-FO datatype. The Schematron uses a
+      handwritten <filename>parser-runner.xsl</filename> library that runs the expression parser and
+      (mostly) reduces the elements for the grammar productions into elements representing XSL-FO
+      datatypes. For example, this is the current implementation of the function for the
+      AdditiveExpr element:</para>
+    <programlisting language="xml"><![CDATA[<xsl:function name="ahf:AdditiveExpr"
+              as="element()">
+  <xsl:param name="parse-tree" as="element()*" />
+
+  <xsl:variable name="term1" as="element()"
+    select="ahf:reduce-tree(
+              $parse-tree/MultiplicativeExpr[1])"/>
+
+  <xsl:choose>
+    <xsl:when test="count(
+              $parse-tree/MultiplicativeExpr) = 1">
+      <xsl:sequence select="$term1" />
+    </xsl:when>
+    <xsl:otherwise>
+      <xsl:sequence
+          select="ahf:nextAdditiveExpr($term1,
+$parse-tree/MultiplicativeExpr[position() > 1])" />
+    </xsl:otherwise>
+  </xsl:choose>
+</xsl:function>]]></programlisting>
+    <para>The <filename>parser-runner.xsl</filename> is implemented solely using
+        <code>xsl:function</code> because of problems with oXygen&#x2019;s Schematron support when
+      using <code>xsl:apply-templates</code>: with an earlier version that did use
+        <code>xsl:apply-templates</code> on the <code>Expression</code> element, oXygen reported the
+      context for Schematron errors as the line in the parser XSLT where the Expression element was
+      created, not as the line in the XSL-FO document where the property expression occurred. Using
+      only <code>xsl:function</code> works well enough that it was not necessary to delve further
+      into why this was happening.</para>
+    <para>The result returned from the <filename>parser-runner.xsl</filename> for <quote>-1 -
+        -2</quote> is:</para>
+    <programlisting language="xml">&lt;Number value="1" is-positive="yes" is-zero="no"/&gt;</programlisting>
+    <para>Expression evaluation is used in three Schematron phases:</para>
+    <itemizedlist>
+      <listitem>
+        <para>Automatically generated Schematron rules that report syntax errors and incorrect
+          datatypes.</para>
+      </listitem>
+      <listitem>
+        <para>Handwritten Schematron rules for the additional constraints in the XSL 1.1
+          Recommendation.</para>
+      </listitem>
+      <listitem>
+        <para>Handwritten Schematron rules for Antenna House extensions.</para>
+      </listitem>
+    </itemizedlist>
+    <para>For example, the value of the <code>column-count</code> property is defined as
+        <quote>&lt;number&gt; | inherit</quote>, but the definition of <code>&lt;number&gt;</code>
+      for <code>column-count</code> is:</para>
+    <blockquote>
+      <para>&lt;number&gt;</para>
+      <para> A positive integer. If a non-positive or non-integer value is provided, the value will
+        be rounded to the nearest integer value greater than or equal to 1.</para>
+    </blockquote>
+    <para>The automatically generated rule for <code>column-count</code> is:</para>
+    <programlisting language="xml"><![CDATA[<rule context="fo:*/@column-count">
+  <let name="expression"
+       value="ahf:parser-runner(.)"/>
+       
+  <assert test="local-name($expression) =
+('Number', 'EnumerationToken', 'ERROR', 'Object')">
+'column-count' should be Number, EnumerationToken.
+'<value-of select="."/>' is a <value-of
+select="local-name($expression)"/>.</assert>
+
+   <report test="$expression instance of
+element(EnumerationToken) and
+ not($expression/@token = ('inherit'))">
+      Enumeration token is: '<value-of
+                    select="$expression/@token"/>'.
+      Token should be 'inherit'.</report>
+      
+   <report test="local-name($expression) =
+                 'ERROR'">Syntax error:
+   'column-count="<value-of select="."/>"'</report>
+</rule>]]></programlisting>
+    <para>and the manually generated rule is:</para>
+    <programlisting language="xml"><![CDATA[<rule context="fo:*/@column-count"
+      role="column-count">
+  <let name="expression"
+        value="ahf:parser-runner(.)"/>
+        
+  <report test="local-name($expression) = 'Number'
+          and (exists($expression/@is-positive) and
+                $expression/@is-positive eq 'no' or
+                    $expression/@is-zero = 'yes' or
+                     exists($expression/@value) and
+   not($expression/@value castable as xs:integer))"
+ role="column-count">Warning: @column-count should
+be a positive integer.  The FO formatter will
+round a non-positive or non-integer value to the
+nearest integer value greater than or equal to 1.
+  </report>
+</rule>]]></programlisting>
+    <para>Note that the expression evaluation stops short of evaluating the inherited value. Also, a
+        <code>&lt;Number&gt;</code> might not have a <code>@value</code>; for example, if it is the
+      result of &#x2018;evaluating&#x2019; an XSL-FO function that isn&#x2019;t fully implemented in
+        <filename>parser-runner.xsl</filename>.</para>
+    <para>Some of the property value definitions need to be expanded<footnote xml:id="tg-cssdat" label="cssdat">
+      <para><link xl:href="http://www.w3.org/TR/xsl/#cssdatat">Section 7.4 Additional CSS Datatypes, in Extensible Stylesheet Language (XSL) Version 1.1</link>
+        <xref linkend="b2"/>
+      </para>
+    </footnote> into
+      multiple enumeration tokens or XSL-FO datatypes before generating the Schematron for checking
+      a property&#x2019;s value. For example, the value of the <code>border-start-width</code>
+      property<footnote>
+        <para><link xl:href="http://www.w3.org/TR/xsl/#border-start-width">Section 7.8.15 "border-start-width", in Extensible Stylesheet Language (XSL) Version 1.1</link>
+          <xref linkend="b2"/>
+        </para>
+      </footnote> is defined as:</para>
+    <programlisting>&lt;border-width&gt; | &lt;length-conditional&gt; | inherit</programlisting>
+    <para>but <code>&lt;border-width&gt;</code> is considered a &#x2018;notational shorthand&#x2019;
+      in XSL 1.1<footnoteref linkend="tg-cssdat"/>, so the value to be checked for expands to:</para>
+    <programlisting>thin | medium | thick | &lt;length&gt; |
+&lt;length-conditional&gt; | inherit</programlisting>
+    <para>although only the presence or absence of attributes for
+        <code>border-start-width.length</code> or <code>border-start-width.conditionality</code>
+      would determine whether a length value for <code>border-start-width</code> is a
+        <code>&lt;length&gt;</code> or a <code>&lt;length-conditional&gt;</code>.</para>
+  </section>
+  <section>
+    <title>Antenna House extensions</title>
+    <para>Antenna House AH Formatter <xref linkend="b19"/> implements a number of extensions<footnote><para><link xl:href="http://www.antennahouse.com/CSSInfo/extension.html"/></para></footnote><footnote><para><link xl:href="http://www.antennahouse.com/CSSInfo/float-extension.html"/></para></footnote><footnote><para><link xl:href="http://www.antennahouse.com/CSSInfo/ruby-extension.html"/></para></footnote>
+      to the XSL 1.1 Recommendation to
+      provide improvements to the formatted output. Validation of AH Formatter extensions is also
+      implemented using a combination of Relax NG and Schematron.</para>
+    <para>The documentation for the AH Formatter extensions is in XML, as you would expect. However,
+      it&#x2019;s not in a format that&#x2019;s useful for automating the connections between
+      extensions and applicable FOs and properties, so the Relax NG and Schematron both needed to be
+      handwritten.</para>
+    <para>The modules for the AH Formatter extensions use the Relax NG <code>include</code> pattern
+      to include the schema for XSL-FO and merge it with the definitions of the extensions. The
+      shortened schema module below demonstrates this:</para>
+    <programlisting language="relaxng">default namespace axf =
+"http://www.antennahouse.com/names/XSL/Extensions"
+namespace fo = "http://www.w3.org/1999/XSL/Format"
+
+include "fo.rnc" {
+
+# http://www.antennahouse.com/product/ahf60/docs/
+#ahf-ext.html#fo.change-bar-begin
+fo_change-bar-begin.model =
+    ( fo_float? )
+
+# http://www.antennahouse.com/product/ahf60/docs/
+#ahf-ext.html#axf.document-info
+fo_root.model =
+    ( (axf_document-info*,
+       fo_layout-master-set,
+       axf_document-info*,
+       fo_declarations?,
+       axf_document-info*,
+       fo_bookmark-tree?,
+       axf_document-info*,
+       (fo_page-sequence|
+        fo_page-sequence-wrapper)+) )
+
+}
+
+# http://www.antennahouse.com/product/ahf60/docs/
+#ahf-ext.html#axf.document-info
+axf_document-info =
+  element axf:document-info {
+    attribute name {
+('document-title' | 'subject' | 'author' |
+'author-title' | 'description-writer' | 'keywords' |
+'copyright-status' | 'copyright-notice' |
+'copyright-info-url' | 'xmp' | 'pagemode' |
+'pagelayout' | 'hidetoolbar' | 'hidemenubar' |
+'hidewindowui' | 'fitwindow' | 'centerwindow' |
+'displaydoctitle' | 'openaction' )},
+    attribute value { text },
+    empty
+}
+
+
+common-border-padding-and-background-properties &amp;=
+    axf_border-radius,
+    axf_border-top-right-radius
+
+axf_border-radius =
+    attribute axf:border-radius { text }?
+axf_border-top-right-radius =
+    attribute axf:border-top-right-radius { text }?</programlisting>
+    <para>This module includes <filename>fo.rnc</filename>. The definitions of
+        <code>fo_change-bar-begin.model</code> and <code>fo_root.model</code> redefine and override
+      the corresponding definitions in <filename>fo.rnc</filename>. Conversely, the definition of
+        <code>common-border-padding-and-background-properties</code> that is outside the
+        <code>include</code> interleaves the <code>axf_border-radius</code> and
+        <code>axf_border-top-right-radius</code> patterns with the existing
+        <code>common-border-padding-and-background-properties</code> defined in
+        <filename>fo.rnc</filename> to add additional optional attributes to any FO defined by the
+      XSL 1.1 spec to already have the common border, padding, and background properties.</para>
+    <para>The definitions of <code>axf_document-info</code>, <code>axf_border-radius</code>, and
+        <code>axf_border-top-right-radius</code> have to be outside the <code>include</code>
+      pattern. It would be an error to put any of them inside the <code>include</code> since there
+      are no corresponding definitions in <filename>fo.rnc</filename> that they would
+      override.</para>
+  </section>
+  <section>
+    <title>Putting it all together - the onion and the string</title>
+    <para>The Relax NG schema resembles an onion: the outer layer is <filename>axf.rnc</filename>
+      with the definitions and redefinitions for the Antenna House extensions. The next layer, which
+      is included by <filename>axf.rnc</filename> is the auto-generated definitions that interleave
+      the inheritable Antenna House extension properties with the properties that are defined for
+      each FO. That includes the auto-generated module with definitions for the XSL 1.1 inherited
+      properties, which in turn includes the inner layer that is the autogenerated definitions for
+      the FOs and their properties.</para>
+    <para>The Relax NG compact syntax schema is also converted into Relax NG XML syntax for use with
+      oXygen (since oXygen does not support schema-directed editing using a compact syntax schema)
+      and into W3C XML Schema for use with other editors. As noted previously, the annotations in
+      the schema, which were extracted from the XML for the XSL 1.1 spec, are presented as tool-tips
+      when editing an FO document with oXygen.</para>
+    <para>The Schematron is written as multiple phases strung together. With a Schematron
+      implementation that supports progressive validation by executing each phase in order of its
+      appearance, this will lead to progressively more refined error checking. The phases
+      are:</para>
+    <itemizedlist>
+      <listitem>
+        <para>Handwritten rules for FO constraints that aren&#x2019;t captured by the Relax
+          NG.</para>
+      </listitem>
+      <listitem>
+        <para>Autogenerated rules for checking property values for syntax errors and correct
+          datatypes.</para>
+      </listitem>
+      <listitem>
+        <para>Handwritten rules for extra constraints on property values, such as the rule that
+            <code>column-count</code> should be a positive integer.</para>
+      </listitem>
+      <listitem>
+        <para>Handwritten rules for the Antenna House extensions.</para>
+      </listitem>
+    </itemizedlist>
+    <para>There is an oXygen framework file that refers to both the Relax NG and the Schematron so
+      that oXygen can automatically validate FO files using them. The framework is available as a
+      downloadable add-on for oXygen.</para>
+    <para>You can also validate FO files from the command-line using the <code>validate</code>
+      target from the <filename>build-focheck.xml</filename> Ant build file.</para>
+  </section>
+  <section>
+    <title>Testing</title>
+    <para>There are multiple levels of testing of the Relax NG and Schematron.</para>
+    <para>At the lowest level, the <filename>parser-runner.xsl</filename> XSLT library is tested
+      using XSpec<footnote>
+        <para><link xl:href="https://code.google.com/p/xspec/"/></para>
+      </footnote> tests, for example:</para>
+    <programlisting language="xml"><![CDATA[<x:scenario label="AdditiveExpr">
+    <x:call function="axf:parser-runner"/>
+    <!-- ... -->
+    <x:scenario label="-1 - -2">
+        <x:call>
+            <x:param name="input"
+	            select="'-1 - -2'"
+		    as="xs:string"/>
+        </x:call>
+        <x:expect label="is a number">
+            <Number value="1" is-positive="yes"
+	            is-zero="no"/>
+        </x:expect>
+    </x:scenario>
+</x:scenario>]]></programlisting>
+    <para>At the next highest level, the Schematron is tested using stf<footnote>
+      <para><link xl:href="https://github.com/MenteaXML/stf"/></para>
+    </footnote>:</para>
+    <programlisting language="xml"><![CDATA[<?stf column-count:1 ?>
+<fo:retrieve-table-marker column-count="-1"
+    xmlns:fo="http://www.w3.org/1999/XSL/Format" />]]></programlisting>
+    <para>Finally, complete documents will be validated using both Relax NG and Schematron using the
+        <code>validate</code> Ant task.</para>
+  </section>
+  <section>
+    <title>Need for speed</title>
+    <para>The bottleneck for the validation is obviously going to be executing the XSLT for the
+      Schematron validation and, in particular, the expression parser.</para>
+    <para>Saxon has dropped the ability to compile stylesheets<footnote>
+      <para><link xl:href="https://github.com/MenteaXML/stf"/></para>
+    </footnote>, but the
+      non-free versions of Saxon can memorise values returned by functions<footnote>
+        <para><link xl:href="http://www.saxonica.com/documentation/index.html#!extensions/attributes/memo-function"/></para>
+      </footnote>. oXygen uses Saxon EE
+      when running Schematron, so any property value is only evaluated once, no matter how many
+      times it appears in the document. Additionally, oXygen also caches the schema used to validate
+      a document<footnote>
+        <para><link xl:href="http://www.oxygenxml.com/doc/ug-editor/#topics/validation-actions-in-user-interface.html"/></para>
+      </footnote>, and oXygen Support have confirmed that this includes caching
+      a Schematron validator, so the memorised property expression values are available across
+      documents.</para>
+    <para>The REx parser generator <xref linkend="b15"/> is able to generate a parser as a Saxon
+      extension function. It should, therefore, be possible to optionally include the compiled
+      extension function in the classpath for Saxon and make the &#x2018;parser runner&#x2019;
+      library use the compiled extension function if it is available and to fallback to the XSLT
+      parser when the function is unavailable. However, using Saxon extension functions with
+      Schematron validation is not a common use-case, so it is not possible with oXygen 17 to just
+      add the Jar file for an extension function to an oXygen framework and have it be used when
+      validating Schematron. Using the extension function currently requires registering the
+      extension function in the default Saxon configuration in the oXygen preferences. Since that
+      can't be done just by downloading the oXygen add-on, it's not currently part of
+      focheck.</para>
+  </section>
+  <section>
+    <title>Future improvements</title>
+    <para>A necessary improvement is adding to and improving the handwritten parts of the Relax NG
+      and Schematron. The constraints in the XSL 1.1 spec are spread through much of the spec, and
+      some of the details require careful reading. For example, the Schematron rule for
+        <code>column-count</code> was modified after re-reading the definition while writing this
+      paper. Getting the Relax NG and Schematron to be complete and correct is an ongoing and
+      iterative process. Pull requests on the GitHub project will be appreciated.</para>
+    <para>The current expression parser cannot evaluate some of the shorthand properties, such as
+      font<footnote>
+        <para><link xl:href="http://www.w3.org/TR/xsl/#font">Section 7.31.13 "font", in the Extensible Stylesheet Language (XSL) Version 1.1 Specification</link> <xref linkend="b2"/>
+        </para>
+      </footnote>, that were borrowed from CSS2. Handling those will require either
+      writing custom XSLT or generating a different parser using REx.</para>
+  </section>
+  <section>
+    <title>Conclusion</title>
+    <para>Validating XSL-FO documents can be useful when debugging generated XSL-FO documents and
+      when prototyping XSL-FO by hand in an XML editor. The XSL-FO validation from Antenna House
+      available on GitHub uses Relax NG, Schematron, and an XSLT-based property expression parser to
+      provide unprecedented accuracy when validating XSL-FO documents.</para>
+  </section>
+
+  <acknowledgements>
+    <para>Thanks go to the folks at Oxygen XML Editor Support for helping with some of the issues
+      encountered when developing focheck.</para>
+  </acknowledgements>
+
+  <bibliography>
+
+    <biblioentry xml:id="b2">
+      <abbrev>1</abbrev>
+      <title>Extensible Stylesheet Language (XSL) Version 1.1</title>
+      <date>05 December 2006</date>
+      <editor>
+        <personname>
+          <firstname>Anders</firstname>
+          <surname>Berglund</surname>
+        </personname>
+        <affiliation>
+          <org>
+            <orgname>IBM</orgname>
+          </org>
+        </affiliation>
+      </editor>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/xsl11/</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="b12">
+      <abbrev>2</abbrev>
+      <title>Extensible Stylesheet Language (XSL) Requirements Version 2.0</title>
+      <subtitle>11.5 Schema for XSL-FO</subtitle>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/xslfo20-req/#N67198</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="b8">
+      <abbrev>3</abbrev>
+      <title>A Visual Comparison Approach to Automated Regression Testing</title>
+      <author>
+        <personname>
+          <firstname>Celina</firstname>
+          <surname>Huang</surname>
+        </personname>
+        <affiliation>
+          <org>
+            <orgname>Antenna House Inc.</orgname>
+          </org>
+        </affiliation>
+      </author>
+      <edition>In Conference Proceedings of XML London 2014</edition>
+      <date>June 7-8, 2014</date>
+      <biblioid class="doi">10.14337/XMLLondon14.Huang01</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="b9">
+      <abbrev>4</abbrev>
+      <productname>xmlroff</productname>
+      <author>
+        <personname>
+          <firstname>Tony</firstname>
+          <surname>Graham</surname>
+        </personname>
+      </author>
+      <biblioid class="uri">https://github.com/xmlroff/xmlroff/tree/master/testing</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="b10">
+      <abbrev>5</abbrev>
+      <productname>Validators by RenderX</productname>
+      <publishername>RenderX Inc.</publishername>
+      <biblioid class="uri">http://www.renderx.com/tools/validators.html</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="b14">
+      <abbrev>6</abbrev>
+      <title>Relax NG schema for XSL-FO</title>
+      <author>
+        <personname>
+          <firstname>Alexander</firstname>
+          <surname>Peshkov</surname>
+        </personname>
+        <affiliation>
+          <org>
+            <orgname>RenderX Inc.</orgname>
+          </org>
+        </affiliation>
+      </author>
+      <publisher>
+        <publishername>XML Europe 2004</publishername>
+      </publisher>
+      <date>18 - 21 April 2004</date>
+      <address>Amsterdam, Netherlands</address>
+      <biblioid class="uri">http://xep.xattic.com/xep/resources/validators/xmleurope2004-peshkov.pdf</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="b15">
+      <abbrev>7</abbrev>
+      <productname>REx Parser Generator</productname>
+      <author>
+        <personname>
+          <firstname>Gunther</firstname>
+          <surname>Rademacher</surname>
+        </personname>
+      </author>
+      <biblioid class="uri">http://www.bottlecaps.de/rex/</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="b19">
+      <abbrev>8</abbrev>
+      <title>Antenna House Formatter V6</title>
+      <publisher>
+        <publishername>Antenna House Inc.</publishername>
+      </publisher>
+      <biblioid class="uri">http://www.antennahouse.com/product/ahf60/ahf6top.htm</biblioid>
+    </biblioentry>
+    
+  </bibliography>
+</article>

@@ -1,0 +1,468 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-8" version="5.0" xml:lang="en">
+
+  <info xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>A Visual Comparison Approach to Automated Regression Testing</title>
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Celina</firstname>
+          <surname>Huang</surname>
+        </personname>
+        <email>celina@antennahouse.com</email>
+        <affiliation>
+          <orgname>Antenna House, Inc.</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+    <keywordset>
+      <keyword>regression testing</keyword>
+      <keyword>PDF</keyword>
+      <keyword>XML</keyword>
+      <keyword>XSL-FO</keyword>
+    </keywordset>
+    <abstract>
+      <para>Antenna House Regression Testing System (AHRTS) is an automated solution designed to
+        perform visual regression testing of PDF output (PDF to PDF compare) from the Antenna House
+        Formatter software by converting a set of baseline PDFs and a set of new PDFs to bitmaps,
+        and then comparing the bitmaps pixel by pixel. Several functions of the system make use of
+        XML and the final reports are generated using XML and XSL-FO. This paper addresses the
+        importance of PDF to PDF comparison for regression testing and explains the visual
+        comparison approach taken. We explain the issues of traditional methods such as manual
+        regression testing and why the need for an automated solution. We also look at how AHRTS
+        works and discuss the benefits we’ve seen since using it internally to test new releases of
+        our own software. Given its visual-oriented capabilities, we then explore other possible
+        uses beyond the original design intent.  </para>
+    </abstract>
+  </info>
+
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <title>Introduction</title>
+
+    <para>We developed the Antenna House Regression Testing System to meet our own internal need to
+      test releases of our formatting software to make sure that what worked before still worked in
+      the new releases. In developing the system, we arrived at a set of design requirements. These
+      included: <itemizedlist>
+        <listitem>
+          <para>The system had to visually compare PDFs. Comparing the internal code would not work
+            because differences in the internal structure of a PDF could still produce the same
+            visual output, e.g., tagged PDF and PDF 1.5.</para>
+        </listitem>
+        <listitem>
+          <para>A reasonable throughput speed was important. Our test suite of 10,000+ pages was
+            taking several people up to 3 days to manually regression test by looking at the PDF
+            pages side by side. We wanted to speed up the process and reduce the number of people
+            and effort required.</para>
+        </listitem>
+        <listitem>
+          <para>Ease of usability, with a graphical user interface and application programming
+            interfaces, so both the Developers and the Support Team that did regression testing
+            could use the tool. </para>
+        </listitem>
+        <listitem>
+          <para>Where possible, we wanted to use our own tools, XML and XSL-FO.</para>
+        </listitem>
+        <listitem>
+          <para>Reports needed to be meaningful, easy to navigate, customizable (this is where the
+            XML and XSL-FO fits), and that were not overly verbose. </para>
+        </listitem>
+      </itemizedlist></para>
+    <para>Our need to regression test is the same as for any software developer. As software evolves
+      and improves overtime, the possibility of newly, unwanted behavior occurring always exists.
+      Every time software is upgraded or a system is changed in some way, regression tests need to
+      be run to ensure that the changes do not introduce new faults <xref linkend="paper-8_software-testing"/> 
+      and that the intended
+      results are still being produced. Having been named “an unsung hero of the software testing
+      world” by Jean Hartmann (Microsoft’s test architect) <xref linkend="paper-8_past-present-future"/>, 
+      regression testing is truly vital to
+      guarantee an error-free product and should never be overlooked. Providing valued customers
+      with significant enhancements is of no benefit if the upgrade process manages to break
+      features that were working successfully in previous versions of the software. </para>
+    <para>There are many methods to regression testing that can be performed, but in this paper, we
+      will focus on visual regression testing which involves comparing outputs visually to determine
+      if the new document matches, or deviates, from the reference document. For organizations
+      producing PDF documents from XML, this is a sure way to detect problems such as missing
+      content or broken graphics that might result from a system upgrade or change. In fact, this is 
+      the way
+      Antenna House performs regression testing on new releases of our formatting software. </para>
+    <para>The traditional method to regression testing of a formatted paged output is to visually
+      compare two documents side-by-side and page-by-page to ensure changes in the software has not
+      disrupted the production process in any way. <xref linkend="paper-8_ahrts"/> Test cases can vary between 
+      a subset and a
+      large collection of documents. The test cases that we collected over the years are almost all 
+      customer files that provide a good sampling of formatting jobs and truly exercise features of 
+      our formatting engine, AH Formatter. We now have an extensive collection of files that are 
+      rerun as regression tests and have become the means for verifying that our software is behaving 
+      correctly. It’s important to note the issues with manual regression testing: 
+        <itemizedlist>
+          <listitem>
+            <para>It is a tedious task that testers have to endure and overtime, the level of
+              attention to detail will decline causing unwanted changes to go unnoticed.</para>
+          </listitem>
+          <listitem>
+            <para>It is extremely time consuming (especially if the outputs being tested are large
+              files) and results in delayed product releases if the tests are not completed on
+              time.</para>
+          </listitem>
+          <listitem>
+            <para>It can be costly due to the amount of resources and time it takes to do the
+              regression testing.</para>
+          </listitem>
+          <listitem>
+            <para>It is unreliable and often leads to subtle errors that are left undetected by the
+              naked eye.</para>
+          </listitem>
+          <listitem>
+            <para>It may not be done frequently enough due to how much time, money, and human effort
+              it takes to successfully complete, which results in testing only on candidate release
+              versions of the software.</para>
+          </listitem>
+        </itemizedlist>
+      Because our software required testing on a large scale, where there is a massive
+      volume of information and repetitiveness, we needed to migrate to an automated process. It
+      would make the process faster, more efficient, reduce the risk for human error, and increase
+      the overall quality of the test. The challenge was finding an automated tool that would
+      compare outputs on a visual level, as opposed to the underlying code, and also be able to
+      handle the PDF to PDF comparison on a large scale. Due to these unique requirements, we could 
+      not find a suitable tool and thus, Antenna House set out to custom develop an automated 
+      solution to be used internally to test the output from new releases of our software. 
+    </para>
+
+  </section>
+
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <title>Automated Visual Regression Testing</title>
+	
+	<para>The Antenna House Regression Testing System (AHRTS) is a simple, fast, and scalable solution
+      for automating the visual comparison of formatted documents or pages. Its main function is to
+      identify the visual dissimilarities that exist between a pair or set of documents. It is
+      important to note that this is not a solution for tracking changes or locating variations in
+      the content of multiple versions of the same document. However, it is capable of finding
+      content discrepancies within a limited set of parameters. AHRTS is unique in that it quickly 
+      converts the PDFs to bitmaps and then performs a precision pixel-by-pixel comparison of two PDF 
+      files and generates a user friendly report that quickly identifies changes between a set of PDF files.</para>
+    <section>
+
+      <title>A Visual Method</title>
+
+      <para>Converting the PDFs to pixels and comparing pixel-to-pixel overcomes the issues of just
+        looking at the underlying page codes. It also mitigates issues involved in testing
+        multi-lingual documents and documents with vectors and bitmaps. For most organizations
+        producing PDFs from XML, the most important thing is that the final output looks the same as
+        it did before the software was altered. Minute differences as the name implies, might be
+        small, but they can have a serious impact on the accuracy of a document. On graphics, lines,
+        labels, fills, end caps might change or disappear. Text within the document might move
+        unexpectedly. We believe that only a pixel-to-pixel comparison can locate even the most
+        subtle of differences between two PDF documents. A detailed flowchart of how AHRTS works can
+        be seen in <xref linkend="paper-8_flowchart"/>. <figure xml:id="paper-8_flowchart">
+          <title>PDF2PDF Compare Flowchart</title>
+          <mediaobject>
+            <imageobject>
+              <imagedata fileref="images/ahrts-flowchart.jpg" width="100%" contentdepth="100%" scalefit="1"/>
+            </imageobject>
+          </mediaobject>
+        </figure>The process of comparing two PDF files starts with extracting the PDF code as
+        character strings and then doing a checksum comparison to see which files need to be further
+        tested. If document pairs with the same checksums are found, they are the same and will not
+        be tested any further. If the documents differ, then the system will render them to bitmaps
+        and then checksum compare each set of pages. Only the pages with different checksum are then
+        compared at the pixel-to-pixel level. The differences found will be used to create a
+        composite image and included in the final report along with the correspponding pages of the
+        original PDF files being compared. Originally, our 10,000+ page test suite took close to 3
+        days of machine time to run. Once we implemented the two different checksum comparisons, the
+        time to run the same test suite was reduced to less than 2 hours.</para>
+    </section>
+    <section>
+      <title>Handling Large Document Comparisons</title>
+            <para>Individual documents can vary from one page up to thousands of pages and
+        collections of documents can be extremely large. AHRTS is able to handle document testing of
+        any size, scaling from individual PDFs to directories of PDFs. Comparing multiple PDFs is no
+        different from comparing individual PDFs when using AHRTS. Testers can choose the folders
+        that need to be tested and a batch process will be performed to compare all of those
+        documents in the specified folders. This system has no limit on the number of PDF files, the
+        size of each file, or the number of pages being tested. We have actually tested a batch run
+        of over 1,000 documents, containing a total of over 10,000 pages, without encountering any
+        problems. A single PDF document with over 100,000 pages has also been tested with no issues
+        at all. Being able to handle PDF documents of any size not only makes this system versatile
+        to fit into different workflows, but also greatly reduces time and human resources devoted
+        to regression testing.</para>
+    </section>
+          <section>
+            <title>High Speed Performance</title>
+            <para>A valuable system is
+              one that is able to regression test large collections quickly. In order to achieve
+              such speed, AHRTS does a checksum comparison first (as seen in <xref linkend="paper-8_flowchart"/>), to detect which files are identical and which are not. When
+              doing the checksum comparison, we do exclude some information such as the creation
+              date and time of the PDF, which will have no bearing on the actual page output. Then
+              only the documents with different checksums will move to the next testing phase where
+              the discrepancies are identified. When AHRTS is used to test different versions of AH
+              Formatter, two stages in the process can be set to multi-thread to attain even greater
+              speed.</para>
+          </section>
+         <section>
+           <title>Exclude Margins from Testing</title>
+            <para>This is a new
+              feature that allows us to exclude portions of the page in the trim and bleed areas
+              that do not need to be tested. We can select an area from the top, bottom, left and/or
+              right margin of the page to exclude from testing. A preview of individual pages being
+              tested will appear in a separate window, as shown in <xref linkend="paper-8_marginsettings"/>,
+              to see what will be excluded as the margins are adjusted. You might want to use this
+              for example, if the only known differences between the documents are an automatically
+              generated date-time stamp. <figure xml:id="paper-8_marginsettings">
+                <title>Margin Selection Preview Window</title>
+          <mediaobject>
+            <imageobject>
+              <imagedata fileref="images/exclude.jpg" width="100%" contentdepth="100%" scalefit="1"/>
+            </imageobject>
+          </mediaobject>
+              </figure>This option is also useful for certain documents that have updated content
+              in the header or footer, but the rest of the content in the main body remains the
+              same. By being able to exclude areas of the page, those intended differences would not
+              cause every page of the document to be identified as different in the generated
+              report. </para>
+           </section>
+          <section>
+            <title>Generates Usable Reports</title>
+            <para>After the
+              comparison process is completed, an XML report is generated and formatted with AH XSL Formatter<footnote>
+                <para> A restricted copy of AH XSL Formatter is provided with AHRTS for only the
+                  purpose of generating reports. </para>
+              </footnote> to produce a usable PDF. The XSL stylesheet for the report produces a
+              cover page that provides the total number of pages tested and locates which pages have
+              differences. When testing multiple PDF files, an overview report is produced
+              displaying which documents have differences and which documents are identical.
+              Documents identified as having differences are hyperlinked to individual reports for
+              each document. This individual report, as illustrated in <xref linkend="paper-8_report"/>,
+              shows which pages are different and then presents a page composed of three panels for
+              each pages with differences. <figure xml:id="paper-8_report">
+                <title>Individual Report</title>
+          <mediaobject>
+            <imageobject>
+              <imagedata fileref="images/report.jpg" width="100%" contentdepth="100%" scalefit="1"/>
+            </imageobject>
+          </mediaobject>
+              </figure>The left pane is the actual original PDF page extracted from the baseline
+              document and the right pane is the PDF page extracted from the new document. This is
+              possible with AH XSL Formatter’s ability to merge selected individual pages from a PDF
+              into a single PDF file it creates. The center pane is the bitmap used for the
+              pixel-to-pixel comparison with the added composite of the two pages highlighting where
+              the changes are. There is an option to overlay the bitmap composite on top of the
+              compared PDF files in the report for a better visual comparison. Color coding is used
+              to further help identify what sort of change occurred between the original and new
+              documents. If a portion of the page was intentionally excluded from testing, it can
+              also be colored. It is important to note that only pages with differences are
+              presented in each report. This way, if only 4 out of 500 pages have differences, you
+              will only have to look at and scroll through those 4 specific page sets. </para>
+              <para>The XSL
+              stylesheet that produces the reports can be modified to tailor the reports as wanted
+              and all the XSL-FO capabilities of Antenna House Formatter are available for the
+              report generation. This has enabled us to quickly try a large number of report layouts
+              in order to arrive at the final report that best displays the information we want and
+              the way we want it. </para>
+    </section>
+  </section>
+<section xmlns:xl="http://www.w3.org/1999/xlink">
+  <title>Regression Testing New Releases of AH Formatter</title>
+  <para>As previously mentioned, this software was originally developed for our own internal use to test 
+    new releases of AH Formatter. During the course of a year we will do close to 20 releases, which includes 
+    maintenance releases and new version releases of the versions of AH Formatter that are still being fully 
+    supported. What used to take several people several days, and was limited to only candidate releases of 
+    the software, now just takes a couple hours of machine time and is performed regularly on development 
+    versions as well. AHRTS has enabled us to detect possible negative regressions much earlier in the development 
+    cycle. It also resulted in more regular releases of AH Formatter, less associated problems in the new releases, 
+    and an overall better product.</para>
+  <para>So how does it work? When used to regression test releases of AH Formatter, AHRTS takes the documents and 
+    first creates a batch file. The batch file is then used to create the PDFs for both versions of AH Formatter 
+    that are being compared. Next, it does the comparison of the files and then creates all the associated reports. 
+    The final step is where a user has to review the finished reports. </para>
+  <section>
+    <title>The User Interface</title>
+    <para>This application can be launched via command-line interface or graphical user interface
+        (GUI), but we will be focusing on the latter for the purposes of this paper and
+        presentation. The GUI is written in Java so it will look the same whether you are using it
+        on Windows, Linux, or a Mac operating system. A screenshot of the GUI with the “Compare” tab
+        open can be seen below in <xref linkend="paper-8_gui"/>. <figure xml:id="paper-8_gui">
+          <title>AHRTS User Interface</title>
+          <mediaobject>
+            <imageobject>
+              <imagedata fileref="images/gui.jpg" width="100%" contentdepth="100%" scalefit="1"/>
+            </imageobject>
+          </mediaobject>
+        </figure> When the AHRTS GUI is first opened, it has default settings of where to locate and
+        store files needed to complete the regression testing process. If AHRTS is integrated in a
+        bigger system, users can change where they want the saved files to be stored in the
+        “Settings” tab and reuse them in other applications in their workflow. The data for the
+        reports generated is XML making it easily accessible.</para>
+    <para>The following features, numbered in <xref linkend="paper-8_gui"/>, are the main steps to
+        perform regression testing of AH Formatter: <orderedlist>
+          <listitem>
+            <para><emphasis role="bold">Test Samples</emphasis>- We first create test cases by
+              obtaining the original source files (.fo files) that Antenna House has collected over
+              the years to make up our test suite. When AHRTS makes the test cases, it will store
+              the XSL-FO file and include a XML file in a directory specified in the “Settings” tab,
+              which was discussed earlier. It will also prepare new file names for the test cases
+              for the Render and Compare steps.</para>
+          </listitem>
+          <listitem>
+            <para><emphasis role="bold">Render</emphasis>- Next, we select the versions of AH
+              Formatter to be added to a queue to render the test cases from a drop down menu. AHRTS
+              uses engine files to locate and identify the different versions of Formatter that will
+              be used with the system. There are premade engine files specified in XML format that
+              will work for default installations of AH Formatter. If a version of AH Formatter is
+              located in a different folder other than the default, users can manually change the
+              directory path in the engine file so AHRTS can find it. This step is just rendering
+              the test cases, so it is possible to run test cases through 3 or more different
+              versions of AH Formatter. Since AH Formatter is thread safe, there is also an option
+              to set the rendering jobs to multi-thread and enhance speed and performance. The
+              number of threads set would depend on the number of processors or cores on the
+              machine. </para>
+          </listitem>
+          <listitem>
+            <para><emphasis role="bold">Compare</emphasis>- Once AHRTS confirms that each of the
+              rendering engines have finished their jobs and produced PDF files, we can continue
+              with the Compare step. In this demonstration, we chose Version 5 as the baseline
+              engine and Version 6.1 as the new engine to be tested. AHRTS will follow the same
+              process as illustrated in <xref linkend="paper-8_flowchart"/> in this stage. After the
+              comparisons are completed, a new window will automatically open with a detailed PDF
+              report to review. In both the “Compare” and “PDF2PDF Compare” tab, users can adjust
+              the highlight radius, DPI settings, and margins to be excluded from testing. </para>
+          </listitem>
+          <listitem>
+            <para><emphasis role="bold">Highlight radius</emphasis>- The yellow halo that highlights
+              where the changes are in the composite image of the report can be increased or
+              decreased in size. The default is a radius of 5 millimeters, but it can be set to 0
+              for no highlight at all or enlarged depending on a user’s preference. Prior to the
+              addition of the highlight feature, subtle differences such as the end of a line in a
+              graphic were sometimes hard to locate in the color coded composite bitmap.</para>
+          </listitem>
+          <listitem>
+            <para><emphasis role="bold">DPI setting</emphasis>- The Dots Per Square Inch (DPI) of a
+              comparison is the resolution at which a PDF document from a rendering engine is
+              rasterized. This setting allows the user to control the level of comparison and how
+              sharp the composite page appears in the final report. With that in mind, a higher DPI
+              means more pixels to compare per page and will take more time and power to finish the
+              comparison process. The default is set at 30 DPI (900 dots per square inch), which we
+              have found to be more than enough resolution to find differences in font types, minor
+              alterations in spacing and line width, as well as larger ones such as differences in
+              the breaking of pages.</para>
+          </listitem>
+          <listitem>
+            <para><emphasis role="bold">Margins setting</emphasis>- This calls up <xref linkend="paper-8_marginsettings"/>, as previously discussed.</para>
+          </listitem>
+        </orderedlist></para>
+    </section>
+</section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Other Possible Use Cases</title>
+    <para>Beyond being a regression testing system for new releases of AH Formatter, there are many
+      other possible use cases for AHRTS, which we now discuss:<itemizedlist>
+        <listitem>
+          <para>Regression testing any document formatting or conversion software. A PDF to PDF
+            comparison can be performed to regression test PDFs from virtually any source, as well
+            as a growing list of image formats. This could include other formatting engines besides
+            those provided by Antenna House, ranging from word processing, OCR, conversion, to
+            business software. The only requirements are two PDFs or images to be compared.</para>
+        </listitem>
+      </itemizedlist><itemizedlist>
+        <listitem>
+          <para>Pre-production system check: For documents that have extended periods between
+            production such as an annual directory, PDF differencing can ensure that during the
+            preceding period, no changes were made to the tool chain that adversely affect the
+            previously good output.</para>
+        </listitem>
+      </itemizedlist><itemizedlist>
+        <listitem>
+          <para>Stylesheet development: By comparing PDFs, you can quickly see if changes to the
+            stylesheet actually achieved the desired results. For instance, did changing the
+            thickness of a rule or bolding a heading cause type to overflow a block? Did shifting a
+            line a couple points cause content to be lost or shifted in the wrong direction? Any of
+            these unforeseen consequences that occur while developing a stylesheet, can be
+            identified with a PDF to PDF comparison tool.</para>
+        </listitem>
+      </itemizedlist><itemizedlist>
+        <listitem>
+          <para>Installation validation: Installing a new system where the final output is a
+            document or publication, typically involves a lot of components that include an
+            authoring or data source, a database or content management system, software to
+            manipulate and assemble the data, and finally the tool that formats the output in a
+            document. Each of these components in turn can have multiple, moving parts. Typically, a
+            solution is implemented first on a development system and then quite often replicated on
+            training systems, staging systems, QA systems, backup systems, and the actual production
+            system. All of these systems need to produce exactly the same output, using the same
+            tool chain and from the same source.  AHRTS provides a way to take output that was
+            successfully produced on the development or first system and compare that with output
+            generated by each of the subsequently implemented systems. </para>
+        </listitem>
+      </itemizedlist><itemizedlist>
+        <listitem>
+          <para>System(s) certification: In a multisystem environment where software is installed on
+            more than one system, either locally or remotely, comparing PDFs helps validate that
+            each system produces exactly the same document output from a collection of documents
+            used for testing.</para>
+        </listitem>
+      </itemizedlist><itemizedlist>
+        <listitem>
+          <para>Ensuring that different versions of PDF are producing the same visual output. It is
+            conceivable that a document rendered to PDF/A or tagged PDF displays differently. At
+            times, it would be important to know what those differences are.</para>
+        </listitem>
+      </itemizedlist></para>
+    
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Conclusion</title>
+    <para>In the beginning of this paper, we emphasized the importance of regression testing and how it plays a major 
+      role in any testing process in the software world. More specifically we’re focusing on groups producing PDF documents 
+      from XML, like Antenna House, who need to test the visual output of their systems. Traditional methods proved to be 
+      unreliable, time consuming, costly, and overall a tedious task to say the least. Now with automation and using a 
+      visual comparison approach, AHRTS greatly increases the efficiency of regression testing, reducing the time and effort 
+      required to check output discrepancies, and enabling users to find even the slightest change in the visual appearance 
+      of a document. To achieve the visual PDF to PDF comparison we convert the PDFs to bitmaps and then compare them pixel 
+      to pixel. This produces a highly reliable check that will catch even the slightest differences between PDFs. Originally 
+      designed as a regression testing tool for AH Formatter, AHRTS has evolved into a tool that can play many roles in a 
+      development cycle for any system generating visual outputs. </para>
+  </section>
+
+  <bibliography xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <biblioentry xml:id="paper-8_software-testing" xreflabel="[1]">
+      <abbrev>1</abbrev>
+      <title>The Art of Software Testing</title>
+      <authorgroup>
+        <author><personname>
+          <firstname>Glenford</firstname>
+          <surname>Myers</surname>
+        </personname>
+        </author>
+      </authorgroup>
+      <publishername>Wiley</publishername>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-8_past-present-future" xreflabel="[2]">
+      <abbrev>2</abbrev>
+      <title>30 Years of Regression Testing: Past, Present and Future</title>
+      <authorgroup>
+        <author><personname>
+          <firstname>Jean</firstname>
+          <surname>Hartmann</surname>
+        </personname>
+        </author>
+      </authorgroup>
+      <biblioid class="uri">http://www.uploads.pnsqc.org/2012/papers/t-67_Hartmann_paper.pdf</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-8_ahrts" xreflabel="[3]">
+      <abbrev>3</abbrev>
+      <title>Antenna House: Antenna House Regression Testing System</title>
+      <biblioid class="uri">http://www.antennahouse.com/antenna-house-regression-testing-system/</biblioid>
+    </biblioentry>
+
+  </bibliography>
+
+ 
+
+</article>

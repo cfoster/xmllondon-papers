@@ -1,0 +1,414 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink"
+  version="5.0">
+  <info>
+    <title>Lizard</title>
+    <subtitle>A Linked Data Publishing Platform</subtitle>
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Andy</firstname>
+          <surname>Seaborne</surname>
+        </personname>
+        <affiliation>
+          <org>
+            <orgname>Epimorphics</orgname>
+          </org>
+        </affiliation>
+      </author>
+    </authorgroup>
+    <abstract>
+      <para>Publishing data means delivering it to a wide and changing variety of data consumers.
+        Instead of defined, agreed use by fixed applications, data is used in ways that the
+        publisher will find hard to predict as users find ingenious ways to use and combine data.
+        Data services don't do "9 to 5" and publishing of the data must aim for high levels of
+        available service.</para>
+      <para>Yet the operation of data services will need to be resilient to operational needs as
+        well as updates. By looking at some real data publishing services, we will see that while
+        hardware failures happen, the main causes of service disruption are operational.</para>
+      <para>This paper describes a new, open source, RDF database that addresses operation needs
+        using fault tolerance systems techniques to provide a scalable, consistent, and resilient
+        data publishing platform for RDF.</para>
+    </abstract>
+    <keywordset>
+      <keyword>SPARQL</keyword>
+      <keyword>RDF</keyword>
+      <keyword>Linked Data</keyword>
+      <keyword>Semantic Web</keyword>
+      <keyword>High Availability</keyword>
+    </keywordset>
+  </info>
+
+  <section>
+    <title>Introduction</title>
+    <para>When publishing data, there is no limit to the ways in which the data is used. As the data
+      is discovered and used by new applications, the usage of the published material changes over
+      time. Data publishers who want to attract these applications want to provide a high quality
+      service including 24x7 availability in order to encourage usage as a trusted, reliable
+      publishing service.</para>
+    <para>Experience running two public-facing data publishing service shows that the most frequent
+      causes of machine interruption do not come from hardware faults or software bugs. System
+      administration is a much more frequent cause but the availability requirements exclude the
+      idea of scheduled downtime. Sometimes, security alerts need to be handled at very short
+      notice.</para>
+    <para>A single server can not continue providing the application-facing service. It requires
+      more than one machine, and that in turn complicates the service operation. Yet that in turn
+      introduces complexity in the form of update to multiple copies of the data.</para>
+    <para>We describe a linked data publishing platform that can provide 24x7 operation while at the
+      same time allowing machines to be brought in and out of service. It provides consistent,
+      robust update across the multiple copies of the data.</para>
+  </section>
+
+  <section>
+    <title>Prior Experience with Data Publishing Platforms</title>
+    <para>This section covers two services operating on Amazon Web Services (AWS). They were built
+      to provide continuous operation using single application. Experience from these informs the
+      design of the Lizard publish platform.</para>
+    <para>Each publishing service operates as a number of identical replica application stacks,
+      normally 2, behind a load balancer. Each replica stack is itself a pair – a application server
+      providing a data explorer via HTML, and a SPARQL database server. The stack also provides
+      query access to the database via the application layer.</para>
+    <para>One service is small, of the order of 10 million triples, and updated several times a day
+      in small quantities, and the other is a larger database of 370 million triples, updated once a
+      month. Both are public facing services.</para>
+    <para>The main cause of system updates has been due to administration tasks, either planned when
+      conducting routine updates including security updates, or unplanned in the case of
+      short-notice security issues, as in the case of SSH Heartbleed. Customer contracts stipulate
+      maintaining the systems are up-to-date and penetration testing covers issues encountered by
+      the customer beyond the minimum for the service.</para>
+    <para>Managing the system is achieved by exploiting the "read mainly" nature of the services.
+      Updates come via different route, from the data owner, and not part of the public facing
+      service. Machines can be stopped by holding up updates, taking a replica out of the load
+      balancer, performing system administration, and putting back in the load balancer. The other
+      replicas are updated by repeating the process.</para>
+    <para>Another source of system change relates to changes in usage patterns. A general data
+      publishing service is different to a database-backed web site because the nature of queries to
+      the underlying database are much more varied. There isn't a controlled set of local
+      application queries that can be audited and tuned. Some queries may involve powerful views of
+      the data including sorting and aggregation which are costly operations, whether performed in
+      the database or in the presentation service. Some access patterns defeat caching techniques: a
+      web crawler does not visit the same page more then once so caching of previously calculated
+      pages has little benefit. The major search engines operate multiple machines to crawl a site
+      and, even when each on it's own is a tolerable load, having 4 or more search engines all
+      active at once has generated excessive load. In addition, not all software respects web
+      controls such as robots.txt and "nofollow" link mark-up.</para>
+    <para>Such load increases can also arise by external events such as publicity around new or
+      greatly enhanced data offerings. To meet this, new replicas may need to be added to a running
+      system, and removed later when load subsides.</para>
+    <para>The administration tasks are scripted but they are relying on the ability to hold back
+      updates for a period of time.</para>
+  </section>
+
+  <section>
+    <title>Advantages and Disadvantages</title>
+    <para>This approach has the advantage of not requiring the majority of software to be modified
+      for replicated use. Updating the data is not coordinated to provide a consistent view but
+      because any request of generated page, or SPARQL query, is only driven from one database each
+      request is seeing a consistent view. During update, it is possible one replica is serving new
+      data but another is serving old data. The short update time makes this acceptable for the
+      class of data publishing involved. Should a failure happen during updates, the task of bring
+      the system back to a consistent state is mainly manual and the time during which the data is
+      inconsistent is longer.</para>
+    <para>So in addition to continuous operation, we would like to have some transaction features
+      for consistency and robustness to make platform operation easier.</para>
+    <para>The last desirable feature is being able to flex the system in terms of scale. For
+      replicated separate systems, scaling horizontally adapts to changes in the number of requests
+      being made of the overall platform. Given the nature of new events such as publicity around
+      new data sources, being able to add new capacity, and remove it later to reduce costs, is
+      desirable.</para>
+  </section>
+
+  <section>
+    <title>Apache Jena</title>
+    <para>Apache Jena<footnote>
+        <para>Apache Jena - <link xlink:href="http://jena.apache.org/"/></para>
+      </footnote> is an open source RDF system. It provides an RDF database (TDB) with a complete
+      implementation of SPARQL 1.1 query <xref linkend="sparql11query"/> and update <xref
+        linkend="sparql11update"/> languages. It provides a singe-machine database server accessed
+      with the standard SPARQL protocols (query <xref linkend="sparql11-protocol"/>, update and
+      graph store <xref linkend="sparql11-http-rdf-update"/> protocols). This is Apache Jena
+      Fuseki.</para>
+  </section>
+
+  <section>
+    <title>Storing RDF</title>
+    <para>In this section, we outline the single-machine design for RDF storage and query processing
+      in Apache Jena TDB. This designed is extended to a multi-machine setup in the next
+      section.</para>
+    <para>An RDF Dataset is a default graph, and zero or more named graphs. TDB stored these as a
+      triples table, for the default graph, and a quads table for the named graphs. It can also use
+      the dynamically computed union of all the named graphs as the triple table instead of concrete
+      storage. We will discuss RDF triples and RDF graphs – the same principles apply to RDF
+      Datasets and quads used to represent named graphs, a quad being an RDF triple with an extra
+      field to record the graph name.</para>
+    <para>TDB stores RDF terms (URIs, Literals, blank nodes) using a dictionary. Each RDF term is
+      allocated a fixed length binary node id, and the representation of the RDF term is stored in
+      the dictionary using that fixed length binary node id as a key.</para>
+    <para>A triple is a tuple of three RDF terms (subject, predicate object) The same node id is
+      used for every occurrence of the same RDF term (URI, literal, blank node) and matching SPARQL
+      basic patterns is done by node id. Incoming queries are translated to node id form and the
+      results mapped back to RDF terms in the results.</para>
+    <para>For certain value types, the node id is used to encode the value within the identifier.
+      This avoids the need to look into the dictionary to retrieve the RDF term and then convert it
+      into a value for use in SPARQL FILTERs. Encoding the value directly avoids this process and
+      can make a significant difference to performance. Values are recorded, not lexical forms,; for
+      integers 01 and +1, two ways to write the lexical form of integer value 1, so they become the
+      same node id. If a value does not fit into a node id, the RDF term is stored in the dictionary
+      as normal. Datatypes supported include the XSD datatypes <xref linkend="xsdtypes"/> integers,
+      and the derived types, decimals, dateTime and dates.</para>
+    <para>Indexes are used to used to store the triples, with the default choice being SPO, POS,
+      OSP, where the letters indicate the ordering. The SPO index can return all tuples, all tuples
+      starting with a specific S or all tuples with specific SP; it can not efficiently return all
+      tuples with specific O and P but any S values.</para>
+    <para>The OSP index is little used in real world queries. Because of caching effects, its
+      presence affects loading speed but does not influence query performance.</para>
+    <para>The indexes record all 3 parts of the triple tuple so there is no need to additionally
+      store the triple tuple itself.</para>
+    <mediaobject>
+      <imageobject>
+        <imagedata fileref="images/as-single-tdb-database.svg" width="100%"/>
+      </imageobject>
+    </mediaobject>
+    <para>For example, if the triple is</para>
+    <programlisting language="sparql">?s rdf:type :Class</programlisting>
+    <para>the POS index can be used, with a lookup of</para>
+    <programlisting>P=id(rdf:type) O=id(:Class) S=any</programlisting>
+
+    <para>where <code>id(..)</code> is the node id of the given URI mapped by the RDF Term
+      dictionary.</para>
+
+    <para>TDB uses B+trees. A B+tree is a datastructure using fixed sized blocks to hold a number of
+      key- value pairs. When storing triple tuples, the tupel forms the key and there is no
+      additional value part. The B+Tree algorithms balance the tree so that the blocks are at least
+      half full.</para>
+
+    <para>A B+tree keeps its key entries in a sorted ordered so to answer all triple tuples matching
+      "SP?", a lookup of "SP-" (where "-" is the value 0, the first possible O node id), then a
+      short range scan until the first turtle that starts with a different prefix SP is seen, where
+      (P+1) is node id treated as a number, +1.</para>
+  </section>
+
+  <section>
+    <title>Extending to a Cluster</title>
+    <para>The data for the RDF needs to be replicated for 24x7 availability. The SPARQL query engine
+      itself does not have any persistent state; the persistent state is all held in the indexes and
+      the RDF term dictionary. Replications strategies for both are similar.</para>
+    <para>Considering the indexes, and starting from the design of single-machine TDB, there are two
+      main points at which replication can be added. One is the interface to the indexes (the
+      B+Trees) and the other is at the storage layer, replicating the blocks used to store the
+      B+Tree.</para>
+    <para>The attraction of replicating blocks is that either a replicated file storage solution or
+      a general key- value store could be used, using the block number as the key and the block
+      contents as the value. However, replicating the blocks leads to any inefficient design that
+      would limit scalability because in any lookup, several blocks must be traversed in a
+      sequential manner, leading to several cross- cluster operations, especially during the
+      start-up period when the server is started and caches have yet to fill up properly. In
+      addition, general key-value stores return the whole of the block, yet only a part is needed
+      for searching so not only more network operations are performed but also more data is
+      transferred across the network.</para>
+    <para>It is more efficient to replicated the indexes themselves, so that a single cluster
+      operation is involved for a lookup and a stream of matching triple tuple returned.</para>
+    <mediaobject>
+      <imageobject>
+        <imagedata fileref="images/as-indexm1m2.svg" width="100%"/>
+      </imageobject>
+    </mediaobject>
+    <para>With N replicas, consistency is achieved if R replicas are read for a rad operation and W
+      replicas updated for a write operation where R+W > N. When a read occurs over R copies, at
+      least one up to date write copy is included. Because this is a read-dominated publishing
+      platform, the usual choice is R=1 and W=N. An effect of this choice is that when an update is
+      completed, there is no further replication to be done asynchronously, making recovery simpler
+      because there is no work done as a a background backlog.</para>
+    <para>The main change in the query engine is to change the join algorithms. On a single machine,
+      the SPARQL query engine when used with TDB, can use index joins. This join algorithm has the
+      advantage that it uses a fixed amount of working space, regardless of the size of the data
+      being joined. Because TDB is often run in the same JVM as the application, the fixed size
+      workspace, and the fact the query engine and the storage are in the same JVM, means that the
+      database engine does not excessively compete for Java heap resources with application code
+      (file system caching is used extensively, ; this is not part of the java heap space).</para>
+    <para>These assumptions are not valid on a cluster. It is a single system and while possibly
+      multiple queries at the same time, all the system resources can be devoted to SPARQL
+      execution. The index join algorithm requires multiple probes into one side of the data streams
+      to be joined, which in turn would result in multiple cross-machine operations. Instead, Lizard
+      uses pipeline hash joins for matching SPARQL basic graph patterns.</para>
+  </section>
+
+  <section>
+    <title>Deployment</title>
+    <para>This design decomposes Lizard into a number services, separated by a network connection:
+      query engines, a number of index replicas and a number of node dictionaries. Each of these
+      service instances can be placed across a number of machines such that each machine has only
+      one copy of each replica type so that the loss of one machine, whether a planned or unplanned,
+      does not make part of the database inaccessible.</para>
+    <para>A local balancer is used to provide a logical single point of connection (round-robin-DNS
+      can be used as well). Apache Zookeeper<footnote>
+        <para>Apache Zookeeper - <link xlink:href="https://zookeeper.apache.org"/></para>
+      </footnote> is used to coordinate which machines are in the cluster and to provide the cluster
+      wide locking to coordinate update transactions.</para>
+    <para>Small deployment might consistent of two machines, with each machine having one copy of
+      each service instance. Updates are performed across both machines, read requests can be
+      performed by one machine.</para>
+
+    <mediaobject>
+      <imageobject>
+        <imagedata fileref="images/as-load-balancer-1.svg" width="100%"/>
+      </imageobject>
+    </mediaobject>
+
+    <para>A larger system might consist of different machines for different components. Some query
+      work loads require significant amounts of CPU resources so separating query servers from the
+      data-storing index and dictionary services ma be useful.</para>
+
+    <mediaobject>
+      <imageobject>
+        <imagedata fileref="images/as-load-balancer-2.svg" width="100%"/>
+      </imageobject>
+    </mediaobject>
+  </section>
+
+  <section>
+    <title>Scale</title>
+    <para>Scale, to service increasing workloads, can be achieved by adding more machines, as shown
+      in the deployment using 4 server machines. The Lizard design can form the basis of a scalable
+      store, reaching to larger datasets by partitioning the data storage elements. For example: a
+      replicated index,with 3 shards, 2 copies of each shared, mapped to 2 machines, might
+      be:</para>
+    <mediaobject>
+      <imageobject>
+        <imagedata fileref="images/as-shards.svg" width="100%"/>
+      </imageobject>
+    </mediaobject>
+  </section>
+
+  <bibliography>
+
+    <biblioentry xml:id="sparql11query">
+      <abbrev>1</abbrev>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Steve</firstname>
+            <surname>Harris</surname>
+          </personname>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>Andy</firstname>
+            <surname>Seaborne</surname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <date>21 March 2013</date>
+      <title>SPARQL 1.1 Query Language</title>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/sparql11-query/</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="sparql11update">
+      <abbrev>2</abbrev>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Paul</firstname>
+            <surname>Gearon</surname>
+          </personname>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>Alexandre</firstname>
+            <surname>Passant</surname>
+          </personname>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>Axel</firstname>
+            <surname>Polleres</surname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <date>21 March 2013</date>
+      <title>SPARQL 1.1 Update</title>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/sparql11-update/</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="sparql11-protocol">
+      <abbrev>3</abbrev>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Lee</firstname>
+            <surname>Feigenbaum</surname>
+          </personname>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>Gregory</firstname>
+            <othername>Todd</othername>
+            <surname>Williams</surname>
+          </personname>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>Kendall</firstname>
+            <othername>Grant</othername>
+            <surname>Clark</surname>
+          </personname>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>Elias</firstname>
+            <surname>Torres</surname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <date>21 March 2013</date>
+      <title>SPARQL 1.1 Protocol</title>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/sparql11-protocol/</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="sparql11-http-rdf-update">
+      <abbrev>4</abbrev>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Chimezie</firstname>
+            <surname>Ogbuji</surname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <date>21 March 2013</date>
+      <title>SPARQL 1.1 Graph Store HTTP Protocol</title>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/sparql11-http-rdf-update/</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="xsdtypes">
+      <abbrev>5</abbrev>
+      <authorgroup>
+        <editor>
+          <personname>
+            <firstname>Paul</firstname>
+            <othername>V</othername>
+            <surname>Biron</surname>
+          </personname>
+        </editor>
+        <editor>
+          <personname>
+            <firstname>Ashok</firstname>
+            <surname>Malhotra</surname>
+          </personname>
+        </editor>
+      </authorgroup>
+      <date>28 October 2004</date>
+      <title>XML Schema Part 2: Datatypes Second Edition</title>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/xmlschema-2/</biblioid>
+    </biblioentry>
+
+  </bibliography>
+
+</article>

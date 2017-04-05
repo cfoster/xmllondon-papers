@@ -1,0 +1,1074 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-22" version="5.0" xml:lang="en">
+    <info xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Dealing with unlimited XML feeds using XSLT 3.0 streaming</title>
+        <subtitle>How to use streaming features to process uninterrupted and unlimited live feeds of
+            XML data</subtitle>
+        <author>
+            <personname><firstname>Abel</firstname><surname>Braaksma</surname></personname>
+            <email>abel@exselt.net</email>
+            <uri>http://exselt.net</uri>
+            <personblurb>
+                <para>Abel Braaksma is creator of the Exselt XSLT processor (http://exselt.net, beta can be downloaded for free) and does XML and XSLT related consultancy next to his other consultancy firm, Abrasoft (http://abrasoft.net). He has some 20 years experience with development in general and XML and related technologies in particular and is currently active as an Invited Expert of the XSLT, XQuery and XPath working groups at W3C. He can be reached about anything XML or F# related at info@exselt.net or through http://support.exselt.net.</para>
+            </personblurb>
+            <affiliation>
+                <jobtitle>consultant</jobtitle>
+                <orgname>Exselt</orgname>
+            </affiliation>
+        </author>
+        <keywordset>
+            <keyword>XML</keyword>
+            <keyword>XSLT</keyword>
+            <keyword>XPath</keyword>
+            <keyword>Exselt</keyword>
+        </keywordset>
+        <abstract>
+            <para>Working with unlimited XML feeds poses specific challenges to processors. This
+                paper will discuss those challenges and shows how to solve them using standardized
+                techniques made available by XSLT 3.0 and the new streaming feature. We will see how
+                to set up the processor, how to deal with buffering and flushing, how to handle
+                errors and how to handle a simple example feed with RSS and Twitter.</para>
+        </abstract>
+    </info>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Disclaimer</title>
+        <para>This paper discusses new features defined in XSLT 3.0 and XPath 3.0. The XSLT 3.0
+                specification <xref linkend="paper-22_1"/> is a Candidate Recommendation, and
+            information in this paper may be superseded by changes in future additions of this
+            specification. You can track such changes through the publicly available bug reports
+                <xref linkend="paper-22_2"/>. <xref linkend="paper-22_3"/> is a W3C
+            Recommendation, this paper focuses on XPath 3.0 and not on new features introduced in
+                <xref linkend="paper-22_4"/>. Where appropriate, bugs of the specification that
+            were recognized at the time of writing have been incorporated in the text.</para>
+        <para>This paper is based on the publicly available versions of XPath 3.0, XSLT 3.0 and XDM
+            3.0 as of March 12, 2015, see <xref linkend="paper-22_1"/>, <xref linkend="paper-22_3"/>, <xref linkend="paper-22_5"/>. Since XSLT 3.0 is not yet final, it is
+            possible that references and details change before the final specification receives
+            Recommendation status.</para>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>An introduction</title>
+        <para>In XSLT 2.0 it was not trivial to process an uninterrupted live feed using a single stylesheet. XSLT 3.0 fills this gap with the introducation of <emphasis>streaming</emphasis>, which allows for any size of input document, including perpetual XML streams like data or news feeds.</para>
+        <para>The typical reception by the public of the concepts of streaming has been a
+            combination of enthusiasm ("finally, we can deal with <emphasis>Big Data</emphasis>
+            using XSLT") and of criticism ("all that new terminology, what is
+                <emphasis>posture</emphasis> and <emphasis>sweep</emphasis> of a construct, what is
+                <emphasis>operand usage</emphasis> and so on"). Most of these criticisms evolve
+            around the fact that the only available documentation is a handful of papers (which
+            often focus on the technical aspect of streaming) and the XSLT specification itself,
+            which is written with processor implementors in mind, not the typical XSLT programmer.
+            Tutorials are currently hard to find, though Dimitre Novatchev has done an excellent job
+            of filling that gap with courses on XSLT 3.0 concepts and more advanced topics,
+            available on Pluralsight, see <xref linkend="paper-22_6"/>.</para>
+        <para>This paper aims at filling at least a part of that gap. While last year's talk on XSLT
+            3.0 was about <emphasis>The little things</emphasis>
+            <xref linkend="paper-22_7"/> explaining many smaller but useful enhancements of the
+            XSLT language, this year's talk and paper will be about practical application of certain
+            advanced concepts with everyday scenarios. We will see that using these techniques, once
+            undone of the complexity of the language descriptions in the specification, are quite
+            easy to master. The result is, in most cases, a cleaner stylesheet that can run on any
+            processor and with any size of input. The particular use-case we will look at is about a
+            Twitter feed, though the methods and practices explained will be applicable to any
+            uninterrupted stream of data.</para>
+
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Setting up the environment</title>
+        <para>This paper will assume you will be using a conformant XSLT 3.0 processor. While the specification is not final yet, it is in <emphasis>Candidate Recommendation</emphasis> status <footnote>
+                <para>See announcement on the xsl mailing list, <link xl:href="https://www.oxygenxml.com/archives/xsl-list/201511/msg00025.html">https://www.oxygenxml.com/archives/xsl-list/201511/msg00025.html</link></para>
+            </footnote>, which means that the specification is generally frozen except for fixing bugs that are found by implementors of the spec. Conformant here means: conformant to the latest version of the spec, or the <emphasis>Candidate Recommendation</emphasis> in particular. As of this writing I am aware of two processors that follow the specification as close as possible: Exselt and Saxon. Other processors have announced that they are in the process of supporting XSLT 3.0 but I am not aware to what level they will support the streaming feature. You can download Exselt from <link xl:href="http://exselt.net">http://exselt.net</link> and Saxon from <link xl:href="http://saxonica.com">http://saxonica.com</link>. </para>
+        <para>Considering that streaming is a specific feature that a processor does not have to support, it may only be available in the more extended editions of your chosen processor. When you choose an edition, make sure to choose one that supports streaming. This may be a part of the Enterprise Editions of the processors, or available as an add-on to the license.</para>
+        <para>Where this text uses processor-specific options, it will use the syntax of Exselt. This is primarily related to commandline options, which are somewhat different between processors.</para>
+        <section>
+            <title>Quick guide to the commandline syntax of Exselt</title>
+            <para>This section will briefly explain parts of the commandline syntax of Exselt. It is
+                not meant to be complete, but will give you enough ammunition to run the examples in
+                this paper and to experiment a bit beyond that. </para>
+            <para>Other processors have similar syntax and commandline abilitites. You may even find
+                that many options work the same way or use the same switches. For more information,
+                refer to your processor's documentation.</para>
+            <para>Some commandline parameters can take either a URI or an XPath expression (with, by
+                default, the XSLT stylesheet document root as context item, except for the
+                    <code>-xsl</code> commandline switch itself). Where the expression is ambiguous,
+                for instance the commandline parameter<code>-xml:file.xml</code> is both a valid URI
+                and a valid XPath expression, it will be treated as a URI. To have it treated as an
+                XPath expression use the syntax <code>-xml:xpath=file.xml</code>, which in this case
+                may not make much sense and return the empty sequence. You can use the syntax
+                    <code>-xml:uri=file.xml</code> to signify that it is an URI, but this is also
+                the default.</para>
+            <para>You can use spaces in your XPath expression, but this may create an ambiguous
+                commandline, in which case you should wrap the expression in single or double
+                quotes.</para>
+            <para>Commandline parameters that do not take a URI always take an XPath expression,
+                though in many cases this will be a numerical or string constant. For instance,
+                    <code>-param:$foo=12*12</code> will set parameter <code>$foo</code> to the
+                integer <code>144</code></para>
+            <para>Commandline parameters that take a namespace sensitive <emphasis>QName</emphasis>
+                should either use the <emphasis>EQName</emphasis> syntax, or use the prefixes of the
+                namespace bindings of the loaded stylesheet.</para>
+            <para>The following sections explain the commandline switches needed to run the
+                examples. More commandline options are available, check documentation of your
+                processor. The Saxon notes below are based on the official documentation found
+                online.</para>
+            <section>
+                <title>Commandling switches for stylesheet invocation</title>
+                <para><code>-xsl</code> Sets the principal stylesheet module or the top-level
+                    package. Takes a URI, a local file name, or an XPath expression as input. This
+                    parameter is always required.</para>
+                <para>Ex: <code>-xsl:twitter.xsl</code> will run that stylesheet from the current
+                    directory.</para>
+                <para>Saxon uses <code>-xsl</code> as well.</para>
+                <para><code>-xml</code> Sets the input document, which means, it sets the
+                        <emphasis>global context item</emphasis> and the <emphasis>initial match
+                        selection</emphasis> to an instance of that document. Takes a URI, a local
+                    file name, or an XPath expression as input. This parameter is optional. If
+                    absent, the <emphasis>initial match selection</emphasis> and <emphasis>global
+                        context item</emphasis> will be absent unless you use <code>-ims</code> or
+                        <code>-gci</code>, which are more versatile.</para>
+                <para>Ex: <code>-xml:feed.xml</code></para>
+                <para>Saxon uses <code>-s</code> instead, but syntax is the same. Saxon also
+                    supports selecting a directory for input.</para>
+                <para><code>-o</code> Sets the URI for the principal output document, that is, the
+                    location of the output set by the unnamed <code>&lt;xsl:output&gt;</code>. Takes a
+                    URI, a local file name, or an XPath expression as input. If absent,
+                        <code>stdout</code> is used. The target location must be writable.</para>
+                <para>Saxon uses <code>-o</code> as well.</para>
+                <para><code>-text</code> Sets the input document, but here sets the <emphasis>global
+                        context item</emphasis> and the <emphasis>initial match selection</emphasis>
+                    to a string as if <code>fn:unparsed-text</code> was called. Takes a URI, a local
+                    file name, or an XPath expression as input.</para>
+                <para>Saxon has no equivalent.</para>
+                <para><code>-text-lines</code> Sets the input document for streaming of text files.
+                    That is, it will set the <emphasis>global context item</emphasis> to
+                        <emphasis>absent</emphasis> and the <emphasis>initial match
+                        selection</emphasis> to a sequence of strings as if the argument was called
+                    with the function <code>fn:unparsed-text-lines</code>. This mode of invocation
+                    was added since using this function inside your stylesheet is
+                        <emphasis>not</emphasis> necessarily streamable, but using it with this
+                    commandline argument is <emphasis>always</emphasis> streamable. This allows you
+                    to process large text documents using streaming. Takes a URI, a local file name,
+                    or an XPath expression as input.</para>
+                <para>Saxon has no equivalent, but you can reach the same behavior through the
+                    API.</para>
+                <para><code>-gci</code> Sets the global context item. The g<emphasis>lobal context
+                        item</emphasis> can be different from the <emphasis>initial match
+                        selection</emphasis> (in XSLT 2.0 these were always the same). Takes a URI,
+                    a local file name, or an XPath expression as input, or the special value
+                        <code>#absent</code> to force it to be absent<footnote>
+                        <para>When using streaming with the <code>-xml</code> commandline option, by
+                            default you would set both the <emphasis>global context item</emphasis>
+                            and the <emphasis>initial match selection</emphasis> to the same
+                            document. But in many cases this is illegal with streaming. Adding
+                                <code>-gci:#absent</code> you can override this behavior by telling
+                            the processor to use no global context item at all. Alternatively, you
+                            can set it to a document, for instance a document with settings or
+                            configuration options, to be used with your streaming input, but itself
+                            to be read without streaming. To prevent such complex commandline
+                            scenarios altogether, you can force this behavior from within your
+                            stylesheet by using <code>&lt;xsl:global-context-item use="absent"
+                                /&gt;</code>.</para>
+                    </footnote> or use the special variable <code>$ims</code> to access whatever the
+                        <emphasis>initial match selection</emphasis> is set to.</para>
+                <para>Ex: <code>-gci:"map { 'subject' : 'Opera' }"</code> will set the
+                        <emphasis>global context item</emphasis> to this map. sets the global
+                    context item to a map with one key, <code>'subject'</code> set to the string
+                        <code>'Opera'</code>.</para>
+                <para>Ex: <code>-gci:$ims[2]</code> will set the <emphasis>global context
+                        item</emphasis> to the second item in the <emphasis>initial match
+                        selection</emphasis>, which may be the empty sequence.</para>
+                <para>Saxon has no equivalent yet, but this may change due to this being a new
+                    addition to the spec.</para>
+                <para><code>-ims</code> Sets the <emphasis>initial match selection</emphasis><footnote>
+                        <para>The <emphasis>initial match selection</emphasis> and the
+                                <emphasis>global context item</emphasis> can now be set
+                            independently. This was done in XSLT 3.0 to allow for any input to be
+                            used as initial input for the matching templates: it can be a string, a
+                            sequence of dates, a document, a map or it can be absent. This by itself
+                            would create a controversy as to what the <emphasis>global context
+                                item</emphasis> (the item accessible with the expression
+                                <code>.</code> from global variable, parameter, accumulator and key
+                            declarations) should be if the match selection is more than one item.
+                            Hence, XSLT 3.0 processors allow you to set a
+                                <emphasis>different</emphasis> global context item. In Exselt, this
+                            can be achieved with using both <code>-ims</code> and
+                            <code>-gci</code>.</para>
+                    </footnote>, can be used instead of <code>-xml</code> to provide more control.
+                    They cannot both be present. This commandline switch allows for
+                        <emphasis>any</emphasis> item or sequence of items to become the initial
+                    match selection. Takes a URI, a local file name (in which cases it behaves
+                    similar to <code>-xml</code>), or an XPath expression.</para>
+                <para>Ex: <code>-ims:"1,2,3"</code> sets the <emphasis>initial match
+                        selection</emphasis> to a sequence of three integers, which will each be
+                    processed in turn.</para>
+                <para>Ex: <code>-ims:"collection('.?select=*.xml')"</code> will set the
+                        <emphasis>initial match selection</emphasis> to all documents in the current
+                    directory. </para>
+                <para>Saxon has no equivalent, though you can reach similar behavior through the API
+                    or by using the <code>-s</code> option with a directory. However, semantically
+                    these approaches are different.</para>
+            </section>
+            <section>
+                <title>Commandline switches for stylesheet invocation</title>
+                <para>The switches in this section are not required. If absent, the default behavior
+                    with an input document is to start with <emphasis>template based
+                        processing</emphasis> and the initial mode set to the default mode. Without
+                    an input document, the default is to start with <emphasis>named template
+                        processing</emphasis>, with the initial template set to the special value
+                        <code>xsl:initial-template</code>. Use the following commandline syntax to
+                    override the default behavior.</para>
+                <para><code>-im</code> Sets the initial mode(s). If all of <code>-im</code>,
+                        <code>-it</code> and <code>-if</code> are absent and one of
+                        <code>-xml</code>, <code>-text</code>, <code>-ims</code>, or
+                        <code>-text-lines</code> is present, then defaults to the default mode as
+                    specified in the stylesheet, which itself defaults to the nameless mode. Takes a
+                    sequence of <emphasis>EQNames</emphasis>, each name separated by a comma, that
+                    correspond to modes in the stylesheet, or the special values
+                        <code>#default</code>, <code>#unnamed</code> or an XPath returning a
+                    sequence of <emphasis>QNames</emphasis>. The stylesheet is invoked with the same
+                    arguments for each mode in the sequence.</para>
+                <para>Saxon uses <code>-im</code> as well, but for namespaced
+                        <emphasis>QNames</emphasis>, you must use the <emphasis>EQName</emphasis>
+                    syntax. It doesn't accept the special names.</para>
+                <para><code>-it</code> Sets the initial template(s), syntax and behavior is similar
+                    to <code>-im</code>. If neither of <code>-im</code>, <code>-it</code>,
+                        <code>-if</code>, <code>-xml</code>, <code>-text</code>, <code>-ims</code>,
+                    or <code>-text-lines</code> is present then default to
+                        <code>xsl:initial-template</code><footnote>
+                        <para>An addition to XSLT 3.0 was to allow similar behavior to <code>int
+                                main()</code> in C or C++, in other words, a starting point where
+                            processing starts if no other arguments are present. For XSLT this is
+                            the template with the special name
+                            <code>xsl:initial-template</code>.</para>
+                    </footnote></para>
+                <para>Ex: <code>-it:main</code> to set the initial template to
+                    <code>main</code>.</para>
+                <para>Ex.: <code>-it:first,second,third</code> will run the stylesheet three times
+                    with each time a different initial template.</para>
+                <para>Saxon uses <code>-it</code> as wel, with the same restrictions as for
+                        <code>-im</code>.</para>
+                <para><code>-if</code> Sets the initial function(s), syntax and behavior is similar
+                    to <code>-im</code>, except that it has no special values. To set parameters,
+                    use the nameless parameter syntax explained below, or use typical function-call
+                    syntax, as if you are calling the function from XPath.</para>
+                <para>Ex.: <code>-if:my:sum((1,2,3,4))</code> calls the <code>my:sum</code> function
+                    with a sequence of four integer.</para>
+                <para>Ex.: <code>-if:my:start</code> calls the <code>my:start</code> function,
+                    optionally with whatever you put in <code>-param</code>.</para>
+                <para>Ex.: <code>-if:my:add(12,30),f:test('foo'),x:start</code> will call the three
+                    functions <code>my:add</code>, <code>f:test</code>, <code>x:start</code> with
+                    other commandline parameters the same. The results will be concatenated as with
+                    typical sequence normalization.</para>
+                <para>Saxon does not yet have a commandline switch for invoking a function, but you
+                    can achieve the same result through Saxon's API.</para>
+                <para><code>-param</code> Sets the global parameters, or the nameless parameters for
+                    the <code>-it</code> invocation. There are two distinct forms. Either
+                        <code>$var=expr</code> or <code>expr</code>, where <code>expr</code> is a
+                    regular XPath expression with other parameters, global variables, accumulator
+                    and even stylesheet functions in scope of the expression. This commandline
+                    switch can be repeated multiple times, where order may be important if you
+                    cross-reference parameters. The dollar sign is optional.</para>
+                <para>The order of nameless parameters must match the order of the stylesheet
+                    function declaration and can only be used with <code>-if</code>. The effective
+                    type of the param must match the type of the declaration.</para>
+                <para>This commandline switch can be used to set global parameters, inherited
+                    parameters from used packages, parameters of stylesheet functions, parameters of
+                    initial named templates, initial values for tunneled parameters for template
+                    invocation.</para>
+                <para>Ex.: <code>-param:"fourty" -param:42</code> sets the first nameless param to a
+                    string and the second to an integer.</para>
+                <para>Ex.: <code>-param:$foo=42</code> sets the parameter <code>$foo</code> to an
+                    integer.</para>
+                <para>Saxon uses a similar syntax, but without the <code>-param</code>, all
+                    parameters must come at the end of the commandline and take the syntax
+                        <code>key=value</code>. Use <code>?key=value</code> if you want the value to
+                    be interpreted as an XPath expression. Saxon does not allow the dollar sign to
+                    be prepended.</para>
+            </section>
+            <section>
+                <title>Commandline switches to manipulate streaming behavior</title>
+                <para><code>-istream</code> If set to <code>yes</code>, or used without argument,
+                    forces the initial match selection to be loaded as streamed documents. In case
+                    you run it against a sequence of documents, each document will be streamed. This
+                    will raise an error if the initial mode is not streamable, that is,
+                        <code>xsl:mode</code> must have an attribute <code>streamable="yes"</code>.
+                    It is ignored when you use <code>-it</code> or <code>-if</code> invocation. This
+                    option is normally not required, unless to differentiate between the global
+                    context item and the initial match selection and which of the two are
+                    streamable, or when loading a collection of documents.</para>
+                <para>Saxon has no equivalent, though this may be possible through the API.</para>
+                <para><code>-gstream</code> If set to <code>yes</code>, or used without argument,
+                    forces the global context item to be loaded as a streamed document. This means
+                    that each global <code>xsl:variable</code> and <code>xsl:param</code> and other
+                    declarations that access the global context item must be motionless. By default,
+                    the global context item is assumed to be non-streamable, but if you run your
+                    stylesheet with the <code>-xml</code> option and the initial mode or default
+                    mode is streamable, the global context item will also be streamed and above
+                    rules apply. Using this option with the <code>-gci</code> option you can
+                    initiate a transformation with a streaming initial match selection and a
+                    non-streaming, or streaming and different global context item. Note that, if the
+                        <code>xsl:global-context-item</code> is present and has the
+                        <code>streamable</code> property set either implicitly or explicitly, this
+                    option should either be omitted or set to the same value.<footnote>
+                        <para>A recent discussion in the XSL Working Group showed the necessity of
+                            such flexibility. At the moment of this writing, this bug is still open,
+                            but I assume that all combinations mentioned here will be valid
+                            according to the XSLT 3.0 specification, or allowed as extensions. See
+                            bug number 29499 in <xref linkend="paper-22_2"/>.</para>
+                    </footnote>.</para>
+                <para>Saxon has no equivalent, though this may be possible through the API.</para>
+                <para><code>-xstream</code> Sets a special mode of operation for reading the
+                    stylesheet XML itself. It serves the situation where the data you want to stream
+                    is inside the stylesheet as <emphasis>data elements</emphasis> in the root. This
+                    mode assumes that the stylesheet, if read in memory at once, would be too large
+                    because of these data sections. Such a stylesheet <emphasis>must</emphasis> have
+                    all XSLT declarations <emphasis>before</emphasis> the data elements. All data
+                    elements <emphasis>must</emphasis> come <emphasis>after</emphasis> the last
+                    declaration and just before the closing <code>&lt;/xsl:stylesheet&gt;</code> or
+                    closing <code>&lt;/xsl:package&gt;</code>. This allows the compiler to read and
+                    compile the stylesheet or package without reading through all the data elements
+                    and without running out of memory.</para>
+                <para>Saxon has no equivalent.</para>
+                <para><code>-sr</code> Sets the <emphasis>StreamReader</emphasis> to be used for
+                    streaming. The default StreamReader accepts XML. For the purpose of this paper,
+                    an additional StreamReader was added to read RSS feeds as an indefinite stream,
+                    that is, it will poll for new messages and not close the XML document. Message
+                    are read with most recent last. To use this StreamReader add
+                        <code>-sr:RssStreamReader</code> to the commandline.</para>
+                <para>Saxon accepts alternative <emphasis>XmlReaders</emphasis>, which you must
+                    enable on the <emphasis>classpath</emphasis>. </para>
+                <para><code>-ff</code> Sets the <emphasis>flush frequency</emphasis>. The frequency
+                    is in Herz and takes the format of an <code>xs:decimal</code> literal or an
+                    XPath expression. For instance, setting <code>-ff:0.1</code> will flush every 10
+                    seconds and <code>-ff:42</code> will flush 42 times per second. The default is
+                        <code>-ff:0.1</code>. The default can globally be overridden by setting the
+                    environment variable <code>EXSELT_FLUSH_FREQUENCY</code>. See also the section
+                    on flushing.</para>
+                <para>I've asked Saxon by mail on how to do this in Saxon and the answer was that it
+                    can <emphasis>probably</emphasis> be achieved by configuring a non-buffering
+                    output stream.</para>
+            </section>
+        </section>
+        <section>
+            <title>Running the examples</title>
+            <para>With the commandline arguments in place you should have enough information to play
+                around with the examples or to experiment yourself. The examples can be used with
+                any <xref linkend="paper-22_8"/> stream. For the purpose of these examples, we use the
+                Twitter RSS Feed Google script made by Amit Argarwal, see
+                    <xref linkend="paper-22_9"/>. It requires no programming skills to set it
+                up. It does require a Google account. Simply follow the instructions on the referred
+                to web page<footnote>
+                    <para>Prior to the conference, all examples will be made available on <link xl:href="http://exselt.net">http://exselt.net</link>, including a copy
+                        of these instructions in case Argarwal's blog disappears, and a ready-made
+                        twitter feed that can be configured with search criteria.</para>
+                </footnote>.</para>
+            <para>To run a stylesheet with a streaming input document, perhaps the simplest is to use <code>xsl:stream</code> in your code. For simplicity and shorter examples, the code in this paper will assume (explained in the next section) that the <emphasis>initial mode</emphasis> is the nameless mode (this is the default since XSLT 1.0) and that this mode is explicitly set to be streamable using the declaration <code>&lt;xsl:mode streamable="yes" /&gt;</code>. However, it is possible that your processor does not support all commandline options mentioned in the previous and this section. You can force the examples to work with such processors by using the <code>xsl:stream</code> instruction to load the external streamed documents.</para>
+            <para>The simplest way to call a stylesheet is to have no input document at all. The examples in this paper will <emphasis>not</emphasis> use this approach though. Add a named template such as the following (the name is pre-defined in XSLT 3.0) to your stylesheet:</para>
+              <programlisting>&lt;xsl:template name="xsl:initial-template"&gt;
+  &lt;xsl:stream href="streamed-source.xml"&gt;
+    &lt;!-- applies the principle node to the
+         streamed default mode --&gt;
+    &lt;xsl:apply-templates /&gt;
+  &lt;/xsl:stream&gt;
+&lt;/xsl:template&gt;</programlisting>
+            <para>Having this in place, where the <code>href</code> attribute points to your streamed source document, you can run the examples as well with the following simplified commandline, which will auto-select the default initial named template:</para>
+          <programlisting>exselt -xsl:example.xsl</programlisting>
+            <para>Most examples, unless otherwise mentioned, can be run by using the following commandline with Exselt. For the RSS examples to work with other processors, notably Saxon, you may need to create the equivalent of the StreamReader mentioned in the <code>-sr</code> commandline argument. At the time of this writing I do not know if Saxon supports indefinite streams, the question is still open.</para>
+            <programlisting>exselt -xsl:example.xsl
+   -xml:feedurl.rss
+   -sr:RssStreamReader
+   -gci:#absent</programlisting>
+            <para>The last line in the above example forces the <emphasis>global context item</emphasis> to be absent. The default behavior of the <code>-xml</code> argument is, for backwards compatibility reasons with XSLT 2.0, to set both the global context item and the initial match selection to the same input document. But, as mentioned before, setting the global context item to a streamed document can be problematic, it is generally favorable to set it to the special value <emphasis>absent</emphasis>. A cross-processor solution is to simply always use the declaration <code>&lt;xsl:global-context-item use="absent" /&gt;</code> in your code to prevent this from happening. Exselt will detect this scenario and will prime your stylesheet without the global context item set if you use <code>-xml</code> or <code>-ims</code> commandline options without a specific <code>-gci</code> option.</para>
+            <para>For examples that require a separate global context item, the following commandline can be used:</para>
+          <programlisting>exselt -xsl:example.xsl
+   -xml:feedurl.rss
+   -sr:RssStreamReader
+   -gci:"document('settings.xml')"
+   -gstream:no</programlisting>
+            <para>If you want to try the examples with multiple RSS feeds, which will mean they will
+                be processed one after another requiring the first feeds to be terminal, you can use
+                the following commandline, which uses the <emphasis>initial match
+                    selection</emphasis> to set multiple streams. This can also be achieved by code
+                by using the <code>xsl:stream</code> instruction on each URI. In Saxon you can get
+                similar behavior by using a directory search
+                pattern.</para><programlisting>exselt -xsl:example.xsl
+-ims:"document('feed1.rss','feed2.rss','feed3.rss')"
+  -istream:yes
+  -sr:RssStreamReader
+  -gci:"doc('settings.xml')"
+  -gstream:no</programlisting>
+            <para>Finally, if you want to experiment with the <emphasis>global context item</emphasis> itself being streamable, which requires the <code>xsl:global-context-item</code> to be present with an attribute <code>streamable="yes"</code>, you can use the following commandline:</para>
+<programlisting>exselt -xsl:example.xsl
+   -xml:feedurl.rss
+   -sr:RssStreamReader</programlisting>
+            <para>The above will use the following defaults automatically:</para><programlisting>exselt -xsl:example.xsl
+   -xml:feedurl.rss
+   -sr:RssStreamReader
+   -gci:feedurl.rss
+   -gstream:yes</programlisting>
+            <para>In other words, it will use the feed from the <code>-xml</code> argument as the global context item. This allows you to access the streamed document from within global declarations like <code>xsl:accumulator</code> and <code>xsl:variable</code>. Be aware that this is an advanced concept and that you can only use motionless expressions in the global declarations (that is, the global declarations are not allowed to advance past the root element).</para>
+        </section>
+        <section>
+            <title>Boilerplate for the examples</title>
+            <para>The examples, for the sake of brevity, will omit boilerplate code. The templates,
+                functions and other declarations should be put inside the following base stylesheet
+                used for streaming. Without additions, it will act as an identity
+                template:</para>
+          <programlisting>&lt;!-- 
+   using xsl:package instead of xsl:stylesheet
+   enforces that modes have to be declared, which
+   prevents type errors
+ --&gt;
+&lt;xsl:package
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  exclude-result-prefixes="xs"
+  expand-text="yes"
+  version="3.0"&gt;
+  
+  &lt;!-- sets the initial default
+       mode to streamable --&gt;
+  &lt;xsl:mode streamable="yes"
+            on-no-match="shallow-copy" /&gt;
+  
+  &lt;!-- remove the xml decl in the output --&gt;
+  &lt;xsl:output method="xml"
+              omit-xml-declaration="yes" /&gt;
+  
+  &lt;!-- prevent the global context item
+       to be there at all --&gt;
+  &lt;xsl:global-context-item use="absent" /&gt;
+
+&lt;/xsl:package&gt;</programlisting>
+        </section>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Understanding difference between global context item and initial match
+            selection.</title>
+        <para>In a typical transformation scenario there's a triplet of a stylesheet, that contains
+            the programming logic, an input document that needs to be processed, and an output
+            document containing the result.</para>
+        <para>That is no different with streaming. However, you need to instruct the processor that
+            you want to use streaming. This can be done by using <code>&lt;xsl:mode streamable="yes"
+                /&gt;</code>. This will set the initial mode to be streamable and when you call the
+            stylesheet in the normal way, the processor will detect that it should read the input
+            document using streaming.</para>
+        <para>However, in XSLT 2.0 there was always only one input document and the processor would
+            present the stylesheet with a document node of that input document. In XSLT 3.0 this has
+            changed. While the above is still the default for backwards compatibility, the input
+                <emphasis>sequence</emphasis> can now be anything, ranging from an empty sequence,
+            to a sequence of strings, dates, integers maps etc, to a sequence of a single or
+            multiple documents, or even a mix of all of the above.</para>
+        <para>Since global variables and parameters and the like can access the context item, for
+            instance with <code>&lt;xsl:variable name="settings" select=".//settings" /&gt;</code> to
+            retrieve an element named <code>settings</code> from the input document, the question
+            rises, if the input contains multiple items and not necessarily documents, what is this
+            context item set to?</para>
+        <para>To differentiate between the two, XSLT 3.0 introduces the <emphasis>global context
+                item</emphasis> and the <emphasis>initial match selection</emphasis>. They do not
+            have to be the same. It is up to the processor's API or commandline interface to set
+            these to different values. It can be expected, but is by no means necessary, that if the
+            input sequence, which is the <emphasis>initial match selection</emphasis>, is a sequence
+            of more than one, that the first item will serve as the <emphasis>global context
+                item</emphasis>.</para>
+        <para>The commandline reference summary in the previous section explains how to set this for
+            Exselt, for Saxon you can set this by API only, as of yet there is no way to set this to
+            different values using commandline parameters only.</para>
+        <section>
+            <title>Relation between streaming, global context item and initial match
+                selection</title>
+            <para>When it comes to streaming, the processor can easily detect when there is a single
+                input document and when the stylesheet has an <code>&lt;xsl:mode streamabe="yes"
+                    /&gt;</code>. However, for the <emphasis>global context item</emphasis> this is not
+                so trivial.</para>
+            <para>A streamable construct is a construct that has expressions or nested constructs
+                that together are <emphasis>guaranteed streamable</emphasis>. This paper will not
+                discuss the rules of guaranteed streamability, other papers are available for that,
+                including some of myself. In case of the global context item, for a global
+                declaration like <code>xsl:variable</code> to access a streamed input document, the
+                processor must be informed about this by the use of
+                    <code>&lt;xsl:global-context-item streamable="yes" /&gt;</code>, which in turn puts
+                restrictions on the global declarations: they may only contain grounded, motionless
+                constructs.</para>
+            <para>It is rarely necessary to use this mechanism, unless you want to maintain some
+                information, for instance the input document URI, for reference in other
+                constructs.</para>
+            <para>A more serious issue arises if you would access the global context item and you do
+                not specify that it must be streamable. Suppose you want to read the settings of the
+                input document as explained above. Such a construct would be illegal with
+                streaming.</para>
+            <para>A scenario like that can be achieved by setting the global context item to a
+                    <emphasis>different</emphasis> document than the initial match selection and to
+                override that it must <emphasis>not</emphasis> be streamed. You can get to this
+                behavior by using the <code>-gci</code> and the <code>-ims</code> commandline
+                switches together with the <code>-istream</code> and <code>-gstream</code> switches
+                to instruct the processor that the global context item should, or should not be
+                streamed. This scenario is most useful when the input document should be streamable,
+                but the global context item should not.</para>
+            <para>Note that, if you set the global context item to a streamed document and you do
+                not provide the same item in the initial match selection, that you cannot access
+                anything else than the root element of that document. While an allowed scenario, in
+                practice this is of little use.</para>
+        </section>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Reading an uninterrupted stream</title>
+        <para>An uninterrupted stream, eternal stream, neverending stream is a stream that has a
+            start, namely the moment the stream is requested, but no end. Processing such streams
+            poses an extra challenge on processors because it requires them to do intermediate
+            flushes, otherwise the result document will be created in memory, but never released,
+            leading to an eternally running processor but no output document.</para>
+        <para>One of the simplest conceivable uninterrupted streams is a time ticker. For purposes
+            of testing the examples in this paper I have created an online time ticker that can be
+            found at <link xl:href="http://exselt.net/time-ticker">http://exselt.net/time-ticker</link>. The stream looks something like
+            this:<programlisting language="xml">&lt;ticker&gt;
+  &lt;time&gt;2016-06-15T15:04:36+01:00&lt;/time&gt;
+  &lt;time&gt;2016-06-15T15:04:37+01:00&lt;/time&gt;
+  &lt;time&gt;2016-06-15T15:04:38+01:00&lt;/time&gt;
+  ...</programlisting></para>
+        <para>Not a particularly entertaining stream, but it works as an example. It is somewhat
+            similar to a <emphasis>ping</emphasis> command, that it will return an element each
+            second and leave the connection open. It will never close the opening root tag.</para>
+        <para>You can process this stream using the example boilerplate code, store it as
+                <code>timefeed.xsl</code>, without any additions and the following
+            commandline:<programlisting>exselt -xsl:timefeed.xsl
+   -xml:http://exselt.net/time-ticker
+   -gci:#absent
+   -o:output.xml</programlisting></para>
+        <para>You should now see a document <code>output.xml</code> that is growing each time a new
+            element is read from the input stream. Since we use an identity template, seemingly
+            nothing special happens and we output exactly the same as the input.</para>
+        <para>The added <code>-gci:#absent</code> is not required, but makes it clear that we do not
+            want to set the global context item to the same as the stream, see previous section for
+            a discussion.</para>
+        <para>Behind the scenes, this example uses the default matching templates for
+                <emphasis>shallow-copy</emphasis>, which means that each node is processed and then
+            its children are processed, and when there's no match, they will be copied. The behavior
+            is similar to the identity template using <code>xsl:copy</code> on non-matched items.
+            This is different from <emphasis>deep-copy</emphasis>, where the children are not
+            processed separately and once there's no match, the whole node and all its children are
+            copied to the output stream, similar to <code>xsl:copy-of</code><footnote>
+                <para>With uninterrupted streams it can be dangerous to use <code>fn:copy-of</code>,
+                        <code>xsl:copy-of</code> and similar instructions, especially when operated
+                    on the element that will never be closed, in this case the root element
+                        <code>ticker</code>. Since these <emphasis>copy-of</emphasis> instructions
+                    are supposed to read to the end of the element, and there is no end of an
+                    element, it will lock your processor until it is forcibly closed. It may also
+                    crash your processor, as essentially you are telling the processor that you can
+                    read the whole element in memory, which in this case clearly isn't possible,
+                    leading to an <emphasis>out-of-memory</emphasis> exception.</para>
+            </footnote>.</para>
+        <section>
+            <title>Elaborating on the time-ticker</title>
+            <para>Let's expand a bit on the previous example and do something a little bit more
+                useful. Let's print the time in a more humanly readable format, by adding the
+                following to the
+                example:<programlisting>&lt;xsl:template match="ticker"&gt;
+  &lt;xsl:apply-templates /&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match="time"&gt;
+  &lt;current-time&gt;{
+    format-time(., '[H01]:[m01]:[s01] [z]')
+  }&lt;/current-time&gt;
+&lt;/xsl:template&gt;</programlisting></para>
+            <para>The output will now look something
+                like:</para>
+          <programlisting language="xml">&lt;current-time&gt;23:45:12 GMT+1&lt;/current-time&gt;
+&lt;current-time&gt;23:45:13 GMT+1&lt;/current-time&gt;
+&lt;current-time&gt;23:45:14 GMT+1&lt;/current-time&gt;
+...</programlisting>
+            <para>We deliberately didn't output a root element, as we won't be able to close it anyway<footnote>
+                    <para>It is possible that processors may provide a mechanism for closing the
+                        output stream when the stream is interrupted, but this is API design and out
+                        of scope of the specification. In fact, it more likely that the XmlReader
+                        you are using can close the stream neatly when it is interrupted, providing,
+                        in this case, the closing <code>&lt;/ticker&gt;</code> to keep the XML
+                        well-formed.</para>
+                </footnote>. By creating a sequence of root elements, it may be easier to
+                post-process this stream, but of course that is up to whatever application you want
+                to process this further with.</para>
+            <para>Let's look at the example a bit more closely. The first template, which has no
+                    <emphasis>mode</emphasis> attribute so it sits in the unnamed mode, which is
+                streamable because we use our boilerplate example, skips the root element and
+                processes its children elements. This is called a <emphasis>downward
+                    selection</emphasis> or more properly, a consuming expression. In streaming,
+                consuming expressions are allowed (they literally <emphasis>consume</emphasis> the
+                input stream, i.e., they move the reading pointer forward through the stream data),
+                as long as there is a maximum of one consuming expression per construct. All
+                examples in this paper will use proper <emphasis>guaranteed streamable</emphasis>
+                expressions, for a discussion of such expressions, several papers, talks and
+                tutorials are available online, on overview of which can be found at <link xl:href="http://exselt.net/streaming-tutorials">http://exselt.net/streaming-tutorials</link>.</para>
+            <para>The second template operates on <code>time</code> elements and formats them in a
+                more humanly readable format. The curly brackets act as <emphasis>text value
+                    templates</emphasis>, which is similar to <emphasis>attribute value
+                    templates</emphasis> from XSLT 2.0 and can take any XPath expression, but can be
+                applied to any place where a text node is created, provided you have the
+                    <code>expand-text="yes"</code> in a parent element. We set it already on the
+                root <code>xsl:package</code>, so we can use this syntax everywhere.</para>
+            <para>This template, inside the <emphasis>text-value template</emphasis> uses the
+                function <code>fn:format-time</code> with the <emphasis>context item
+                    expression</emphasis>
+                <code>.</code>. This function consumes its first argument and formats it. Since this
+                whole matching template has only one consuming expression, it is streamable.</para>
+        </section>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Challenges with uninterruped streaming</title>
+        <para>Several challenges exist for processors that support uninterrupted streaming that are
+            not directly addressed by the specification, which means the specification leaves it the
+            API of the processor to address those challenges.</para>
+        <para>First of all, it is no requirement at all that processors are able of reading an
+            uninterrupted stream. Supporting streamability means that processors can process
+            arbitrary large XML documents, it doesn't specify anywhere what the maximum size is,
+            though it implies that the size can be unlimited, that is, an eternal stream, instead of
+            a large document that is too large for memory, but nonetheless has a beginning and
+            end.</para>
+        <para>Secondly, processors are not required, though encouraged, to provide limited buffering
+            on the output stream. If a processor does not provide buffering, and your stylesheet is
+            such that the output stream grows porportionally to the input stream, it will
+            eventually, given enough time, run out of memory. Furthermore, in such cases the output
+            will never appear physically, as it is maintained in memory and not flushed
+            in-between.</para>
+        <para>A third challenge is how to deal with interrupting the unlimited stream. Suppose you
+            would simply hit <emphasis>Ctrl-C</emphasis> on the commandline, the processor will
+            crash with an error and what is written to the output may be a broken document. The API
+            may in such case provide a mechanism to close the stream properly.</para>
+        <para>Several of those mechanisms have already been discussed above with the commandline
+            reference (see the <code>-ff</code> switch to control the flush frequency). A further
+            improvement could be to allow flushing at a number of elements or a number of bytes. Or
+            to allow no flushing at all, but to wait until the stream is completed and force the
+            processor to keep everything in memory.</para>
+        <para>At present, Exselt, and I believe Saxon too, does not provide a mechanism by default
+            to break the stream in a neat way. However, it can be expected that such options will
+            become available in the near future. For now it means that if you interrupt the stream
+            forcefully, the behavior is processor-dependent. If a part of the stream is already
+            flushed, at least that part will be readable.</para>
+        <section>
+            <title>Dealing with errors</title>
+            <para>XSLT 3.0 introduces <code>xsl:try/xsl:catch</code> for catching and recovering
+                from errors. This instruction comes with the attribute <code>rollback</code> which
+                takes a boolean value. If set to <code>"yes"</code> it instructs the processor to
+                buffer enough of the output (and not flush it) so that it can recover from the error
+                by rolling back. An alternative mechanism can be provided by use <emphasis>safe
+                    points</emphasis> or <emphasis>recovery points</emphasis>.</para>
+            <para>This approach is not very helpful for errors resulting in unlimited streams, as
+                that would require unlimited buffering for the processor to recover from a potential
+                error. On a smaller scale you can still use this though, for instance by using a
+                try/catch around a leaf node, in our example we could do it inside the
+                    <code>time</code>
+                element:</para><programlisting>&lt;xsl:template match="time"&gt;
+  &lt;xsl:try rollback="yes"&gt;
+    &lt;current-time&gt;{
+      format-time(., '[H01]:[m01]:[s01] [z]')
+    }&lt;/current-time&gt;
+    &lt;xsl:catch&gt;
+      &lt;current-time&gt;invalid time&lt;/current-time&gt;
+    &lt;/xsl:catch&gt;
+  &lt;/xsl:try&gt;
+&lt;/xsl:template&gt;</programlisting>
+            <para>This works as can be expected. Where we to use this without the rollback
+                attribute, the processor may not be able to recover from the stream leaving the
+                output in an inderminate state.</para>
+            <para>In case we would wrap the whole stream in a try/catch we would everntually run out
+                of memory, because everything would need to be buffered to allow rolling back. In
+                practice this mechanism is only useful on smaller elements that can easily be
+                buffered.</para>
+        </section>
+    </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Processing a twitter feed</title>
+        <para>Now that we have seen how a trivial uninterrupted feed can be handled, let's see how
+            we can process an unlimited RSS twitter feed.</para>
+        <para>The URL created from the section on obtaining the Twitter feed as RSS will look
+            something like
+                <emphasis>https://script.google.com/macros/s/AKfycbxSzab_rjrOSSF1s6N-C5kjXLdD0ZQZx-Zu3sqaeKS3Y38Bd6Y/exec?730658803637727232</emphasis>
+            (on one line without spaces). Using the <emphasis>RssStreamReader</emphasis> mentioned
+            before, with this URI, will create a stream of the following
+            format:</para><programlisting language="xml">&lt;rss version="2.0" 
+  xmlns:atom="http://www.w3.org/2005/Atom"
+  xmlns:media="http://search.yahoo.com/mrss/"&gt;
+  &lt;channel&gt;
+    &lt;title&gt;Twitter RSS Feed ...&lt;/title&gt;
+    &lt;!-- some information
+            removed for readability --&gt;
+    &lt;item&gt;
+      &lt;title&gt;
+        &lt;![CDATA[Abel Braaksma: @gimsieke lol, 
+        you got me, I thought it was
+        http://twitter.com&amp;nbsp; 
+        acting up after my browser
+        crashed and restarted ;p]]&gt;
+      &lt;/title&gt;
+      &lt;pubDate&gt;2016-02-20T11:10:23+0000&lt;/pubDate&gt;
+      &lt;author&gt;Abel Braaksma&lt;/author&gt;
+      &lt;!-- some info removed for readability --&gt;
+      &lt;description&gt;
+        &lt;!-- descr in esc. XHTML markup --&gt;
+      &lt;/description&gt;
+    &lt;/item&gt;
+    &lt;item&gt; ... next item</programlisting>
+        <para>If you open the URI with a browser, it will show the most recent first. When you open
+            it with the <emphasis>RssStreamReader</emphasis> the most recent item will come last.
+            Whenever a new tweet is sent to this Twitter account, the reader will read it and append
+            it to the input stream.</para>
+        <para>Using the commandline syntax discussed earlier we can read this stream as an
+            uninterrupted stream. The closing <code>&lt;/rss&gt;</code> will not be sent to the
+            processor using our reader, making it easier to deal with the stream.</para>
+        <section>
+            <title>Getting the Twitter descriptions</title>
+            <para>To get started, let's take our boilerplate code and try to output only the
+                description:</para>
+          <programlisting>&lt;xsl:template match="*"&gt;
+  &lt;xsl:apply-templates /&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match="item/description"&gt;
+  &lt;div&gt;
+    &lt;xsl:copy-of select="parse-xml-fragment(.)" /&gt;
+  &lt;/div&gt;
+&lt;/xsl:template&gt;</programlisting>
+            <para>This example skips over everything and then loads the
+                    <emphasis>XML-as-string</emphasis> using the new XPath 3.0 function
+                    <code>fn:parse-xml-fragment</code><footnote>
+                    <para>A similar function exists that is called <code>fn:parse-xml</code>, but
+                        that requires a single root node. This is not guaranteed with this Twitter
+                        feed, so we use <code>fn:parse-xml-fragment</code>, which wraps it in a
+                        document node.</para>
+                </footnote> to interpret this escaped XML as proper XML and output it. </para>
+            <para>The result is that on each flush, an element <code>&lt;div&gt;</code> is added with
+                as its content the tweet from the current feed. Those <code>div</code> elements
+                could be appended to any existing HTML page, for instance by using AJAX
+                technology.</para>
+        </section>
+        <section>
+            <title>Processing the result</title>
+            <para>Since we are dealing with uninterrupted feeds, the result will also be an
+                uninterrupted feed. To process this further, we need to feed it to a system that can
+                process such streams. Since we are currently outputting XML this may not be trivial
+                and moves the burden of processing an unlimited stream to the next tool in the
+                chain.</para>
+            <para>An easier way out is to use the <code>xsl:message</code> mechanism of XSLT. This
+                creates a document node each time it is called and this document is fed to a
+                    <emphasis>message listener</emphasis>. Both Saxon and Exselt provide an easy
+                interface to create a listener through the API which can react to new messages
+                whenever they appear and process them further, for instance by sending them to a
+                database, making a <emphasis>push message</emphasis> to a mobile phone app or
+                turning it into a new feed for a web page.</para>
+            <para>The example above would look as follows when using this
+                technique:</para><programlisting>&lt;xsl:template match="*"&gt;
+  &lt;xsl:apply-templates /&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match="item/description"&gt;
+  &lt;xsl:message&gt;
+    &lt;div&gt;
+      &lt;xsl:copy-of select="parse-xml-fragment(.)"/&gt;
+    &lt;/div&gt;
+  &lt;/xsl:message&gt;
+&lt;/xsl:template&gt;</programlisting>
+        </section>
+        <section>
+            <title>Accumulating data of the Twitter feed</title>
+            <para>Just processing a Twitter feed as explained above is not particularly challenging
+                and can be achieved by a myriad of other techniques as well. But what if you want to
+                accumulate data, let's say the <emphasis>nth message</emphasis> send in this
+                feed?</para>
+            <para>This cannot be done by using standard XSLT 2.0 mechanisms. This was recognized
+                when XSLT 3.0 introduced streaming and the <code>xsl:accumulator</code> instruction
+                was added for this purpose. An accumulator is created declaratively and globally and
+                does what its name implies: it accumulates data that is passed through as a stream.
+                You can look at is as a way of appending meta-data to elements and other nodes that
+                pass through while streaming, which can be read out at a later stage using the
+                functions <code>fn:accumulator-before</code> and
+                <code>fn:accumulator-after</code>.</para>
+            <para>The reason this cannot be done is because in streaming, you cannot <emphasis>look
+                    back</emphasis> or <emphasis>peek forward</emphasis>. In other words, you simply
+                cannot do something like <code>count(preceding-sibling::*)</code>, which might
+                suffice here to simply count all the tweets that have been passed through up until
+                the current tweet.</para>
+            <para>The following example shows how we can count with an accumulator, expanding on our
+                existing
+                example:</para><programlisting>&lt;xsl:accumulator name="count"
+                 streamable="yes"
+                 initial-value="0"&gt;
+  &lt;xsl:accumulator-rule match="channel/item"
+                        select="$value + 1" /&gt;
+&lt;/xsl:accumulator&gt;
+
+&lt;xsl:template match="*"&gt;
+  &lt;xsl:apply-templates /&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match="item/description"&gt;
+  &lt;xsl:message&gt;
+    &lt;div&gt;
+      &lt;p&gt;This is message {
+        accumulator-before('count')
+      }&lt;/p&gt;
+      &lt;xsl:copy-of select="parse-xml-fragment(.)"/&gt;
+    &lt;/div&gt;
+  &lt;/xsl:message&gt;
+&lt;/xsl:template&gt;</programlisting>
+            <para>As long as we do not restart or interrupt the stream, the accumulator will
+                continue to add 1 each time it encounters a new <code>&lt;item&gt;</code> and we can
+                access this value by using the <code>fn:accumulator-before</code> function. This
+                function is <emphasis>motionless</emphasis>, which means we can use it as often as
+                we want inside a single construct. In fact, the accumulator itself must be
+                motionless as well.</para>
+        </section>
+        <section>
+            <title>Accessing the global context item to set defaults for the accumulator</title>
+            <para>The previous section showed how to count messages. But what if we know the stream
+                will not start with showing all the past messages, but will start with the current
+                message, and we have a different XML feed that will return the total messages
+                processed?</para>
+            <para>There are several approaches to this, the approach I will present here is by using
+                a settings document that contains the necessary metadata and set this as a
+                    <emphasis>non-streamable</emphasis> global context item. Use the
+                    <code>-gstream:no -gci:settings.xml</code> as additional commandline
+                parameters.</para>
+            <para>Suppose we feed our processor an additional settings document that, for the
+                purposes of keeping the example brief, looks as
+                follows:</para><programlisting language="xml">&lt;settings&gt;
+  &lt;!-- set how many have been processed already --&gt;
+  &lt;tweet processed="325" /&gt;
+&lt;/settings&gt;</programlisting>
+            <para>With the commandline parameters specifying that the the global context item is not
+                streamed (if it were streamed it would be illegal unless we also have the
+                    <code>xsl:global-context-item</code> with <code>streamable="yes"</code> present
+                as mentioned previously) we can update our accumulator as
+                follows:</para><programlisting>&lt;xsl:accumulator name="count"
+  streamable="yes"
+  initial-value="xs:integer(
+                     ./settings/tweed/@processed)"&gt;
+  &lt;xsl:accumulator-rule match="channel/item"
+                        select="$value + 1" /&gt;
+&lt;/xsl:accumulator&gt;</programlisting>
+            <para>Normally, if the global context item were indeed streamable and we had added the
+                    <code>xsl:global-context-item</code> to make the stylesheet valid, we would not
+                be able to use the expression above, because all expressions that access the global
+                context item must be motionless. Traversing down the tree is
+                    <emphasis>consuming</emphasis>, which is not allowed.</para>
+            <para>Since we specified explicitly that we can read the settings document in one go,
+                without streaming, the consuming expression is of no influence to the streamability
+                and the output will start counting with the number <code>325</code> as
+                expected.</para>
+        </section>
+        <section>
+            <title>Expanding on the Twitter feed example</title>
+            <para>We have seen some trivial examples that use an RSS feed as unlimited XML stream.
+                The examples here were necessarily trivial to show how this process works. To expand
+                on these examples, for instance by adding layout, more information, process
+                timestamps of the feed etc., you can simply append the necessary matching templates.
+                Keep it simple, as each template is allowed at most one downward expression<footnote>
+                    <para>If you need multiple downward expressions, you can use the instruction
+                            <code>xsl:fork</code>, which creates a <emphasis>forked
+                            stream</emphasis>, that is, you can have any number of downward
+                        selections in the children of that instruction and they may even overlap,
+                        the processor will create multiple read pointers to deal with this.</para>
+                </footnote>.</para>
+            <para>To expand on the accumulator, for instance to provide a character-average, or
+                other calculations, you can add new accumulators or update the existing ones. While
+                doing this, make sure that the expressions you use do not consume the tree. This can
+                be tricky at times, but you can circumvent more complex scenarios by referencing
+                accumulators from each other to create more complex expressions and to refer or
+                combine calculations.</para>
+            <para>A more elaborate example that shows this and other techniques is available online
+                from <link xl:href="http://exselt.net/papers">http://exselt.net/papers</link> and
+                will also be presented at XML London 2016.</para>
+        </section>
+    </section>
+
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Conclusion</title>
+        <para>While XSLT 3.0 does not directly address unlimited XML feeds, the streaming feature
+            comes with enough capabilities for processors to support it without really resorting to
+            processor-specific extensions. While some of this paper discussed processor-dependent
+            ways of invoking stylesheets, the principles shown here can be applied with any capable
+            processor, provided they support intermediary flushing.</para>
+        <para>I've kept the examples necessarily brief to focus on the matter at hand: uninterruped,
+            unlimited streaming. We've seen that we can process a feed of timestamps, a Twitter feed
+            or essentially any feed. Using techniques presented here you can process XML streams
+            that are indefinite, a capability that was not available in XSLT 2.0, but could now
+            become a mainstream approach for the many live feeds that we work with everyday on our
+            phones, websites or apps.</para>
+    </section>
+  
+    <bibliography xmlns:xl="http://www.w3.org/1999/xlink">
+          <biblioentry xml:id="paper-22_1" xreflabel="[1]">
+            <abbrev>1</abbrev>
+            <citetitle>XSL Transformations (XSLT) Version 3.0, Latest Version, Candidate
+              Recommendation</citetitle>
+            <editor>
+              <personname>
+                <firstname>Michael</firstname>
+                <surname>Kay</surname>
+              </personname>
+            </editor>
+            <biblioid class="uri">http://www.w3.org/TR/xslt-30/</biblioid>
+          </biblioentry>
+          <biblioentry xml:id="paper-22_2" xreflabel="[2]">
+            <abbrev>2</abbrev>
+            <citetitle>Bugzilla - Public W3C Bug / Issue tracking system</citetitle>
+            <pubdate>2014</pubdate>
+            <authorgroup>
+              <editor>
+                <personname>
+                  <firstname>Miscellaneous authors</firstname>
+                </personname>
+              </editor>
+            </authorgroup>
+            <biblioid class="uri">https://www.w3.org/Bugs/Public/</biblioid>
+          </biblioentry>
+          <biblioentry xml:id="paper-22_3" xreflabel="[3]">
+            <abbrev>3</abbrev>
+            <citetitle>XML Path Language (XPath) 3.0, W3C Recommendation 08 April 2014</citetitle>
+            <authorgroup>
+              <editor>
+                <personname>
+                  <firstname>Jonathan</firstname>
+                  <surname>Robie</surname>
+                </personname>
+              </editor>
+              <editor>
+                <personname>
+                  <firstname>Don</firstname>
+                  <surname>Chamberlin</surname>
+                </personname>
+              </editor>
+              <editor>
+                <personname>
+                  <firstname>Michael</firstname>
+                  <surname>Dyck</surname>
+                </personname>
+              </editor>
+              <editor>
+                <personname>
+                  <firstname>John</firstname>
+                  <surname>Snelson</surname>
+                </personname>
+              </editor>
+            </authorgroup>
+            <biblioid class="uri">http://www.w3.org/TR/xpath-30/</biblioid>
+          </biblioentry>
+          <biblioentry xml:id="paper-22_4" xreflabel="[4]">
+            <abbrev>4</abbrev>
+            <citetitle>XML Path Language (XPath) 3.1, W3C Candidate Recommendation 17 December 2015</citetitle>
+            <authorgroup>
+              <editor>
+                <personname>
+                  <firstname>Jonathan</firstname>
+                  <surname>Robie</surname>
+                </personname>
+              </editor>
+              <editor>
+                <personname>
+                  <firstname>Don</firstname>
+                  <surname>Chamberlin</surname>
+                </personname>
+              </editor>
+              <editor>
+                <personname>
+                  <firstname>Michael</firstname>
+                  <surname>Dyck</surname>
+                </personname>
+              </editor>
+              <editor>
+                <personname>
+                  <firstname>John</firstname>
+                  <surname>Snelson</surname>
+                </personname>
+              </editor>
+            </authorgroup>
+            <edition>Discussed version: <link xl:href="http://www.w3.org/TR/2015/CR-xpath-31-20151217/">http://www.w3.org/TR/2015/CR-xpath-31-20151217/</link>,
+              Latest version: <link xl:href="http://www.w3.org/TR/xpath-30/">http://www.w3.org/TR/xpath-31/</link></edition>
+          </biblioentry>
+          <biblioentry xml:id="paper-22_5" xreflabel="[5]">
+            <abbrev>5</abbrev>
+            <citetitle>XQuery and XPath Data Model 3.0, W3C Candidate Recommendation 08 January
+              2013</citetitle>
+            <authorgroup>
+              <editor>
+                <personname>
+                  <firstname>Norman</firstname>
+                  <surname>Walsh</surname>
+                </personname>
+              </editor>
+              <editor>
+                <personname>
+                  <firstname>Anders</firstname>
+                  <surname>Berglund</surname>
+                </personname>
+              </editor>
+              <editor>
+                <personname>
+                  <firstname>John</firstname>
+                  <surname>Snelson</surname>
+                </personname>
+              </editor>
+            </authorgroup>
+            <biblioid class="uri">http://www.w3.org/TR/2013/CR-xpath-datamodel-30-20130108/</biblioid>
+          </biblioentry>
+          <biblioentry xml:id="paper-22_6" xreflabel="[6]">
+            <abbrev>6</abbrev>
+            <citetitle>XSLT 3.0 new features</citetitle>
+            <authorgroup>
+              <editor>
+                <personname> Dimtre Novatchev </personname>
+              </editor>
+            </authorgroup>
+            <pubdate>2014</pubdate>
+            <publisher>
+              <publishername>Pluralsight</publishername>
+            </publisher>
+            <biblioid class="uri">https://www.pluralsight.com/courses/xslt-3-0-whats-new-part1</biblioid>
+          </biblioentry>
+          <biblioentry xml:id="paper-22_7" xreflabel="[7]">
+            <abbrev>7</abbrev>
+            <citetitle>It's the little things that matter</citetitle>
+            <publisher>
+              <publishername>XML London</publishername>
+            </publisher>
+            <pubdate>2015</pubdate>
+            <authorgroup>
+              <editor>
+                <personname>
+                  <firstname>Abel</firstname>
+                  <surname>Braaksma</surname>
+                </personname>
+              </editor>
+            </authorgroup>
+            <biblioid class="doi">10.14337/XMLLondon15.Braaksma01</biblioid>
+          </biblioentry>
+          <biblioentry xml:id="paper-22_8" xreflabel="[8]">
+            <abbrev>8</abbrev>
+            <citetitle>RSS 2.0, Really Simple Syndication.</citetitle>
+            <authorgroup>
+              <editor>
+                <personname>
+                  <firstname>Dave</firstname>
+                  <surname>Winer</surname>
+                </personname>
+              </editor>
+            </authorgroup>
+            <biblioid class="uri">http://cyber.law.harvard.edu/rss/rss.html</biblioid>
+          </biblioentry>
+          <biblioentry xml:id="paper-22_9" xreflabel="[9]">
+            <abbrev>9</abbrev>
+            <!-- title tag used for the purpose of Indexing Content -->
+            <title>Creating an RSS feed from a Twitter query</title>
+            <!-- <edition>Creating an RSS feed from a Twitter query</edition> -->
+            <authorgroup>
+              <author>
+                <personname>
+                  <firstname>Amit</firstname>
+                  <surname>Agarwal</surname>
+                </personname>
+              </author>
+            </authorgroup>
+            <pubdate>2016</pubdate>
+            <publisher>
+              <publishername>Labnol</publishername>
+            </publisher>
+            <biblioid class="uri">http://www.labnol.org/internet/twitter-rss-feed/28149/</biblioid>
+          </biblioentry>
+    </bibliography>
+</article>

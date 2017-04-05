@@ -1,0 +1,649 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-6" version="5.0">
+   <info>
+    
+      
+        <title>A complete schema definition language for the Text Encoding Initiative</title>
+        <author>
+	        <personname>
+	           <firstname>Lou</firstname>
+            <surname>Burnard</surname>
+	        </personname>
+	        <email>lou.burnard@retired.ox.ac.uk</email>
+	        <affiliation>
+            <orgname>Lou Burnard Consulting</orgname>
+         </affiliation>
+	     </author>
+        <author>
+	        <personname>
+	           <firstname>Sebastian</firstname>
+	           <surname>Rahtz</surname>
+	        </personname>
+	        <email>sebastian.rahtz@it.ox.ac.uk</email>
+	        <affiliation>
+            <orgname>IT Services, University of Oxford</orgname>
+         </affiliation>
+	     </author>
+      
+      <abstract>
+        <para>For many years the Text Encoding Initiative (TEI) has used
+        a specialised high-level XML vocabulary known as ODD in the <quote>literate
+        programming</quote> paradigm to define its influential
+        <citetitle>Guidelines</citetitle>, from which schemas or DTDs in other
+	schema languages are derived. This paper describes a minor but
+        significant modification to the TEI ODD language and explores
+        some of its implications. In the current ODD language, the
+	detailed content model of an element is expressed in
+        RELAX NG, embedded inside TEI markup. We define a set of additional elements
+        which permit the ODD language to cut its ties with existing
+        schema languages, making it an integrated and
+        independent whole rather than an uneasy hybrid restricted in
+        its features to the intersection of the three current schema
+        languages. This may pave the way for future developments in
+        the management of structured text beyond the XML
+        paradigm. We describe the additional features, and discuss the
+	problems of both implementing them, and of migrating existing
+	TEI definitions.</para>
+      </abstract>
+   </info>
+      
+    
+      <sect1>
+        <title>Introduction</title>
+        <para>The Text Encoding Initiative (TEI) began in the late 1980s as a conscious attempt to <emphasis>model</emphasis> existing and future markup
+          systems. The original TEI editors, Lou Burnard and Michael Sperberg-McQueen, had spent much of
+          their careers trying to find satisfactory ways of expressing the rugosities of
+          typical humanities datasets using the database modelling techniques common in the IT
+          industry at that time. They naturally turned to the same techniques to help  draw up a formal model of
+          textual features, and their representations in different markup schemes. The following
+          figure, taken from an early paper on the topic, typifies the approach:
+          distinguishing sharply between the features perceived in a text, their representation by
+          the application of tags, and the names that might be used for those tags. <figure>
+            <title>Abstract model from TEI EDW05, 1989</title>
+            <mediaobject>
+               <imageobject>
+                  <imagedata fileref="images/edw05-detail.png"/>
+               </imageobject>
+            </mediaobject>
+         </figure>
+      </para>
+        <para>This exercise in modelling started to become more than theoretical quite early on in the
+          life of the TEI, notably during 1991, when the TEI's initial workgroups started to send in
+          their proposals for textual features which they felt really had to be distinguished in any
+          sensible encoding project. It rapidly became apparent that something better than a
+          Hypercard stack or relational database would be needed to keep track of the tags they were
+          busy inventing, and the meanings associated with them. In particular, something able to
+            <emphasis>combine</emphasis> text and formal specifications in a single SGML document was
+          needed. Fortunately Donald Knuth had been here before us, with his concept of
+            <quote>literate programming</quote>.<footnote>
+            <para>
+               <quote>Literate programming is
+              a methodology that combines a programming language with a documentation language,
+              thereby making programs more robust, more portable, more easily maintained, and
+              arguably more fun to write than programs that are written only in a high-level
+              language</quote> (<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www-cs-faculty.stanford.edu/~uno/lp.html">http://www-cs-faculty.stanford.edu/~uno/lp.html</link>)</para>
+         </footnote>. </para>
+        <para>In the autumn of 1991, Michael Sperberg-McQueen and Lou Burnard started seriously thinking
+          about ways of implementing the idea of a single DTD which could support both the
+          documentation of an encoding scheme and its expression as a formal language. Our thoughts
+          were necessarily constrained to some extent by the SGML technology at our disposal, but we
+          made a considered effort to abstract away from that in the true spirit of literate
+          programming as Knuth eloquently defines it elsewhere: <quote>Instead of imagining that our main
+          task is to instruct a computer what to do, let us concentrate rather on explaining to
+          human beings what we want a computer to do.</quote>
+         <footnote>
+            <para>Donald Knuth,
+              <citetitle>Literate Programming</citetitle> (1984)</para>
+         </footnote> The documentation for each element
+          in the proposed system thus needed to provide informal English language expressions about
+          its intended function, its name and why it was so called, the other elements it was
+          associated with in the SGML structure, usage examples and cross-references to places where
+          it was discussed along with formal SGML declarations for it and its attribute list.
+          Relevant portions of these tag documents could then be extracted into the running text,
+          and the whole could be reprocessed to provide reference documentation as well as to
+          generate document type declarations for the use of an SGML parser. The following figure
+          shows a typical example of such a tag document <figure>
+            <title role="">Tagdoc for &lt;resp&gt; element in P2 (colorized version)</title>
+            <mediaobject>
+               <imageobject>
+                  <imagedata fileref="images/tagdoc-p2.png"/>
+               </imageobject>
+            </mediaobject>
+         </figure>
+        </para>
+        <para>Note here how the SGML declarations are embedded as floating CDATA marked sections,
+          effectively isolating them from the rest of the document, and thus making it impossible to
+          process them in any way other than by simple inclusion. Such refinements as, for example,
+          checking that every element referenced in a content model has its own specification are
+          hard or impossible. There is also ample scope for error when the structural relationships
+          amongst elements are redundantly expressed both in DTD syntax, and in human readable form
+          using the <tag>&lt;parents&gt;</tag> and <tag>&lt;children&gt;</tag> elements. Nevertheless, this system <footnote>
+            <para>The first full specification for an ODD system is to be found in TEI
+            working paper ED W29, available from the TEI archive at <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.tei-c.org/Vault/ED/edw29.tar">http://www.tei-c.org/Vault/ED/edw29.tar</link>. It defines a set of extensions to
+            the existing <quote>tiny.dtd</quote> (an early version of a simple TEI-compliant
+            authoring schema, not unlike TEI Lite), which adds new elements for documenting SGML
+            fragments, elements and entities. It also specifies the processing model which the
+            markup was intended to support. An ODD processor was required to <itemizedlist>
+                  <listitem>
+                     <para>extract SGML DTD fragments</para>
+                  </listitem>
+                  <listitem>
+                     <para>generate reference documentation (REF) form</para>
+                  </listitem>
+                  <listitem>
+                     <para>generate running prose (P2X)</para>
+                  </listitem>
+               </itemizedlist> A processor to carry out the reverse operation (that is, generate template ODD
+            specifications from existing DTD fragments) is also described. Although intended for the
+            use of TEI Workgroups, in practice ODD processors built to this model were used only by
+            the TEI editors.</para>
+         </footnote>
+      </para>
+        <para>At the fifth major revision of the guidelines (P5, released
+        in 2007 after 6 years of development), the TEI switched to
+        using RELAX NG as the primary means of declared its content
+        models, both within the element specifications which had
+        replaced the old tag documents as input, and as output from the
+        schema generation process. As a separate processing step, XML
+        DTDs are also generated from this same source, while W3C
+        schema is generated from the RELAX NG outputs using James
+        Clark's trang processor. Another major change at TEI P5 was
+        the introduction and extensive use of model classes as means
+        of implementing greater flexibility than had been achievable
+        by using SGML parameter entities. Both of these changes are
+        reflected in the part of the TEI P5 specification for the
+        <tag>&lt;respStmt&gt;</tag> element shown in the following figure:
+        <figure>
+            <title>Parts of &lt;respStmt&gt; element in P5 (XML)</title>
+            <mediaobject>
+               <imageobject>
+                  <imagedata fileref="images/tagdoc-p5.png"/>
+               </imageobject>
+            </mediaobject>
+         </figure>
+        </para>
+        <para>Where TEI P2 had used embedded DTD language to express content models, TEI P4 had
+          expressed them using string fragments still recognisably derived from SGML DTD 
+          language. In TEI P5, we moved to embedding RELAX NG in its own namespace, thus placing that
+          schema language in a privileged position, and inviting the question expressed internally as the
+          Durand Conundrum.<footnote>
+            <para>The <emphasis role="bold">Durand Conundrum</emphasis> is a jokey name for a serious question first raised by
+          David Durand when the current TEI ODD XML format was being finalised at a meeting of the
+          TEI Technical Council held in Gent in May 2004. David
+	  pointed out that the TEI's mixed model was a compromise solution: like
+          other XML vocabularies, the TEI was perfectly hospitable to other namespaces, so we could
+          equally well embed our TEI additions within a natively RELAX NG document. A similar
+          suggestion is made in Eric Van der Vlist's <citetitle>RELAX NG</citetitle> (O'Reilly, 2011), which
+          proposes a hybrid language called "Examplotron" in which the documentation is expressed
+          using the XHTML vocabulary, the document grammar is expressed using RELAX NG, and
+          additional constraints are expressed using Schematron. See
+	further <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://examplotron.org">http://examplotron.org</link>
+            </para>
+         </footnote> No
+	contrainst is placed on editors as to the features of RELAX NG
+	they can use, so it is easy to make something which cannot be
+	converted to W3C Schema by trang (eg interleave), or which is not covered by
+	the conversion to DTD, or which duplicates work being done
+	elsewhere. The last of these is particularly worrisome, as
+	attributes are managed separately in the ODD language
+	language, but the RELAX NG content model fragment may add
+	attribute (or child element) declarations.</para>
+      </sect1>
+      <sect1>
+        <title>What's not ODD?</title>
+        <para>In the current source of TEI P5, there is extensive use of several different XML
+          vocabularies: <itemizedlist>
+	           <listitem>
+               <para>Examples in TEI P5 are presented as if they belonged to some other "TEI Example
+              Namespace"; this however is merely an ingenious processing trick to facilitate their
+              validation; </para>
+            </listitem>
+	           <listitem>
+               <para>Element content models are expressed using a subset
+	    of RELAX NG, as discussed in
+              the previous section; </para>
+            </listitem>
+	           <listitem>
+               <para>Datatypes are expressed in a variety of ways, mapping either to built-in W3C
+              datatypes (as defined in the W3C Schema Language) or to
+	    RELAX NG constructs; </para>
+            </listitem>
+            <listitem>
+               <para>Some additional semantic constraints (for example, co-dependence of attributes and
+              element content) are expressed using ISO Schematron
+	      rules.</para>
+            </listitem>
+	           <listitem>
+               <para>Specialist vocabularies such as XInclude, MathML
+	      and SVG are used where appropriate.</para>
+            </listitem>
+	        </itemizedlist>
+      </para>
+        <para>Everything else in a TEI-conformant ODD specification uses only constructs from the TEI
+          namespace. In this paper, we describe a further extension of the ODD language to
+          replace at least some of the cases listed above. </para>
+        <sect2>
+          <title>Element content models</title>
+          <para>ODD is intended to support the <emphasis role="bold">intersection</emphasis> of what is possible using three
+            different schema languages. In practice, this reduces our modelling requirements quite
+            significantly. Support for DTD schema language in particular imposes many limitations on
+            what would otherwise be possible, while the many additional facilities provided by W3C
+            Schema and RELAX NG for content validation are hardly used at all (though some equivalent
+            facilities are now provided by the <tag>&lt;constraintSpec&gt;</tag> element). A few years ago,
+            the demise of DTDs was confidently expected; in 2013 however the patient remains in rude
+            health, and it seems likely that support for DTDs will continue to be an ongoing
+            requirement. We
+            therefore assume that whatever mechanism we use to specify content models will need to
+            have the following characteristics: <itemizedlist>
+               <listitem>
+                  <para>the model permits alternation, repetition, and sequencing of individual
+                elements, element classes, or sub-models (groups of elements)</para>
+               </listitem>
+               <listitem>
+                  <para>only one kind of mixed content model — the classic <literal role="">(#PCDATA | foo | bar)*</literal> — is
+                permitted</para>
+               </listitem>
+               <listitem>
+                  <para>the SGML ampersand connector — <literal role="">(a &amp; b)</literal> as a shortcut for <literal role="">((a,b) | (b,a))</literal> is
+                not permitted</para>
+               </listitem>
+               <listitem>
+                  <para>a parser or validator is not required to do look ahead and consequently the
+                model must be deterministic; that is, when applying the model to a document
+                instance, there must be only one possible matching label in the model for each point
+                in the document </para>
+               </listitem>
+            </itemizedlist>
+         </para>
+          <para>We think these requirements can easily be met by the following small incremental
+            changes to the ODD language: <variablelist>
+               <varlistentry>
+                  <term>Specification</term>
+                  <listitem>
+                     <para>At present, references to content model components use the generic
+                    <tag>&lt;rng:ref&gt;</tag> element. As a consequence, naming conventions have been
+                  invented to distinguish, for example references to an element or attribute class
+                  (name starts with "model." or "att.") from references to a predefined macro (name
+                  starts with "macro.") or from references to an element (name starts with something
+                  other than "model." or "macro."). Although these name
+		  changes are purely a matter of convenience, we suggest that it would be better to use the
+                  existing TEI ODD elements <tag>&lt;elementRef&gt;</tag>, <tag>&lt;classRef&gt;</tag> and
+                    <tag>&lt;macroRef&gt;</tag> elements.</para>
+                     <para>For example, <programlisting language="xml">&lt;rng:ref name="model.pLike"/&gt;</programlisting> becomes
+                    <programlisting language="xml">&lt;classRef key="model.pLike"/&gt;</programlisting>
+                     </para>
+                  </listitem>
+               </varlistentry>
+               <varlistentry>
+                  <term>Repeatability</term>
+                  <listitem>
+                     <para>In RELAX NG, this is indicated by special purpose grouping elements
+                  <tag>&lt;rng:oneOrMore&gt;</tag> and <tag>&lt;rng:zeroOrMore&gt;</tag>. We propose to replace these by
+                the use of attributes <varname>@minOccurs</varname> and <varname>@maxOccurs</varname>, which are
+                currently defined locally on the <tag>&lt;datatype&gt;</tag> element. Making these also
+                available on <tag>&lt;elementRef&gt;</tag>, <tag>&lt;classRef&gt;</tag> and <tag>&lt;macroRef&gt;</tag> elements,
+                gives more delicate and consistent control over what is possible within the
+                components of a content model.  </para>
+                  </listitem>
+               </varlistentry>
+               <varlistentry>
+                  <term>Sequence and alternation</term>
+                  <listitem>
+                     <para>Sequencing and alternation are currently indicated by elements defined in the
+                RELAX NG namespace (<tag>&lt;rng:choose&gt;</tag>, <tag>&lt;rng:group&gt;</tag>, etc.) We replace these
+                by similar but more constrained TEI equivalents <tag>&lt;sequence&gt;</tag> which operates
+                like <tag>&lt;rng:group&gt;</tag> to indicate that its children form a sequence within a
+                content model, and <tag>&lt;alternate&gt;</tag> which operates like <tag>&lt;rng:choose&gt;</tag> to
+                supply a number of alternatives. </para>
+                  </listitem>
+               </varlistentry>
+            </variablelist>
+	      For handling character data, we 
+	      follow the W3C Schema approach and define an attribute
+	      <varname>@mixed</varname> for each container element.</para>
+	        <para>The two simple cases of empty content, and of pure
+	      text content, will be covered by an empty <tag>&lt;content&gt;</tag> element.</para>
+          <para>We now provide some simple examples, showing how some imaginary content models
+            expressed using RELAX NG compact syntax might be re-expressed with these elements.</para>
+          <para>In this example <literal role="">((a, (b|c)*, d+), e?)</literal> we have a sequence containing a
+            single element, followed by a repeated alternation, a repeated element, and an optional
+            element. This would be expressed as follows: <programlisting language="xml">&lt;sequence&gt;
+  &lt;sequence&gt;
+    &lt;elementRef key="a"/&gt;
+    &lt;alternate minOccurs="0" maxOccurs="unbounded"&gt;
+      &lt;elementRef key="b"/&gt;
+      &lt;elementRef key="c"/&gt;
+    &lt;/alternate&gt;
+    &lt;elementRef key="d" maxOccurs="unbounded"/&gt;
+  &lt;/sequence&gt;
+  &lt;elementRef key="e" minOccurs="0"/&gt;
+&lt;/sequence&gt;</programlisting>
+          </para>
+          <para>Repetition can be applied at any level. In <literal role="">((a, (b*|c*))+</literal>, for example, we
+            have a repeated sequence. This would be expressed as follows: <programlisting language="xml">&lt;sequence maxOccurs="unbounded"&gt;
+  &lt;elementRef key="a"/&gt;
+  &lt;alternate&gt;
+    &lt;elementRef key="b" minOccurs="0"
+                maxOccurs="unbounded"/&gt;
+    &lt;elementRef key="c" minOccurs="0"
+                maxOccurs="unbounded"/&gt;
+  &lt;/alternate&gt;
+&lt;/sequence&gt;</programlisting>
+          </para>
+          <para>A mixed content model such as <literal role="">(#PCDATA | a | model.b)*</literal> might be expressed
+            as follows: 
+	    <programlisting language="xml">&lt;alternate minOccurs="0" maxOccurs="unbounded"
+           mixed="true"&gt;
+  &lt;elementRef key="a"/&gt;
+  &lt;classRef key="model.b"/&gt;
+&lt;/alternate&gt;</programlisting>
+        </para>
+          <para>References to model classes within content models pose a particular problem of
+            underspecification in the current ODD system. In the simple case, a reference to a model
+            class may be understood as meaning any one member of the class, as assumed above. Hence,
+            supposing that the members of class <varname>model.ab</varname> are <tag>&lt;a&gt;</tag> and
+              <tag>&lt;b&gt;</tag>, a content model <programlisting language="xml">&lt;classRef key="model.ab" maxOccurs="unbounded"/&gt;</programlisting>
+            is exactly equivalent to <programlisting language="xml">&lt;alternate maxOccurs="unbounded"&gt;
+  &lt;elementRef key="a"/&gt;
+  &lt;elementRef key="b"/&gt;
+&lt;/alternate&gt;</programlisting>
+         </para>
+          <para>However, sometimes we may wish to expand model references in a different way. We may
+            wish to say that a reference to the class <varname>model.ab</varname> is not a reference to
+            any of its members, but to a sequence of all of its members, or to a sequence in which
+            any of its members may appear, and so forth. This requirement is handled in the current
+            ODD system by over-generating all the possibilities,
+            again using a set of naming convention to distinguish amongst them. We propose instead
+            to control this behaviour by means of a new <varname>@expand</varname> attribute on
+              <tag>&lt;classRef&gt;</tag> (modelled on an existing
+              <varname>@generate</varname> on <tag>&lt;classSpec&gt;</tag>), but with the advantage of being usable at
+            the instance level. </para>
+          <para>For example, <programlisting language="xml">&lt;classRef key="model.ab" expand="sequence"/&gt;</programlisting>
+          is interpreted as <literal role="">a,b</literal>
+              while <programlisting language="xml">&lt;classRef key="model.ab"
+          expand="sequenceOptional"/&gt;</programlisting> is
+	      interpreted as <literal role="">a?,b?</literal>,
+        <programlisting language="xml">&lt;classRef key="model.ab"
+          expand="sequenceRepeatable"/&gt;</programlisting>
+        is interpreted as <literal role="">a+,b+</literal>
+        and
+        <programlisting language="xml">&lt;classRef key="model.ab"
+          expand="sequenceOptionalRepeatable"/&gt;</programlisting> is interpreted as <literal role="">a*,b*</literal>
+
+          </para>
+          <para>Note that the ability to specify repetition at the individual class level gives a
+            further level of control not currently possible. For example, a model containing no more
+            than two consecutive sequences of all members of the class <varname>model.ab</varname> could
+            be expressed quite straightforwardly:
+            <programlisting language="xml">&lt;classRef key="model.ab" maxOccurs="2"
+          expand="sequence"/&gt;</programlisting>
+          </para>
+        </sect2>
+        <sect2>
+          <title>Datatyping and other forms of validation</title>
+          <para>Validation of an element's content model is but one of many different layers of
+            validation that a TEI user may wish to express in their
+	    ODD specification. 
+	    The current system also provides mechanisms to constrain the possible values of
+            attributes by means of datatyping
+            and also, increasingly, by explicit constraints expressed using languages such as ISO
+            Schematron. It seems reasonable to ask how many of these additional layers may be
+            incorporated into our proposed new vocabulary.</para>
+          <para>The vast majority of TEI attributes currently define their possible values by reference
+            to a datatype macro which is defined within the ODD system, where it is mapped either to
+            a native RELAX NG datatype or to an expression in RELAX NG syntax. This indirection allows
+            the schema builder to add a small amount of extra semantics to an underlying "bare"
+            datatype. For example <literal role="">data.duration.iso</literal>,
+              <literal role="">data.outputMeasurement</literal>, <literal role="">data.pattern</literal>,
+              <literal role="">data.point</literal>, <literal role="">data.version</literal>, and <literal role="">data.word</literal> all map
+            to the same datatype (<literal role="">token</literal> as far as a RELAX
+	    NG schema is concerned;
+              <literal role="">CDATA</literal> for an XML DTD). As their names suggest, however, each of these TEI
+            datatypes has a subtly different intended application,
+	  which an ODD processor may use in deciding how to present
+	  the corresponding information, even though the mapping to a
+	  formal schema language is identical in each case. </para>
+          <para>Given the existence of this TEI abstraction layer, it seems unnecessary to propose
+            further change to the way attribute values are constrained in the ODD system. At the
+            time of writing, there are still a few attributes whose values are expressed directly in
+            RELAX NG syntax, but that is a corrigible error in the Guidelines source code. </para>
+          <para>The most commonly used datatype macro is <literal role="">data.enumerated</literal>, which maps to
+            another frequently used datatype <literal role="">data.name</literal>, and thence to the underlying
+            RELAX NG datatype for an XML Name. The difference between an enumeration and a name is,
+            of course, that a (possibly closed) list of possible values can be provided for the
+            former but not for the latter. In the ODD system, for every datatype declared as
+              <literal role="">data.enumerated</literal>, a sibling <tag>&lt;valList&gt;</tag> element should be provided to
+            enumerate and document all or some of the possible values for this attribute. This
+            ability to constrain and document attribute values is of particular interest because it
+            permits TEI schema-specifiers to define project-specific restrictions and semantics
+            considerably beyond those available to all schema languages. </para>
+          <para>A further layer of constraint specification is provided by the <tag>&lt;constraintSpec&gt;</tag>
+            element which may be used to express any kind of semantic constraint, using any suitable
+            language. In the current TEI specifications, the ISO-defined Schematron language is
+            deployed to replace as many as possible of the informally expressed rules for good
+            practice which have always lurked in the Guidelines prose. This facility allows us to
+            specify, for example, the co-occurrence constraint mentioned in the previous paragraph
+            (that the specification for an attribute with a declared datatype of data.enumerated
+            should also contain a <tag>&lt;valList&gt;</tag>). It also allows an
+	    ODD to make more explicit rules
+            such as <quote>a relatedItem element must have either a <varname>@target</varname> attribute or a
+              child element</quote> or <quote>the element indicated by the <varname>@spanTo</varname> attribute must
+              follow the element carrying it in document sequence</quote>, which are hard to express in
+            most schema languages. </para>
+          <para>For our present purposes, it is important to note that
+	  the TEI <tag>&lt;constraintSpec&gt;</tag>
+            element was designed to support any available constraints language. Although the current
+            generation of ODD processors assume the use of ISO Schematron, there is no reason why
+            future versions should not switch to using different such languages as they become
+            available without affecting the rest of the ODD processing workflow or the ODD language
+            itself. As such, we see no need to modify our proposals to take this level of validation
+            into account. </para>
+        </sect2>
+      </sect1>
+      <sect1>
+        <title>Discussion</title>
+        <para>The ideas presented here were first sketched out in the summer of 2012, and greeted
+            positively at the ODD Workshop held following the DH 2012 conference in
+            Hamburg. An earlier version of this paper was presented at
+	    the TEI Conference in Texas in November 2012. In this section we briefly summarize some of the comments received. </para>
+        <para>At first blush, our proposals seem to flout the TEI philosophy of not re-inventing the
+            wheel. The TEI does not and should not take on itself the task of inventing a new XML
+            vocabulary for such matters as mathematics or musical notation where perfectly
+            acceptable and well established proposals are already in place. However the TEI has
+            arguably already gone down the road of defining some aspects its own schema language,
+            (for example, by providing constructs for representing element and attribute classes,
+            and for associating attribute lists and value lists with element declarations) and this
+            proposal simply continues along the same path. It should also be noted that there are
+            three competing standards for schema language in the marketplace (DTD, RELAX NG, W3C
+            Schema) each with its own advantages. By making ODD independent of all three, we make it
+            easier to profit from the particular benefits of each, as well as providing the ability
+            to document intentions not necessarily expressible using any of them. </para>
+        <para>Resolving the Durand conundrum in this way, rather than taking the alternative approach
+            of embedding TEI documentation elements in the RELAX NG namespace, is clearly a
+            compatible expansion of the current scheme rather than an incompatible change of
+            direction which would not break existing systems or documents.</para>
+        <para>As a concrete example, consider the occasionally expressed desire to constrain an
+            element's content to be a sequence of single specified elements appearing in any order,
+            that is, to define a content model such as (a,b,c,d) but with the added proviso that the
+            child elements may appear in any order. In SGML, the ampersand operator allowed
+            something like this; in RELAX NG the <tag>&lt;interleave&gt;</tag> element may be used to provide
+            it, but there is no equivalent feature in W3C Schema or DTD languages, and we have not
+            therefore proposed it in our list of requirements above. </para>
+        <para>Suppose however that the Technical Council of the TEI decided this facility was of such importance to the
+            TEI community that it should be representable in TEI ODD. It would be easy enough to
+            add a new grouping element such as <tag>&lt;interleave&gt;</tag> (or add an attribute
+              <varname>@preserveOrder</varname> taking values TRUE or FALSE to our existing proposed
+              <tag>&lt;sequence&gt;</tag> element) to represent it. Generating a RELAX NG schema from such an
+            ODD would be simple; for the other two schema languages one could envisage a range of
+            possible outcomes: <itemizedlist>
+            <listitem>
+               <para>an ODD processor might simply reject the construct as infeasible; </para>
+            </listitem>
+            <listitem>
+               <para>an ODD processor might over-generate; that is, it will produce code which
+                validates everything that is valid according to the ODD, but also other constructs
+                that are not so valid;</para>
+            </listitem>
+            <listitem>
+               <para>an ODD processor might over-generate in that way, but in addition produce
+                schematron code to remove <quote>false positives</quote>.</para>
+            </listitem>
+         </itemizedlist>
+          </para>
+        <para>For example, consider the following hypothetical ODD <programlisting language="xml">&lt;interleave&gt;
+  &lt;elementRef key="a"/&gt;
+  &lt;elementRef key="b" maxOccurs="2"/&gt;
+  &lt;elementRef key="c"/&gt;
+&lt;/interleave&gt;
+</programlisting> In XML DTD or W3C schema languages (which lack the <tag>&lt;rng:interleave&gt;</tag>
+            feature), an ODD processor can represent these constraints by generating a content model
+            such as <programlisting>(a|b|c)+</programlisting> and at the same time generating additional Schematron
+            constraints to require the presence of no more than one <tag>&lt;a&gt;</tag> or <tag>&lt;c&gt;</tag> and up
+            to two <tag>&lt;b&gt;</tag>s. An extra twist, in this case, is that if there are more than two
+              <tag>&lt;b&gt;</tag> elements, they must follow each other. </para>
+        <para>As a second example, consider the need for contextual variation in
+a content model. For example, a <tag>&lt;name&gt;</tag> or <tag>&lt;persName&gt;</tag> appearing inside a
+<quote>data-centric</quote> situation, such as a
+<tag>&lt;listPerson&gt;</tag> element, is unlikely to contain elements such as
+<tag>&lt;del&gt;</tag> or <tag>&lt;corr&gt;</tag> which are however entirely appropriate
+(and very useful) when
+identifying names within a textual transcription. In a linguistic
+corpus, it is very likely that the child elements permitted for  <tag>&lt;p&gt;</tag>
+elements within the corpus texts will be quite different from those
+within the corpus header — the latter are rather unlikely to include
+any part of speech tagging for example. </para>
+        <para>At present only ISO schematron rules allow us to define such
+contextual rules, although something analogous to them is provided by
+the XSD notion of base types. It is not hard however to imagine a further extension to
+the ODD language, permitting (say) an XPath-valued  <varname>@context</varname>
+attribute on any <tag>&lt;elementRef&gt;</tag>, <tag>&lt;macroRef&gt;</tag>, or <tag>&lt;classRef&gt;</tag> restricting
+its applicability. Thus, the content model for <tag>&lt;p&gt;</tag> might say
+something like
+<programlisting language="xml">&lt;elementRef
+  key="s"
+  context="ancestor::text"
+  maxOccurs="unbounded"
+  minOccurs="1"/&gt;
+&lt;macroRef key="macro.limitedContent"
+          context="ancestor::teiHeader"/&gt;</programlisting>
+to indicate that a <tag>&lt;p&gt;</tag> within a <tag>&lt;text&gt;</tag> element must
+contain one or more <tag>&lt;s&gt;</tag> elements only, whereas one within a TEI
+Header must use the existing macro definition <varname>limitedContent</varname>. </para>
+        <para>However, before embarking on such speculative exercises, it is clear that further
+            experimentation is needed, to see how easily existing content models may be
+            re-expressed, and what the consequences of such a conversion would be for existing
+            processing tools.</para>
+      </sect1>
+      <sect1>
+        <title>Implementation</title>
+        <para>In order to prove the language additions proposed above
+	  can adequately replace the current embedded RELAX NG, we
+	  have completed four pieces of work:
+	  <itemizedlist>
+            <listitem>
+               <para>Formal definition of the new elements in the TEI ODD
+	    language; this presents no problems.</para>
+            </listitem>
+            <listitem>
+               <para>Implementation, in the ODD processor, of the
+	    conversion from the new language elements to the target
+	    schema languages (DTD, RELAX NG, W3C Schema), each
+	    according to its abilities</para>
+            </listitem>
+            <listitem>
+               <para>Conversion of the existing content models in RELAX
+	    NG to the new format</para>
+            </listitem>
+            <listitem>
+               <para>Testing of the resulting generated schemas to ensure
+	    that they are at least as permissive as the old ones.</para>
+            </listitem>
+         </itemizedlist>
+	     </para>
+        <para>The last of these tasks is covered by the already
+	  extensive testing undertaken after each change to the TEI
+	  source; a suite of test schemas and input files is
+	  checked,<footnote>
+            <para>The TEI Guidelines themselves are
+	  also, of course, a very large TEI document which is
+	  extensively checked against itself.</para>
+         </footnote> and it is expected
+	  that these will already catch most errors.</para>
+        <para>The second task is not  problematic. The
+	  TEI ODD processing engine is written in XSLT and already
+	  works through a complex process to arrive at a generated DTD
+	  or RELAX NG schema (XSD is generated by trang); the work of adding in
+	  the extra processing is simply an extension of existing code.</para>
+        <para>This leaves the problem of converting the
+	  existing 573 models in the TEI Guidelines. These fall into four groups:
+	  <itemizedlist>
+            <listitem>
+               <para>Reference to a  macro, predefined patterns of which the TEI
+	    provides 8 (which is a small enough number to be
+	    translated by  hand if necessary)</para>
+            </listitem>
+            <listitem>
+               <para>Simple reference to a members of a class of
+	    elements</para>
+            </listitem>
+            <listitem>
+               <para>A content model of plain text, <tag>&lt;empty&gt;</tag>, or a data  pattern</para>
+            </listitem>
+            <listitem>
+               <para>Complex hand-crafted model with branches of choices
+	    and nesting</para>
+            </listitem>
+         </itemizedlist>
+	  An analysis shows that the final group covers
+	  269 of the content models:</para>
+	     <table>
+         <caption>Types of content models in TEI</caption>
+         <thead>
+            <tr>
+               <td>Type</td>
+               <td>Number</td>
+            </tr>
+         </thead>
+         <tbody>
+            <tr>
+               <td>class
+	  members</td>
+               <td>28</td>
+            </tr>
+            <tr>
+               <td>empty, data
+	  and
+	  text</td>
+               <td>62</td>
+            </tr>
+            <tr>
+               <td>macro</td>
+               <td>194</td>
+            </tr>
+            <tr>
+               <td>simple
+	  name</td>
+               <td>20</td>
+            </tr>
+            <tr>
+               <td>other</td>
+               <td>269</td>
+            </tr>
+         </tbody>
+      </table>
+	     <para>In practice, the majority of these are amenable to
+	  relatively simple automated conversion.</para>
+      </sect1>
+      <sect1>
+        <title>Next steps</title>
+        <para>The extended schema language for the TEI as described here
+        is implemented in a preliminary release (May 2013), and will
+        be completed in time for the Members Meeting of the TEI
+        Consortium in October 2013. It is expected to be made an
+        optional part of the TEI language by the end of 2013, even if
+        the TEI Guidelines themselves do not convert to using it
+        internally.</para>
+      </sect1>
+    </article>

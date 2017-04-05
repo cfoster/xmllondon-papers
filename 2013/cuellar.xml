@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-24" version="5.0">
+    <info xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title> What you need to know about the Maths Stack</title>
+        <subtitle>MathML, MathJax, HTML5, and EPUB 3</subtitle>
+        <authorgroup>
+            <author>
+                <personname>
+                    <honorific>Ms</honorific>
+                    <firstname>Autumn</firstname>
+                    <surname>Cuellar</surname>
+                </personname>
+                <affiliation>
+                    <orgname>Design Science</orgname>
+                </affiliation>
+            </author>
+            <author>
+                <personname>
+                    <honorific>Mr</honorific>
+                    <firstname>Paul</firstname>
+                    <surname>Topping</surname>
+                </personname>
+                <affiliation>
+                    <orgname>Design Science</orgname>
+                </affiliation>
+            </author>
+        </authorgroup>
+        <editor>
+            <personname>
+                <honorific>Mr</honorific>
+                <firstname>Bob</firstname>
+                <surname>Mathews</surname>
+            </personname>
+        </editor>
+
+        <orgname>Design Science, Inc.</orgname>
+
+        <address>
+            <city>Long Beach</city><state>CA</state>
+            <street>140 Pine Ave. 4th Floor</street>
+            <postcode>90803</postcode>
+            <country>USA</country>
+        </address>
+
+        <abstract><para>MathML is a well-known and widely-used standard for encoding mathematics
+            within XML workflows, but what you may not know is that MathML is not just a
+            standard that affects your internal workflow, used only for storage and
+            converted to images when you need to present your content to your audience.
+            MathML is a key part of the digital publishing revolution towards enriched
+            content. Its recent inclusion into the HTML5 and EPUB 3 standards is helping to
+            bring to fruition the promise of interactive content for maths-based industries
+            around the world.</para>
+            <para>All of the major browser vendors have pledged support for HTML5, and many EPUB
+                readers are built on browser engines, thus full browser and e-reader support of
+                MathML is expected in the future. Gecko-based browsers including Firefox already do
+                include native MathML support. WebKit, the engine behind Safari and Chrome, also has
+                some MathML support, though only Safari has included this feature in releases. Until
+                universal support for MathML is available, <link xlink:href="http://www.mathjax.org">MathJax</link> fills in the gaps. MathJax is an open-source Javascript library
+                for displaying MathML in all modern browsers and has been included with success in
+                EPUB readers, such as Readium. </para>
+            <para>MathJax helps both content creators and content consumers realize the full
+                advantages of MathML. One challenge that producers of digital content are faced with
+                is the range of devices, screen sizes, and screen resolutions that must be
+                supported. Unlike with bitmap images, MathJax easily adjusts equations to match the
+                surrounding text without losing any quality. MathJax also leaves the MathML content
+                available for re-use. This is particularly important to audiences who'd like to play
+                with the equations in your content by loading (such as through copy and paste) the
+                equations into Microsoft Excel or other calculation or modeling software, most of
+                which accept MathML as an input format. Another feature of MathML that MathJax
+                accommodates is its accessibility to audiences with vision and learning
+                disabilities. MathML has been embraced by these communities and most accessible
+                technology software includes support of MathML by reading the equation aloud,
+                highlighting parts of the expression, and allowing control of the navigation of the
+                equation. Finally, by leaving the MathML in the content, the equations remain
+                searchable, allowing your content to be found. </para>
+            <para>The key elements to moving your maths forward into this bright new interactive
+                publication era are a base doctype that allows MathML, tools to create MathML, XSL,
+                and MathJax. Many standard doctypes already include MathML or are on their way to
+                adding MathML support. OASIS, for example, keeps a <link xlink:href="http://www.oasis-open.org/docbook/specs/wd-docbook-mathml-1.1CR1.html">DocBook MathML Document Type</link>, and the next version of DITA (1.3) will
+                also include MathML. All other doctypes, since XML is the eXtensible Markup
+                Language, can be extended to include MathML. Though MathML can be manually written,
+                it's a verbose language that was never intended to be written by humans. To create
+                MathML, you will need a conversion tool to convert existing maths content to MathML
+                and/or a MathML editor, such as MathFlow. To publish the XML to its digital output
+                format, HTML5 or EPUB 3, a wide range of publishing tools are available on the
+                market, most of which use XSL in some part of the process. The XSL or publishing
+                tool can usually be easily modified such that the output includes the MathJax
+                libraries. Lastly, you will need the MathJax libraries.</para>
+            <para>We are only just now starting to get a taste of the exciting future of digital
+                content thanks to the HTML5 and EPUB 3 standards, and MathJax is filling the need of
+                publishers with maths in their content until the browser and e-reader technology
+                catches up to the standards. The benefits of MathML can only be fully realized when
+                MathML is supported not just as an internal storage format but also as a delivery
+                format, and with the Maths Stack, consisting of MathML, MathJax, HTML5, and EPUB 3,
+                the maths in your digital publications are interoperable, accessible, and
+                searchable. </para></abstract>
+    </info>
+    <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+        <info>
+            <title>Introduction</title>
+        </info>
+        <para>The digital publishing era promises to revolutionize how we consume content. Plain
+            text is now being enhanced not only with images but also with, for example, video,
+            music, and interactive applications. At the heart of this revolution in publishing is
+            XML. Recent developments in XML-based standards, such as HTML5 and EPUB 3, are
+            facilitating the trend towards enhanced content.</para>
+        <para>The great news for those of us with any interest in scientific, technical,
+            engineering, or mathematical (STEM) content is that mathematics, often an afterthought
+            in web technologies, are a key part of the recent advancements toward enriched content.
+            In this paper we'll discuss the latest developments in the XML standards for
+            mathematics, web pages, and e-books; how MathML brings to fruition the promise of
+            enhanced content for maths-based industries; the current status of support for these
+            standards; and, finally, what you need to do to prepare your content for the bright new
+            future of digital publishing.</para>
+    </sect1>
+    <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>Recent Standards Developments</title>
+        <sect2><title>MathML</title><para>MathML is the XML standard for encoding mathematical information. It's maintained by W3C, the
+                same organization that maintains the XML and HTML standards. MathML was conceived in
+                the mid-1990's during a discussion of requirements for HTML 3. HTML, the language
+                behind the World Wide Web (a network built by scientists for scientists) at this
+                time had no way to represent mathematics -- a failing that some felt needed to be
+                addressed. However, the challenges for representing maths on the web seemed too
+                mountainous to be tackled in an update to HTML, so the MathML working group was
+                formed to address the problems surrounding maths in XML/HTML.</para>
+            <para>The MathML 1 spec was finalized in 1998. Five years later, in 2003, MathML 2 was
+                unveiled to correct flaws in the initial specification. For instance, in version 1,
+                multi-line equations could only be expressed through the use of tables. MathML 2
+                also favors certain features of Cascading Stylesheets (CSS), which had grown more
+                popular for applying styles to content, over its former attributes for specifying
+                key properties.</para>
+            <para>MathML 3 was finalized in late 2010. With MathML 3, MathML shows a new maturity by
+                taking into consideration the needs of various communities with a more specialized
+                interest in mathematics. For example, the publishing industry is now served by
+                taking line breaks to the next level: for long equations that may extend past the
+                width of pages or columns, content providers can now specify both a maximum width
+                (so the equation automatically wraps) as well as how to indent or align subsequent
+                lines. For the education community, MathML 3 adds new features to support elementary
+                math, such as stacked addition and substraction, long division, and repeating
+                decimals. MathML 3 also became a truly international standard by adding support for
+                right-to-left languages and for notations that vary from region to region.</para></sect2>
+        <sect2><title>HTML5</title><para>While MathML has been developed and revised, it has established itself as a standard for
+                encoding mathematics. It has been incorporated into a number of other standards from
+                biological modeling languages (CellML and SBML) to medical journal archives (NLM).
+                Tool support for MathML has advanced, with MathML import and/or export available
+                from a variety of software applications ranging from word processors to computer
+                algebra systems. Most importantly, from the perspective of the HTML Working Group,
+                MathML rendering engines have arrived on the scene to provide expert layout of
+                complex equations.</para>
+            <para>Mathematics did not make the cut for inclusion into HTML3 due to the challenges of
+                rendering a complicated and varied language. However, through MathML these
+                challenges have been overcome. Thus, HTML5, which as of December 2012 is a W3C
+                Candidate Recommendation, now includes MathML.</para>
+            <para>HTML5 has been praised for its inclusion of different content types. In previous
+                versions, different types of media (such as video, audio, math, and even images)
+                were treated as external objects, many of which required plug-ins to the browser for
+                the visitor to experience. The benefit of including media in the HTML is that
+                browsers will consistently and correctly display the content without requiring
+                external software. This means, theoretically, a given page with its included media
+                will display the same on any platform or device.<xref linkend="paper-24_fernandes-2012"/></para></sect2>
+        <sect2><title>EPUB 3</title><para>EPUB, the open standard for e-books, is maintained by the International Digital Publishing
+                Forum (IDPF). In version 2 of the EPUB standard, the content of the e-book could be
+                expressed in either of two varieties: DAISY or XHTML. DAISY is an independently
+                managed standard for specifying Digital Talking Books, mostly used for accessibility
+                purposes. Because the DAISY standard included MathML for specifying mathematical
+                content, one could create a valid EPUB file with MathML.</para>
+            <para>In the most recent version of the EPUB standard, IDPF eliminated the DAISY
+                variant, based the XHTML variant on HTML5, and endorsed inclusion of MathML as an
+                important aspect of e-books. Like HTML5, EPUB 3 has been lauded for taking digital
+                content to the next level with its support for media.</para></sect2>
+
+    </sect1>
+    <sect1 xmlns:xlink="http://www.w3.org/1999/xlink"><title>How MathML Fits in with the HTML/EPUB Promise of Enriched Content</title>
+        <para>Maths content has long been included in e-books and web pages as images, plain text
+            (often referred to as ASCII Math), or, for the enthusiasts, as TeX/LaTeX. However, by
+            delivering the mathematics in your content as MathML, you can enable your audience new
+            levels of interaction with the information presented. MathML is integral to HTML5's and
+            EPUB 3's promises of enhanced publications. MathML offers the following advantages in
+            usability and presentation over alternative formats.</para>
+        <sect2><title>Searchability</title><para>Annually, EMC, a maker of storage and big data systems, publishes a study called "Digital
+                Universe" measuring the amount of digital data available. By the end of 2012, EMC
+                measured 2.5 zettabytes of data available worldwide. The study showed the amount of
+                data available worldwide had doubled in just two years. The same study predicts that
+                by 2020, the total data count will exceed 40 zettabytes. "To put it in perspective,
+                40 zettabytes is 40 trillion gigabytes -- estimated to be 57 times the amount of all
+                the grains of sand on all the beaches on earth." <xref linkend="paper-24_mearian-2012"/></para>
+            <para>With so much data available at our fingertips, search is becoming ever more
+                important. An ambition in the field of mathematics is how best to search
+                mathematical notation. Maths search could have several applications including aiding
+                research in scientific communities, helping identify common patterns between remote
+                disciplines, and serving as an educational tool. <xref linkend="paper-24_miner-2004"/>
+                Most of the studies that have had success in this area, such as MathDex, EgoMath,
+                and MathWebWorld, have used alorithms relying on MathML. <xref linkend="paper-24_misutka-2008"/></para></sect2>
+        <sect2><title>Localization</title><para>While maths is a universal language and semantically one expression might be the same as the
+                next, the notation used to express a given equation might vary significantly from
+                region to region. For instance, notation for expressing long division differs
+                distinctly depending on where you are in the world. With XML stylesheets, one can
+                target the display of mathematical content to the region where it's being
+                observed.</para></sect2>
+        <sect2><title>Flexibility of Display</title><para>Since MathML is a part of the document and is rendered at load time, environmental settings
+                can be factored into the display of the maths. Therefore, if a visitor or reader has
+                his browser or e-reader font size set to a larger font size than the default
+                setting, the equations will also appear at the larger base font size. The audience
+                will also see high quality equations no matter the resolution or pixel density of
+                the device loading the web page or e-book. This is a special shortcoming of using
+                images for maths display, as images intended for lower pixel density monitors
+                display poorly on high pixel density monitors and vice versa. </para>
+            <para>MathML, like XML, gives you power of presentation, allowing content providers to
+                apply a certain style to equations along with the rest of the document without
+                having to go through and change each equation individually. For example, equations
+                in tables can be displayed at a smaller font size than the rest of the document or
+                maths in change tracking systems can be highlighted with a foreground (or
+                background) color to indicate changes to an expression.</para></sect2>
+        <sect2><title>Accessibility</title>
+            <para>Content providers may be required by government statute to supply accessible
+                materials to readers with vision and learning disabilities, however, even if
+                government regulations don't apply, there is no reason to limit the available
+                audience. The accessibility community favors MathML because MathML's encoding of a
+                mathematical expression is precise enough that it may be used to translate the
+                equation to Braille or speech text and can also be used to navigate a complex
+                equation so that parts of the equation can be repeated in a semantically relevant
+                way. Most standards intended to support the accessibility community, including DAISY
+                for Digital Talking Books and NIMAS for instructional materials, require maths to be
+                encoded in MathML.</para></sect2>
+        <sect2><title>Interoperability</title><para>Perhaps the most exciting feature of MathML is that it is receiving growing support in a wide
+                variety of applications: computer algebra systems, graphing applications,
+                calculators, modeling software, assessment creation systems, educational
+                whiteboards, etc. Even today one can copy and paste (or import and export) MathML
+                between applications to make better use of data. It isn't difficult to envision the
+                future of MathML: Imagine a doctor is reading a journal article describing
+                mathematical functions behind chemical pathways in the body. To help him visualize
+                how changes in the level of sodium affect the pathways, he sends the equations in
+                the journal article to a modeling system. Within seconds he is able to start
+                adjustments until a life-saving solution is found. Alternatively, the journal
+                article may include a simple modeling system that allows the reader to adjust the
+                parameters of the mathematical functions in the article for hands-on reinforcement
+                of the concepts being described. The potential for interoperability is only limited
+                by the imagination.</para></sect2>
+    </sect1>
+    <sect1 xmlns:xlink="http://www.w3.org/1999/xlink"><title>Status of MathML Support in HTML5 and EPUB 3</title><para>The vendors of the major browsers have been vocal in their support of HTML5. In fact, all of
+            the browser vendors have representatives on the HTML Working Group. Support for MathML
+            is already available in the Gecko rendering engine, which is used by Firefox. WebKit,
+            the engine behind Safari, can render a subset of MathML. Opera currently uses CSS to
+            provide support for MathML. As part of HTML5, browser support for MathML will no doubt
+            only improve in the coming years.</para>
+        <para>Since EPUB 3 is based on HTML5, and since many e-readers are built on browser
+            technology, some e-readers have inherited MathML support. Apple's iBooks e-reader is a
+            primary example. Based on WebKit, iBooks has limited support of MathML. With the
+            enthusiasm that's been shown for EPUB 3, the backing of all of its major features,
+            including MathML, is expected in future versions of all e-readers.</para>
+        <para>However, knowing that support is coming is of little use to those who want to start
+            taking advantage of all of the benefits of MathML today. With the gaps in browser and
+            e-reader display of MathML today, this is an obstacle. No one wants to produce content
+            so that the intended audience has to jump through hoops to view it. Without a doubt,
+            every website visitor has been on the wrong end of content delivery requirements: a
+            website might display a message stating that you do not have the required version of
+            Flash or that the website is optimized for a certain version of browser, which is (of
+            course) not the browser you are using. You are left to contemplate whether the content
+            you have come to consume is worth the effort of updating software or switching browsers,
+            and sometimes it's not.</para>
+        <para>Luckily, a Javascript project called MathJax has been developed to eliminate the gaps
+            in browser and e-reader support of MathML.</para><sect2><title>MathJax</title><para>MathJax is an open-source Javascript library for rendering MathML in all modern browsers. It
+                is developed by a consortium consisting of Design Science, American Mathematical
+                Society, and the Society for Industrial and Applied Mathematics. Internet Explorer
+                and Google Chrome, two browsers that have no native support of MathML, using
+                MathJax, can now display HTML5 pages with MathML in them without the use of a
+                client-installed plug-in. It also adds more complete support of the MathML
+                specification than Firefox, Safari, and Opera have alone.</para>
+            <para>Because MathJax improves browser display of MathML, all e-readers built on browser
+                technology can improve their EPUB 3 support by implementing the MathJax Javascript
+                library. Calibre is a popular e-reader application that has already included MathJax
+                to display e-books with mathematical content.</para></sect2></sect1>
+    <sect1 xmlns:xlink="http://www.w3.org/1999/xlink"><title>Enriching Content with MathML</title><para>Your excitement to get started with your maths stack is palpable. Without delving into too
+            much technical detail, the four areas requiring consideration when setting up your maths
+            stack are your doctype, MathML editors, the conversion process, and MathJax.</para>
+        <para>Assuming you are working in a source format other than HTML5 or EPUB 3, first you'll
+            want to make sure your XML doctype includes MathML. Some standard doctypes, such as
+            Docbook and NLM, do already include MathML. If your doctype does not already, you'll
+            need to modify your schema to include the MathML schema.</para>
+        <para>Once your schema has been set up to include MathML, the next step is to start creating
+            MathML. While MathML is human-readable, it's a verbose language that doesn't lend itself
+            to manual creation. Quite possibly your XML editor of choice already includes a MathML
+            editor or has a plug-in available for download. If not, Design Science offers a suite of
+            MathML editors for integration with your workflow. Most MathML editors have a WYSIWYG
+            interface so that you never have to see the MathML.</para>
+        <para>After creating your content, you might run it through a conversion process, usually
+            involving XSLT, to produce HTML5 and EPUB 3 output. The conversion process needs to be
+            modified to include the calls to MathJax in the header. Also, the MathML will need to be
+            passed through the process untouched. By default, XSLT processors will remove the MathML
+            tags and only pass the CDATA through; thus, you will need to add a few lines to your
+            XSLT library to make sure the MathML tags make it to the output.</para>
+        <para>Finally, you may need to set up MathJax on your server. The MathJax Consortium does
+            host a version of MathJax to which you can link your pages, but if you have heavy
+            traffic, like to have control of the libraries used on your site, or want to customize
+            MathJax at all, you will need to download and install MathJax.</para></sect1>
+    <sect1 xmlns:xlink="http://www.w3.org/1999/xlink"><title>Conclusion</title><para>Recent developments in digital publishing standards are changing the way we present and
+            consume information. Mathematics are a key part of this revolution with MathML's
+            inclusion in HTML5 and EPUB 3. MathML brings to fruition the promise of enriched content
+            for STEM industries by providing the following advantages: MathML is searchable and
+            accessible, it allows easy localization of content, it is flexible in its display across
+            multiple devices and in its support of stylesheets, and finally MathML's use as an
+            exchange format provides endless possibilities in the way mathematical content in web
+            and e-book publications can be enhanced for your audience.</para>
+        <para>MathML is already supported by a number of browsers and e-readers. To fill the gaps,
+            an open-source Javascript library by the name of MathJax provides MathML rendering for
+            all modern browsers. MathJax is also being used to successfully add proper display of
+            MathML in e-readers.</para>
+        <para>The maths stack consisting of MathML, MathJax, HTML5 and EPUB 3 can be implemented by
+            modifying your XML schema to include MathML, adding a MathML editor to your XML editor,
+            making sure your conversion pipeline passes the MathML through untouched, and setting up
+            MathJax on your server.</para></sect1>
+
+    <bibliography xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="paper-24_References">
+            <biblioentry xml:id="paper-24_mearian-2012">
+                <abbrev>Mearian, 2012</abbrev>
+                <author>
+                    <personname>
+                        <firstname>Lucas</firstname><surname>Mearian</surname>
+                    </personname>
+                </author>
+                <pubdate>11 December 2012</pubdate>
+                <title><link xlink:href="http://www.computerworld.com/s/article/9234563/By_2020_there_will_be_5_200_GB_of_data_for_every_person_on_Earth">By 2020, there will be 5,200 GB of data for every person on Earth</link></title>
+                <publisher>
+                    <publishername>Computerworld Inc.</publishername>
+                </publisher>
+            </biblioentry>
+            <biblioentry xml:id="paper-24_miner-2004">
+                <abbrev>Miner, 2004</abbrev>
+                <author>
+                    <personname>
+                        <firstname>Robert</firstname><surname>Miner</surname>
+                    </personname>
+                </author>
+                <pubdate>8 June 2004</pubdate>
+                <title><link xlink:href="http://www.dessci.com/en/reference/searching/math-searching.htm">Enhancing the Searching of Mathematics</link></title>
+                <publisher>
+                    <publishername>Design Science</publishername>
+                </publisher>
+            </biblioentry>
+            <biblioentry xml:id="paper-24_misutka-2008">
+                <abbrev>Misutka, 2008</abbrev>
+                <author>
+                    <personname><firstname>J.</firstname><surname>Misutka</surname></personname>
+                </author>
+                <copyright>
+                    <year>2008</year>
+                </copyright>
+                <citetitle>Indexing Mathematical Content Using Full Text Search Engine</citetitle>
+                <pagenums>240-244</pagenums>
+                <title>WDS '08 Proceedings of Contributed Papers </title>
+                <seriesvolnums>Part I</seriesvolnums>
+            </biblioentry>
+            <biblioentry xml:id="paper-24_fernandes-2012">
+                <abbrev>Fernandes, 2012</abbrev>
+                <author><personname><firstname>Rossi</firstname><surname>Fernandes</surname></personname></author>
+                <pubdate>15 March 2012</pubdate>
+                <title><link xlink:href="http://tech2.in.com/features/general/what-html5-means-to-you/290302">What HTML5 means to you</link></title>
+                <publisher><publishername>Tech2.com India</publishername></publisher>
+            </biblioentry>
+    </bibliography>
+
+</article>

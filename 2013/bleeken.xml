@@ -1,0 +1,701 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xml:id="paper-9" version="5.0">
+  <info xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Building Rich Web Applications using XForms 2.0</title>
+    <author>
+      <personname>Nick van den Bleeken</personname>
+      <email>nick.van.den.bleeken@inventivegroup.com</email>
+      <uri>http://nick.bleeken.eu</uri>
+      <affiliation>
+        <jobtitle>R&amp;D Manager</jobtitle>
+        <org>
+          <orgname>Inventive Designers</orgname>
+          <uri>http://www.inventivedesigners.com/</uri>
+          <address>
+            <street>Sint-Bernardsesteenweg 552</street>
+            <city>Antwerp</city>
+            <postcode>2660</postcode>
+            <country>Belgium</country>
+            <phone>+32 3 425 40 00</phone>
+          </address>
+        </org>
+      </affiliation>
+      <personblurb>
+        <para>I'm currently R&amp;D Manager at Inventive Designers. I'm
+          passionate about XML
+          related technologies, mobile, cloud computing,
+          web and document technology in
+          general.
+        </para>
+        <para>Since 2005 I'm part of the Forms WG at W3C. Currently I'm an
+          editor of the
+          XForms specification.
+        </para>
+      </personblurb>
+    </author>
+    <keywordset>
+      <keyword/>
+    </keywordset>
+    <abstract>
+      <para>XForms is a cross device, host-language independent markup
+        language for declaratively defining a data processing model of XML
+        data and its User Interface. It reduces the amount of markup that
+        has to be written for creating rich web-applications dramatically.
+        There is no need to write any code to keep the UI in sync with the
+        model, this is completely handled by the XForms processor.
+      </para>
+      <para>
+        XForms 2.0 is the next huge step forward for XForms, making it
+        an easy to use framework for creating powerful web applications.
+      </para>
+      <para>
+        This paper will highlight the power of these new features, and
+        show how they can be used to create real life web-applications.
+        It will also discuss a possible framework for building custom
+        components, which is currently still missing in XForms.
+      </para>
+    </abstract>
+  </info>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Introduction</title>
+    <para> Over the last 2 years there is a trend of moving away from
+      browser plug-in frameworks (Adobe Flash, JavaFX, and Microsoft
+      silverlight) in favor of HTML5/Javascript for building rich
+      web-applications. This shift is driven by the recent advances in
+      technology (HTML5 <xref linkend="paper-9_html5"/>, CSS <xref linkend="paper-9_css"/>
+      and Javascript APIs) and the vibrant browser
+      market on one hand, and the recent security problems in those plug-in
+      frameworks on the other hand.
+    </para>
+    <para> Javascript is a powerful dynamic language, but a potential
+      maintenance nightmare if one is not extremely diligent. Creating rich
+      web-applications using javascript requires a lot of code. There are a
+      lot of frameworks (like Dojo <xref linkend="paper-9_dojo"/> and jQuery <xref linkend="paper-9_jquery"/>) that try to minimize the
+      effort of creating user interfaces. Dojo even goes one step further
+      by allowing you to create model-view-controller applications, but you
+      still have to write a lot of javascript to glue everything together.
+    </para>
+    <para> XForms is a cross device, host-language independent markup
+      language for declaratively defining a data processing model of XML
+      data and its User Interface. It uses a model-view-controller
+      approach. The model consists of one or more XForms models describing
+      the data, constraints and calculations based upon that data, and
+      submissions. The view describes what controls appear in the UI, how
+      they are grouped together, and to what data they are bound.
+    </para>
+    <para> XForms reduces the amount of markup that has to be written for
+      creating rich web-applications dramatically. There is no need to
+      write any code to keep the UI in sync with the model, this is
+      completely handled by the XForms processor.
+    </para>
+    <para> XForms 2.0 is the next huge step forward for XForms, making it
+      an easy to use framework for creating powerful web applications. This
+      paper will first discuss the most important improvements in this new
+      version of the specification, followed by an analysis of possible
+      improvements.
+    </para>
+
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="paper-9_sect-xfroms-20">
+    <title>XForm 2.0</title>
+    <para>
+      This section will discuss the most important improvements of
+      XForms compared to its previous version. Those improvements make it
+      easier to create powerful web applications that integrate with data
+      available on the web.
+    </para>
+    <sect2>
+      <title>XPath 2.0</title>
+      <para>
+        XPath 2.0 <xref linkend="paper-9_xpath"/> adds a much richer type system, greatly expands the
+        set of functions and adds additional language constructs like 'for'
+        and 'if'. These new language features make it much easier to specify
+        constraints and calculations. At the same time it makes it easier to
+        display the data the way you want in the UI.
+      </para>
+      <para>
+        <?dbfo keep-together="always" ?>
+        <example>
+          <title>XPath 2.0: Calculate order price</title>
+          <para>The folowing XPath expression calculates the sum of the multiplication of the pricae and quantatiy of each item in the order:</para>
+          <programlisting language="xquery">
+sum(
+  for $n in order/item
+  return $n/price * $n/quantity
+)
+          </programlisting>
+        </example>
+      </para>
+    </sect2>
+    <sect2>
+      <title>Attribute Value Templates</title>
+      <para>Attribute Value Templates <xref linkend="paper-9_avt"/> allow you the use dynamic expressions
+        virtually everywhere in the markup. They are not limited to the
+        XForms elements, but are supported on most host language attributes.
+        Attribute Value Templates enable even more powerful styling of your
+        form based on the data. As an example, a form author can now easily
+        highlight rows in a table based on certain data conditions (overdue,
+        negative values, or complex conditions). In HTML5, this feature
+        enables the form author to declaratively specify when certain
+        css-classes apply to an element.
+      </para>
+      <para>
+        <?dbfo keep-together="always" ?>
+        <example>
+          <title>AVT: Higlight overdue jobs</title>
+          <programlisting language="xml">
+&lt;xf:repeat ref="job"&gt;
+  &lt;tr class="{
+    if(current-dateTime() &gt; xs:dateTime(@due))
+          then 'over-due' else ''
+  }"&gt;
+  ...
+  &lt;/tr&gt;
+&lt;/xf:repeat&gt;
+          </programlisting>
+        </example>
+      </para>
+    </sect2>
+    <sect2>
+      <title>Variables</title>
+      <para>Variables <xref linkend="paper-9_var-element"/> make it possible to break down complex expressions
+        into pieces and make it easier to understand the relationship of
+        those pieces, by using expressive variable names and documenting
+        those individual pieces and their relationships.
+      </para>
+      <para>Variables also facilitate in de-duplication of XPath
+        expressions in your form. In typical forms the same expression is
+        used multiple times (e.g.: XPath expression that calculates the selected language in a multi-lingual UI).
+      </para>
+      <para>
+        <?dbfo keep-together="always" ?>
+        <example>
+          <title>Variables</title>
+          <programlisting language="xml">
+&lt;xf:var name="paging" value="instance('paging')"/&gt;
+&lt;xf:group&gt;
+  &lt;xf:var name="total"
+          value="$paging/@total"/&gt;
+
+  &lt;xf:var name="page-size"
+          value="$paging/@page-size"/&gt;
+
+  &lt;xf:var name="page-count"
+          value="($total + $page-size - 1)
+          idiv $page-size"/&gt;
+
+  &lt;xf:output value="$page-count"&gt;
+    &lt;xf:label&gt;Number of pages&lt;/xf:label&gt;
+  &lt;/xf:output&gt;
+&lt;/xf:group&gt;
+          </programlisting>
+        </example>
+      </para>
+    </sect2>
+    <sect2>
+      <title>Custom Functions</title>
+      <para>Custom functions <xref linkend="paper-9_custom-functions"/> like variables allow form authors to simplify
+        expressions and prevent code duplication without using extensions.
+      </para>
+      <para>
+        <?dbfo keep-together="always" ?>
+        <example>
+          <title>Custom Functions: Fibonacci</title>
+          <programlisting language="xml">
+&lt;function signature="
+  my:fibonacci($n as xs:integer) as xs:integer"&gt;
+   &lt;var name="sqrt5" value="math:sqrt(5)"
+   &lt;result value="(
+    math:power(1+$sqrt5, $n) -
+    math:power(1-$sqrt5, $n)) div
+    (math:power(2, $n) * $sqrt5)" /&gt;
+&lt;/function&gt;
+          </programlisting>
+        </example>
+
+      </para>
+    </sect2>
+    <sect2>
+      <title>Non-XML data</title>
+      <para>Because XForms' data model is XML it can consume data from a
+        lot of sources with little effort (SOAP services, XML data bases
+        using XQuery, REST XML services, ...). Starting from XForms 2.0,
+        XForms can natively consume JSON data <xref linkend="paper-9_json"/>.
+        As more and more services on
+        the web are starting to deliver JSON today this is an important
+        feature. XForms implementations may support other non-XML file
+        formats like CSV, vCard, ...
+      </para>
+      <para>
+        The form author can use all normal XForms constructs (binds, UI controls,
+        actions,...) independant from the data format of the external source.
+        The XForms processor will build an XPath data model from the recieved data.
+      </para>
+    </sect2>
+    <sect2>
+      <title>Miscellaneous improvements</title>
+      <para>
+        Other interesting new features are:
+        <itemizedlist>
+          <listitem>
+            <para>Model based switching/repeats allows form authors to capture
+              the state of the switch/repeat in the model, which makes it
+              possible to save and restore the actual runtime state of the
+              form.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The iterate attribute makes it much easier to execute
+              actions for
+              all nodes matching a certain condition.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Ability to specify the presentation context for the result
+              of a
+              replace-all submission. This feature makes it possible to
+              display
+              the result of a submission in another frame or tab, when
+              you
+              using HTML as your host language.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              MIP functions (e.g.: valid()) which can be used in actions
+              and the
+              user interface. They can for example be used to
+              conditionally show
+              content based on the value of a MIP on a data
+              node.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </para>
+    </sect2>
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="paper-9_sect-future-features">
+    <title>Possible features for a future version of the specification
+    </title>
+    <para>
+      There are a lot of possible enhancements that could be made to
+      the current specification. Ranging from improving UI events, better
+      expression of conditional default values, structural constraints to
+      better integration with other web platform technologies (Javascript,
+      geo-location, Web Storage, Crypto, ...).
+    </para>
+    <para>
+      But in my opinion the most important thing that is still
+      missing in the
+      current version of the specification, is a framework
+      for defining
+      custom components that can be re-used in multiple
+      forms/applications.
+      This section will discuss possible requirements
+      for such a framework
+      and a proposal of a possible custom components
+      framework which is
+      heavily based on the framework that is currently
+      implemented by
+      Orbeon Forms <xref linkend="paper-9_orbeon"/>.
+    </para>
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="paper-9_sect-custom-components">
+    <title>Custom Components</title>
+    <para>
+      Custom components should be easily re-usable over multiple
+      forms/applications. They should feel and behave the same way as
+      native XForms UI controls. It should also be possible to strongly
+      encapsulate their internal data and logic. The following section will
+      go into more depth about these requirements and how they could be
+      implemented.
+    </para>
+    <sect2>
+      <title>Using Custom Components</title>
+      <para>This section will discuss the aspects of a custom component
+        that are relevant to the user of the component and demonstrate how
+        custom controls can be used by the form author in an XForms
+        document.
+      </para>
+      <para>
+        In general there are two different categories of custom components:
+        <orderedlist>
+          <listitem>
+            <para>
+              <?dbfo keep-together="always" ?>
+              Components that are just a different appearance of an existing
+              XForms control. An example of this is a graphical state selection
+              component.
+              <example>
+                <title>Custom appearance: Graphical state selection component</title>
+                <programlisting language="xml">
+&lt;xf:select1 ref="state" appearance="cc:us-states"&gt;
+  &lt;xf:itemset ref="instance('states')"&gt;
+    &lt;xf:label ref="@name"/&gt;
+    &lt;xf:value ref="@code"/&gt;
+  &lt;/xf:itemset/&gt;
+&lt;xf:select1&gt;
+                </programlisting>
+                <mediaobject>
+                  <imageobject>
+                    <imagedata fileref="images/select1-states.png" width="100%"/>
+                  </imageobject>
+                </mediaobject>
+              </example>
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <?dbfo keep-together="always" ?>
+              Advanced and/or complex user interface controls that are not an
+              appearance of an existing XForms User Interface control. An
+              example of such a control is a donut chart:
+              <example>
+                <title>Custom element: Donut chart</title>
+                <programlisting language="xml">
+&lt;cc:chart&gt;
+  &lt;cc:slice-serie
+    ref="instance('accounts')/account"&gt;
+
+    &lt;cc:label value="@label"/&gt;
+    &lt;cc:name value="@id"/&gt;
+    &lt;cc:value value="@amount"/&gt;
+  &lt;/cc:slice-serie&gt;
+&lt;/cc:chart&gt;
+                </programlisting>
+                <mediaobject>
+                  <imageobject>
+                    <imagedata fileref="images/donut-chart.png" width="150px" align="center"/>
+                  </imageobject>
+                </mediaobject>
+              </example>
+            </para>
+          </listitem>
+        </orderedlist>
+      </para>
+      <para>As shown in the above example, the markup to use custom
+        components is similar to the markup for native XForms controls. To
+        use the first category of controls the form author just has to
+        specify a custom appearance. For the second category new element
+        names should be used, but the same constructs as for native form
+        controls are used (ref-attribute for specifying the repeat sequence,
+        value-attribute for the values, a structure similar to xf:itemset is
+        used for cc:slices).
+      </para>
+      <sect3>
+        <title>Container control</title>
+        <para>Some custom components, such as tabview, act like a container
+          controls (xf:group, xf:switch, xf:repeat). Those controls have
+          typically one or multiple insertion points, to which the custom
+          control host’s children are transposed. The transposed children can
+          contain any host language and XForms content, which will be visible
+          from the “outside” (e.g.: IDs are also visible to actions in the
+          host document outside of this custom control).
+        </para>
+        <para>
+          <?dbfo keep-together="always" ?>
+          The following example creates a tab view with two tabs (Host
+          language and xforms markup can be used under the tab elements):
+          <example>
+            <title>Custom Container Control: Tab view</title>
+            <programlisting language="xml">
+&lt;cc:tabview&gt;
+  &lt;cc:tab&gt;
+    &lt;xf:input ref="foo"&gt;...&lt;/xf:input&gt;
+  &lt;/cc:tab&gt;
+  &lt;cc:tab&gt;...&lt;/cc:tab&gt;
+&lt;cc:tabview&gt;
+            </programlisting>
+          </example>
+        </para>
+      </sect3>
+      <sect3>
+        <title>Events</title>
+        <para>XForms uses XML events and XForms actions to execute various
+          tasks during the form execution. The appropriate xforms events are
+          dispatched to the custom control (e.g.: the data node related
+          events like xforms-value-changed and xforms-reaonly are sent to the
+          control if the control has a data binding). The form author can
+          attach event listeners to all custom controls just like he does for
+          native XForms controls.
+        </para>
+        <para>
+          <?dbfo keep-together="always" ?>
+          The following example attaches a value change listener to the
+          custom pie chart control:
+          <example>
+            <title>Events: Attach handler to Custom Control</title>
+            <programlisting language="xml">
+&lt;cc:pie-chart ref="account"&gt;
+  &lt;cc:slices ref="instance('accounts')/account"&gt;
+    &lt;cc:label value="@label"/&gt;
+    &lt;cc:name value="@id"/&gt;
+    &lt;cc:value value="@amount"/&gt;
+  &lt;/cc:slices&gt;
+
+  &lt;xf:action ev:event="xforms-value-changed"&gt;
+      ...
+  &lt;/xf:action&gt;
+&lt;/cc:pie-chart&gt;
+            </programlisting>
+          </example>
+        </para>
+        <para>
+          Custom events, which can be handled by the custom control, can
+          be dispatched to the custom control using the xf:dispatch action.
+        </para>
+        <para>
+          <?dbfo keep-together="always" ?>
+          The following example dispatches an event my-event to the
+          control with id foo-bar when the trigger is activated:
+          <example>
+            <title>Events: Dispatch event to Custom Control</title>
+            <programlisting language="xml">
+&lt;cc:foo-bar id="foo-bar"&gt;
+...
+&lt;xf:trigger&gt;
+  &lt;xf:label&gt;Do it&lt;/xf:label&gt;
+
+  &lt;xf:dispatch
+    ev:event="DOMActivate"
+    name="my-event"
+    targeted="foo-bar"/&gt;
+
+&lt;/xf:trigger&gt;
+            </programlisting>
+          </example>
+        </para>
+      </sect3>
+      <sect3>
+        <title>Responsive Design</title>
+        <para>When targeting a wide variety of devices with different
+          capabilities (screen size/resolution, mouse/touch,…) and usages, it
+          might be desirable to change the appearance of a control depending on
+          the used device and or environment in which it is used. Examples of
+          this are desktop versus mobile, but also landscape versus portrait on
+          a tablet.
+          This is currently not supported but it is something that should be
+          considered for the next version of XForms, and might be related to the
+          custom controls framework.
+        </para>
+        <para>
+          <?dbfo keep-together="always" ?>
+          <example>
+            <title>Responsive Design: different appearence depending on orientation</title>
+            <mediaobject>
+              <imageobject>
+                <imagedata fileref="images/iPhoneLandscape_chart.png" width="100%"/>
+              </imageobject>
+            </mediaobject>
+            <mediaobject>
+              <imageobject>
+                <imagedata fileref="images/iPhonePortrait_chart.png" width="100%"/>
+              </imageobject>
+            </mediaobject>
+          </example>
+        </para>
+
+      </sect3>
+    </sect2>
+    <sect2 xml:id="paper-9_sect-creating-custom-components">
+      <title>Creating Custom Components</title>
+      <para>Implementing a custom component is typically done using a
+        mixture of XForms and host language specific markup. There are a lot
+        of possibilities on how to specify this implementation. A
+        possibility is to extend the work done for XBL 2.0, but because this
+        specification is no longer maintained it is probably better to
+        specify something that is a bit more tailored to the XForms
+        requirements.
+      </para>
+      <para>
+        <?dbfo keep-together="always" ?>
+        A simple custom component that just wraps an input control, has
+        a data binding and supports LHHA (label, hint, help and alert) might
+        look like this:
+        <example>
+          <title>Custom Control: Implementation</title>
+          <programlisting language="xml">
+&lt;xf:component
+  xmlns:xhtml="http://www.w3.org/1999/xhtml"
+  xmlns:xforms="http://www.w3.org/2002/xforms"
+  xmlns:ev="http://www.w3.org/2001/xml-events"
+  xmlns:cc="http://www.sample.com/custom-controls"
+  id="foo-bar-id"
+  element="cc:foo-bar"
+  mode="data-binding lhha"&gt;
+  &lt;xf:template&gt;
+    &lt;xf:input ref="xf:binding('foo-bar-id')"/&gt;
+  &lt;/xf:template&gt;
+&lt;/xf:component&gt;
+          </programlisting>
+        </example>
+      </para>
+      <para>In the above example the mode attribute on the component
+        element ensures that the custom control will support the data
+        binding attributes (ref, context and bind) and supports the
+        LHHA-elements.
+      </para>
+    </sect2>
+    <sect2>
+      <title>Data and logic encapsulation</title>
+      <para>A custom component should be able to have private models to
+        abstract and encapsulate their internal data and logic. This implies
+        that a component can define its own instances, binds and
+        submissions.
+      </para>
+    </sect2>
+    <sect2>
+      <title>Event encapsulation</title>
+      <para>Events that are sent from and are targeted to elements inside
+        the component should not be visible to the user of that component.
+        But it should be possible to send events to, and receive events
+        from, the user of the component.
+      </para>
+      <para>To fulfill these requirements the elements of the custom
+        control will reside in its own ‘shadow’ tree. But events dispatched
+        to, and listener attached to, the root element of the custom control
+        will be re-targeted to the host element.
+      </para>
+    </sect2>
+    <sect2>
+      <title>Component lifecycle</title>
+      <para>
+        Standard XForms initialization events (xforms-model-construct
+        and xforms-model-construct-done and xforms-ready) and destruction
+        events (xforms-model-destruct) will be sent to the models in the
+        custom
+        control when the custom control is created and destroyed
+        respectively. A custom control can be created
+        either when the form is
+        loaded or when a new iteration is added to
+        an xf:repeat. A custom
+        control is destroyed when the XForms
+        Processor is shutdown (e.g.:
+        result of load action or submission
+        with replace all) or if an
+        iteration in an xf:repeat is removed.
+      </para>
+      <para>The events are sent to the implementation of the custom control
+        and therefore, not traverse any of the host document elements.
+      </para>
+    </sect2>
+    <sect2>
+      <title>Styling</title>
+      <para>By default, styling should not cross the boundary between the
+        host
+        document and the component. In other words, the styling rules
+        from
+        the host document should not impact with the styling rules from
+        the
+        component and vice versa. But it should be possible to style
+        parts
+        of
+        the custom control from within the host document that are
+        explicitly
+        specified as being style able by the custom controls’
+        implementation.
+        When using CSS as a styling language it is
+        recommended to use custom
+        pseudo elements, just like defined in
+        Shadow DOM <xref linkend="paper-9_shadow-dom"/>.
+      </para>
+    </sect2>
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="paper-9_sect-conclusion">
+    <title>Conclusion</title>
+    <para>
+      The new features in XForms 2.0 like XPath 2.0, Attribute Value
+      Templates and variables make it easier to create web applications with
+      XForms. The support of non-XML data sources ensures that the technology
+      can be used to consume data from a variety of sources. One of the
+      biggest strengths of XForms is its abstraction by declaratively
+      defining its data processing model (dependencies , validations,
+      calculations and data binding). But it is currently missing a
+      standardized way for abstracting re-usable high level components, that
+      can be used to build rich forms/applications. Hopefully such a frame is something
+      that can be added in the next version of XForms.
+    </para>
+  </sect1>
+  <bibliography xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="paper-9_references">
+    <title>References</title>
+    <biblioentry xml:id="paper-9_avt">
+      <abbrev>AVT</abbrev>
+      <title>XForms 2.0 (specific reference)</title>
+      <subtitle>Attribute Value Templates</subtitle>
+      <biblioid class="uri">http://www.w3.org/TR/xforms20/#avts</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-9_css">
+      <abbrev>CSS</abbrev>
+      <title>CSS Snapshot</title>
+      <biblioid class="uri">http://www.w3.org/TR/CSS/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-9_custom-functions">
+      <abbrev>CUST_FUNC</abbrev>
+      <title>XForms 2.0 (specific reference)</title>
+      <subtitle>4.10 The function Element</subtitle>
+      <biblioid class="uri">http://www.w3.org/TR/xforms20/#The_function_Element</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-9_dojo">
+      <abbrev>DOJO</abbrev>
+      <title>DOJO Toolkit</title>
+      <biblioid class="uri">http://dojotoolkit.org/</biblioid>
+    </biblioentry>
+    <!--
+    <biblioentry xml:id="paper-9_dojo-declerative">
+      <abbrev>DOJO_DECL</abbrev>
+      <biblioid class="uri">http://dojotoolkit.org/documentation/tutorials/1.8/declarative/</biblioid>
+    </biblioentry> -->
+    <biblioentry xml:id="paper-9_html5">
+      <abbrev>HTML5</abbrev>
+      <title>HTML 5.1</title>
+      <date>1 November 2016</date>
+      <publisher>
+        <publishername>World Wide Web Consortium (W3C)</publishername>
+      </publisher>
+      <biblioid class="uri">http://www.w3.org/TR/html51/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-9_jquery">
+      <abbrev>JQUERY</abbrev>
+      <title>JQuery</title>
+      <biblioid class="uri">http://jquery.com/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-9_json">
+      <abbrev>JSON</abbrev>
+      <title>JSON.org</title>
+      <biblioid class="uri">http://www.json.org/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-9_orbeon">
+      <abbrev>ORBEON</abbrev>
+      <title>Orbeon Processor</title>
+      <biblioid class="uri">http://www.orbeon.com/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-9_shadow-dom">
+      <abbrev>SHADOW_DOM</abbrev>
+      <title>Shadow DOM</title>
+      <editor>
+        <personname>Hayato Ito</personname>
+      </editor>
+      <biblioid class="uri">http://www.w3.org/TR/shadow-dom/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-9_var-element">
+      <abbrev>VAR</abbrev>
+      <title>XForms 2.0 (specific reference)</title>
+      <subtitle>3.2.4 The var element</subtitle>
+      <biblioid class="uri">http://www.w3.org/TR/xforms20/#structure-var-element</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-9_xforms">
+      <abbrev>XFORMS-20</abbrev>
+      <title>XForms 2.0</title>
+      <biblioid class="uri">http://www.w3.org/TR/xforms20/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-9_xpath">
+      <abbrev>XPATH-20</abbrev>
+      <title>XForms 2.0: XPath expression module</title>
+      <biblioid class="uri">http://www.w3.org/TR/2012/WD-xforms-xpath-20120807/</biblioid>
+    </biblioentry>
+  </bibliography>
+</article>

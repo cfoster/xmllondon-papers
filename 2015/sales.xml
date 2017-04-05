@@ -1,0 +1,670 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+
+<article xmlns="http://docbook.org/ns/docbook"
+         xmlns:xl="http://www.w3.org/1999/xlink"
+         version="5.0" xml:lang="en">
+
+  <info>
+    <title>The application of Schematron schemas to word-processing documents</title>
+    <subtitle>Document validation in a non-structured environment</subtitle>
+
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Andrew</firstname>
+          <surname>Sales</surname>
+        </personname>
+        <email>andrew@andrewsales.com</email>
+        <affiliation>
+          <orgname>Andrew Sales Digital Publishing Limited</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+
+    <keywordset>
+      <keyword>Schematron</keyword>
+      <keyword>validation</keyword>
+      <keyword>OOXML</keyword>
+      <keyword>ODF</keyword>
+    </keywordset>
+
+    <abstract>
+        <para>This paper will present Schematron as a portable, standards-based alternative to macros,
+        demonstrating how it can be integrated into a word-processing template to alert authors and
+        editors directly to content problems during capture.</para>
+        <para>It will demonstrate how business rules can be applied to a word-processing document held
+        in one of the standard word-processing XML file formats using an ISO Schematron schema.
+        These rules will comprise typical Schematron validation activity. Further, it will be
+        shown how errors found in the document can be successfully merged
+        back <emphasis role="italic">in situ</emphasis> into the original document, so that an editor can address the problem so located
+        within the originating editing environment.</para>
+    </abstract>
+
+  </info>
+
+  <section>
+    <title>Background</title>
+    <para>As traditional print-based publishing has made the transition into the digital age, a
+      convention has developed in some quarters of capturing or even typesetting content using
+      word-processing applications.</para>
+    <para>These can present a convenient route to publication in the many instances where content
+      derives (in the form of author manuscript) from the same word-processing package. It is also
+      a relatively cheap and efficient one, demanding the now basic and widespread skills of
+      styling a document to achieve the desired appearance.</para>
+    <para>As a result, typesetting workflows consuming these documents still exist, template-based
+      workflows designed to capture structured data are still in place, and for some publishers
+      large quantities of legacy data persist in word-processing formats only and require
+      migration to XML to meet modern production demands.</para>
+  </section>
+  
+  <section>
+    <title>Quality</title>
+    <para>During the long period (for some) of moving to a digital-first workflow, with publication of
+      a single source of structured data in various renditions, it has become apparent to such
+      publishers that the quality of their content no longer only resides in the appearance of the
+      rendered product, but also in the quality of the data capture itself. The quality question has
+      shifted from “Does my product look right?” to “Is my source markup sufficiently rich to
+      service the outputs I wish to produce?” When generating XML markup from a
+      word-processing source, the inevitable corollary is whether the document has been styled
+      appropriately to drive good-quality data capture.</para>
+    <para>Consistently-applied styles are needed, which can be facilitated in part by a well-designed template.
+    Badly-applied styles will, understandably enough, produce less than optimal results.</para>
+  </section>
+  
+  <section>
+    <title>Approaches</title>
+    <para>The requirement to apply business rules to styled documents is not new. This was often
+      done using macros to interrogate the underlying object model before Microsoft Office
+      (OOXML) <xref linkend="OOXML"/> and Open Office (ODF) <xref linkend="ODF"/> began exposing their respective file formats as XML.
+      With the word-processing document now available as XML, other, native-XML
+      validation approaches are viable and indeed attractive.</para>
+    <section>
+      <title>The case for Schematron</title>
+      <para>There are several benefits to preferring Schematron:<itemizedlist mark="bullet">
+        <listitem><para>compatibility of a native XML technology with the OOXML/ODF XML formats;</para></listitem>
+        <listitem><para>the output validation format (SVRL <xref linkend="SVRL"/>) can be used for onward analysis/processing;</para></listitem>
+        <listitem><para>the technologist can concentrate on writing constraints using XPath (perhaps also re-using favourite libraries or shared Schematron rulesets), rather than bespoke macro code;</para></listitem>
+        <listitem><para>there is some scope for targeting different flavours of word-processing XML (with a little work);</para></listitem>
+        <listitem><para>it is an international standard, whose <emphasis>de facto</emphasis> reference implementation is written in XSLT.</para></listitem>
+      </itemizedlist></para>
+    </section>
+  </section>
+
+  <section xml:id="rule-types">
+    <title>Types of rule</title>
+    <para>Let us look at some samples of common types of business rule expressed as Schematron constraints. The format to be constrained in this instance is WordprocessingML.</para>
+    <para>The natural-language business rule is given first, followed in each case by a Schematron implementation.</para>
+    <note><para>These and other ISO Schematron examples omit the Schematron namespace for brevity. An XSLT 2.0 implementation is also assumed.</para></note>
+    <section>
+      <title>Unexpected styles</title>
+      <para>"All paragraph styles in the body of the document must be a member of a controlled list of styles."</para>
+<programlisting language="xml">&lt;pattern id="unexpected-para-style">
+&lt;let name="allowed-para-styles" 
+  value=
+  "('articlehead', 'bodytext', 'bibhead', 'bib')"/>
+&lt;rule context="w:p[not(parent::w:ftr) 
+and not(parent::w:footnote) 
+and not(parent::w:endnote)][w:r]">
+&lt;report 
+test="not(w:pPr/w:pStyle/@w:val = 
+  $allowed-para-styles)">
+unexpected para style 
+  '&lt;value-of select="w:pPr/w:pStyle/@w:val"/>';
+expected one of: 
+  &lt;value-of select="$allowed-para-styles"/>
+&lt;/report>
+&lt;/rule>
+&lt;/pattern></programlisting>
+    </section>
+    <section>
+      <title>Unexpected sequence of styles</title>
+      <para>"The first bibliographic citation must be immediately preceded by a bibliography heading."</para>
+<programlisting language="xml">&lt;pattern id="missing-bib-heading">
+&lt;rule 
+context="w:p[w:pPr/w:pStyle/@w:val='bib']
+[not(preceding::w:p[w:pPr/w:pStyle/@w:val 
+  = 'bib'])]">
+  &lt;assert 
+    test="preceding::w:p[w:pPr/w:pStyle/@w:val 
+      = 'bibhead']">
+    no bibliography heading found
+  &lt;/assert>
+&lt;/rule>
+&lt;/pattern></programlisting>
+    </section>
+    <section xml:id="date-datatype">
+      <title>Formatting of datatypes, e.g. dates</title>
+      <para>"A date in a bibliographic citation must conform to the format YYYY-MM-DD."</para>
+<programlisting language="xml">&lt;pattern id="bad-date">
+&lt;rule 
+  context="w:r[w:rPr/w:rStyle/@w:val='bibdate']">
+  &lt;assert test=". castable as xs:date">
+  text styled as 'bibdate' must be in the format 
+    'YYYY-MM-DD'; 
+  got '&lt;value-of select="."/>'&lt;/assert>
+&lt;/rule>
+&lt;/pattern></programlisting>
+    </section>
+    <section>
+      <title>Co-occurrence constraints</title>
+      <para>"Every citation reference must have a corresponding citation number in the bibliography."</para>
+<programlisting language="xml">&lt;pattern id="broken-citation-link">
+&lt;let name="citation-refs" 
+  value="//w:r[w:rPr/w:rStyle/@w:val='bibref']"/>
+&lt;rule context="w:r[w:rPr/w:rStyle/@w:val 
+  = 'bibnum']">
+  &lt;assert test=". = $citation-refs">
+  could not find a citation reference to this 
+  citation: 
+  '&lt;value-of select="."/>'&lt;/assert>
+&lt;/rule>
+&lt;/pattern></programlisting>
+      <para>These examples show that it is possible to express a range of constraints usefully with Schematron on WordprocessingML 
+        documents, just as it is on other types of XML document, provided that:<orderedlist>
+          <listitem><para>the expected disposition of styles supplies enough meaning to enable those constraints to be created in the first place; and</para></listitem>
+          <listitem><para>enough styling has been applied to produce sensible validation output.</para></listitem>
+        </orderedlist></para>
+      <para>These are important, if obvious, limitations: a document whose contents have, for instance, a single default style applied to them will not be very amenable to this kind of validation.</para>
+    </section>
+  </section>
+  
+  <section>
+    <title>Error reporting and visualisation</title>
+    <para>Word-processing packages are by nature presentation-driven, so it makes sense to display the problems found within the original document for editorial convenience where possible.</para>
+    <para>The image below shows an approach to achieving this, starting with the original document at top left and proceeding clockwise until the final step, where the original document is the input document for the final transformation.</para>
+    <figure>
+      <title>Annotating word-processing documents with Schematron errors</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/as-process.svg"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>Assuming a document containing errors which we have obtained from Schematron as an SVRL report, let us look at this process in more detail.</para>
+    <section>
+      <title>SVRL</title>
+      <para>We can take advantage of SVRL's <code>failed-assert</code> and <code>successful-report</code> elements, whose <code>location</code> attribute contains an XPath locator to the node at fault, e.g.</para>
+      <programlisting language="xml">&lt;svrl:failed-assert test=". castable as xs:date"
+   location="/*:wordDocument[namespace-uri()=
+   'http://schemas.microsoft.com/office/word/2003/wordml'][1]
+   /*:body[namespace-uri()='http://schemas.microsoft.com/office/word/2003/wordml'][1]
+   /*:sect[namespace-uri()='http://schemas.microsoft.com/office/word/2003/auxHint'][1]
+   /*:sub-section[namespace-uri()='http://schemas.microsoft.com/office/word/2003/auxHint'][1]
+   /*:sub-section[namespace-uri()='http://schemas.microsoft.com/office/word/2003/auxHint'][1]
+   /*:p[namespace-uri()='http://schemas.microsoft.com/office/word/2003/wordml'][4]
+   /*:r[namespace-uri()='http://schemas.microsoft.com/office/word/2003/wordml'][4]">
+  &lt;svrl:text>text styled as 'bibdate' must be in the format 'YYYY-MM-DD'; got 'February 2015'&lt;/svrl:text>
+&lt;/svrl:failed-assert></programlisting>
+    </section>
+      <section>
+        <title>Auto-generated XSLT</title>
+        <para>From the XPaths supplied in SVRL, XSLT can be automatically generated to perform an identity transform to flag up errors in the original document.</para> 
+        <para>The resulting, auto-generated XSLT contains an <code>xsl:key</code> matching each locator,
+          whose paths are simplified so that each step contains a <literal>QName</literal> (the <code>key</code> name here is the ID of the respective SVRL <code>failed-assert</code> or <code>successful-report</code>):</para>
+        <programlisting language="xml">&lt;xsl:key name="d1e44" use="generate-id()"
+  match="/w:wordDocument[1]/w:body[1]/wx:sect[1]/
+  wx:sub-section[1]/wx:sub-section[1]/w:p[4]/
+  w:r[4]"/></programlisting>
+        <para>This enables (in WordprocessingML) the insertion of start and end comment elements around the location of the 
+          problem<footnote><para>ODF uses a simliar approach with its <code>office:annotation</code> and <code>office:annotation-end</code>.</para></footnote> (<code>w:p</code> for paragraphs and <code>w:r</code> inline), and the text of the error message as the comment's content:</para>
+        <programlisting language="xml">&lt;xsl:template match="w:p">
+&lt;xsl:variable name="id" select="generate-id(.)"/>
+&lt;xsl:variable name="pos" 
+select="count( preceding::* ) 
+  + count( ancestor-or-self::* )"/>
+    
+    &lt;!--*COMMENT START MARKERS*-->
+    &lt;xsl:for-each select="key( 'd1e44', $id )">
+        &lt;xsl:call-template name="annotation">
+            &lt;xsl:with-param name="att-name" 
+            select="'Word.Comment.Start'"/>
+            &lt;xsl:with-param name="att-value" 
+            select="$pos"/>
+        &lt;/xsl:call-template>
+    &lt;/xsl:for-each>
+    &lt;!-- a further for-each select='key(...)' 
+      here for each error found -->
+    &lt;w:p>
+    &lt;xsl:apply-templates select="*"/>
+      
+    &lt;!--*COMMENT END MARKERS*-->
+    &lt;xsl:for-each select="key( 'd1e44', $id )">
+        &lt;xsl:call-template name="annotation">
+            &lt;xsl:with-param name="att-name" 
+            select="'Word.Comment.End'"/>
+            &lt;xsl:with-param name="att-value" 
+            select="$pos"/>
+        &lt;/xsl:call-template>
+    &lt;/xsl:for-each>
+    &lt;!-- a further for-each select='key(...)'
+      here for each error found -->
+        
+    &lt;!--*COMMENT CONTENT*-->
+    &lt;xsl:for-each select="key( 'd1e44', $id )">
+      &lt;xsl:call-template name="insert-comment">
+        &lt;xsl:with-param name="id" 
+          select="$pos"/>
+          &lt;xsl:with-param name="message"
+              select="'text styled as 
+&amp;quot;bibdate&amp;quot; must be in the format 
+&amp;quot;YYYY-MM-DD&amp;quot; got 
+&amp;quot;February 2015&amp;quot;'"/>
+      &lt;/xsl:call-template>
+    &lt;/xsl:for-each>
+    &lt;/w:p>
+&lt;/xsl:template>
+
+&lt;!--the same approach also applies to any w:r 
+  elements--> 
+
+&lt;xsl:template name="annotation">
+    &lt;xsl:param name="att-name"/>
+    &lt;xsl:param name="att-value"/>
+    &lt;aml:annotation>
+        &lt;xsl:attribute name="w:type">
+            &lt;xsl:value-of select="$att-name"/>
+        &lt;/xsl:attribute>
+        &lt;xsl:attribute name="aml:id">
+            &lt;xsl:value-of select="$att-value"/>
+        &lt;/xsl:attribute>
+    &lt;/aml:annotation>
+&lt;/xsl:template>
+        
+&lt;!-- N.B. template named 'insert-comment' 
+  omitted; see its output in the following section
+--></programlisting>
+        <para>This XSLT has clearly not been finessed for elegance or efficiency. Templates matching the error XPath locators are 
+          a more natural choice; another alternative would be to use an extension functions to evaluate the XPaths reported in SVRL.</para>         
+      </section>
+    <section>
+      <title>Annotated source document</title>
+      <para>When the automatically-generated XSLT is run on the original document, an annotated analogue of the source results.</para>
+      <para>The WordprocessingML contains for example this markup for each error identified using Schematron:</para>
+      <programlisting language="xml">&lt;!-- comment start marker -->
+&lt;aml:annotation w:type="Word.Comment.Start" 
+  aml:id="650"/>
+&lt;!-- original text where problem located: -->
+&lt;w:r>
+  &lt;w:rPr>
+    &lt;w:rStyle w:val="bibdate"/>
+  &lt;/w:rPr>
+  &lt;w:t>February 2015&lt;/w:t>
+&lt;/w:r>
+&lt;!-- comment end marker -->
+&lt;aml:annotation w:type="Word.Comment.End" 
+  aml:id="650"/>
+&lt;!-- comment content 
+  (i.e. Schematron error message) -->
+&lt;w:r>
+  &lt;w:rPr>
+    &lt;w:rStyle w:val="CommentReference"/>
+  &lt;/w:rPr>
+  &lt;aml:annotation 
+    aml:author="QA" w:type="Word.Comment" 
+    w:initials="QA" 
+    aml:id="650" 
+    aml:createdate="2015-05-06T16:33:59.801+01:00">
+    &lt;aml:content>
+      &lt;w:p>
+        &lt;w:pPr>
+          &lt;w:pStyle w:val="CommentText"/>
+        &lt;/w:pPr>
+        &lt;w:r>
+          &lt;w:rPr>
+            &lt;w:rStyle w:val="CommentReference"/>
+          &lt;/w:rPr>
+          &lt;w:annotationRef/>
+        &lt;/w:r>
+        &lt;w:r>
+          &lt;w:t>text styled as "bibdate" must be 
+          in the format "YYYY-MM-DD"; 
+          got "February 2015"&lt;/w:t>
+        &lt;/w:r>
+      &lt;/w:p>
+    &lt;/aml:content>
+  &lt;/aml:annotation>
+&lt;/w:r></programlisting>
+      <para>Using comments represents a relatively non-invasive way of inserting error information into the original. 
+        In both OOXML and ODF they reside in a different namespace from the "true" content of the document, with the added 
+        advantage that an editor can cycle through the errors using the application's in-built review tools.</para>      
+    </section>
+    
+    <section>
+      <title>Visualisation</title>
+      <para>The Word rendition then contains comments flagging up each error:</para>
+      <figure>
+        <title>Word rendition of Schematron errors as comments</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/as-annotated-word.png"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>A limitation is that the error must "hang off" something that is visible in the rendered document. 
+        For example, a rule that stipulates a particular paragraph style must be present may have the element representing the document body as its context &#x2013; something which is not visible when rendered.
+        In these cases, the Schematron <code>rule/@context</code> should be adjusted so that e.g. the first paragraph in the document is targeted. 
+        Alternatively, such rules can be post-processed at the SVRL stage to use renderable locations.</para>
+    </section>
+  </section>
+  
+  <section>
+    <title>Simplification</title>
+    <para>Writing XPath-based Schematron rules for flat structures is reasonably tedious work: in
+      document-based XML the structure broadly reflects the meaning of the content, whereas a
+      word-processing document is essentially a presentation-focused succession of (paragraph and character) styles,
+      tables and other objects.</para>
+    <para>Some options are available to make this task less onerous.</para>
+    <section>
+      <title>Abstraction</title>
+      <para>Abstract patterns and rules are a well-known way of maximising re-use in Schematron.</para>
+      <para>In this context, because of the "flat" structure of the documents, many of the constraints apply to relationships on the preceding and following axes, 
+        and so these can be abstracted to make conveniently reusable rules. For instance, the business rule 
+        <emphasis>"The first bibliographic citation must be immediately preceded by a bibliography heading"</emphasis> may become:</para>
+        <programlisting language="xml">&lt;pattern id="expected-preceding-style" 
+  abstract="true">        
+    &lt;rule context="w:p[w:pPr/w:pStyle/@w:val 
+      = $context-style]
+        [not(preceding::w:p[w:pPr/w:pStyle/@w:val 
+          = $context-style])]">
+        &lt;assert test="preceding::w:p
+        [w:pPr/w:pStyle/@w:val 
+            = $expected-preceding-style]">
+            first occurrence of style 
+'&lt;value-of select="$context-style"/>' has no 
+preceding style '&lt;value-of 
+select="$expected-preceding-style"/>'
+        &lt;/assert>
+    &lt;/rule>
+&lt;/pattern>
+
+&lt;pattern id="missing-bib-heading" 
+  is-a="expected-preceding-style">
+    &lt;param name="context-style" value="'bib'"/>
+    &lt;param name="expected-preceding-style" 
+      value="'bibhead'"/>
+&lt;/pattern></programlisting>
+      <para>where the abstracted rule can be used for any such case, and the concrete rule simply passes the relevant style names as parameters.</para>
+      <para>Using this technique can result in a ruleset with surprisingly few unabstracted rules.</para>
+    </section>
+    <section>
+      <title>Simplified source</title>
+      <para>Another approach is to simplify the source format prior to Schematron validation. OOXML in particular is verbose and benefits from this treatment. Consider this simplification of an OOXML document, made using XSLT. </para>
+      <programlisting language="xml">&lt;doc>
+  &lt;sect>
+    &lt;p style="articlehead">The application of Schematron schemas to word-processing
+      documents&lt;/p>
+    &lt;p style="bodytext">As traditional print-based publishing has made the transition into the
+      digital age, a convention has developed in some quarters of capturing or even
+      typesetting content using word-processing applications.&lt;/p>
+    
+    &lt;!-- lots more here... -->
+    
+    &lt;p style="heading 2">References&lt;/p>
+    &lt;p style="bib">&lt;span style="bibnum">[1]&lt;/span>
+      &lt;url address="http://www.ecma-international.org/publications/standards/Ecma-376.htm"
+          >http://www.ecma-international.org/publications/standards/Ecma-376.htm&lt;/url>.
+      Retrieved &lt;span style="bibdate">2015-03-08&lt;/span>.&lt;/p>
+    &lt;p style="bib">&lt;span style="bibnum">[2]&lt;/span>
+      &lt;url address="https://www.oasis-open.org/standards"
+          >https://www.oasis-open.org/standards#opendocumentv1.2&lt;/url>. Retrieved &lt;span
+      style="bibdate">2015-03-08&lt;/span>.&lt;/p>
+    &lt;p style="bib">&lt;span style="bibnum">[3]&lt;/span> Francis Cave, Francis Cave Digital
+      Publishing: a style schema for word-processing documents; personal communication,
+      &lt;span style="bibdate">February 2015&lt;/span>.&lt;/p>
+    &lt;p style="footer">Andrew Sales Digital Publishing Limited 8&lt;sup>th&lt;/sup> March 2015&lt;/p>
+  &lt;/sect>
+&lt;/doc></programlisting>
+      <para>Here the document structure is boiled down to its essence<footnote><para>In fact, it is much more similar in markup style to ODF.</para></footnote>. Built-in inline formatting (bold, italic, hyperlinks etc.) is simplified.
+        Schematron rules can be expressed more succinctly because namespaces have been removed and paragraph and run properties shifted into attribute values.</para>
+      <para>For example, the date datatype rule <link linkend="date-datatype">above</link> can now become:</para>
+      <programlisting language="xml">&lt;pattern id="bad-date-simplified">
+    &lt;rule context="span[@style='bibdate']">
+        &lt;assert test=". castable as xs:date">
+text styled as 'bibdate' must be in the format 
+'YYYY-MM-DD'; got '&lt;value-of select="."/>'
+        &lt;/assert>
+    &lt;/rule>
+&lt;/pattern></programlisting>
+      <para>The additional, simplifying step of course means that we are at one remove from the original and no 
+        longer have access to the location of the original problem if we are to display that error <emphasis>in situ</emphasis> when rendered.</para>
+      <para>This can be overcome by storing the XPaths to the original nodes, here as the first processing instruction child of the simplified node (extra whitespace for readability):</para>
+      <programlisting language="xml">&lt;p style="bodytext">
+  &lt;?src-xpath-loc /w:wordDocument[1]/w:body[1]/wx:sect[1]/wx:sub-section[1]/w:p[6]?>
+The requirement to apply business rules to styled documents is not new. This was often done
+using macros to interrogate the underlying object model before Microsoft Office (OOXML)
+&lt;span style="bibref">
+  &lt;?src-xpath-loc /w:wordDocument[1]/w:body[1]/wx:sect[1]/wx:sub-section[1]/w:p[6]/w:r[2]?>[1]&lt;/span>
+and Open Office (ODF)&lt;span style="bibref">
+  &lt;?src-xpath-loc /w:wordDocument[1]/w:body[1]/wx:sect[1]/wx:sub-section[1]/w:p[6]/w:r[4]?>[2]&lt;/span>
+began exposing their respective file formats as XML. With the word-processing document
+being edited now available as XML, other, native-XML validation approaches are viable
+and indeed attractive.&lt;/p></programlisting>
+      <para>A further complication is that the auto-generated annotating stylesheet must now retrieve these XPaths, by looking them up based on the SVRL XPaths pointing to locations in the simplified markup.</para>
+      <para>Using simplified source markup also introduces the possibility of making Schematron rules more format-agnostic. If OOXML and ODF can be simplified and aligned to conform to the same model using XSLT, 
+      rules can be written in an interchangeable way. This does ignore the logical differences between the two formats, but if your business rules target something specific to one format, you would
+      probably write rules targeting that format anyway.</para>
+    </section>
+  </section>
+  
+  <section>
+    <title>Further simplification</title>
+    <para>Even with these kinds of simplification available to ease the task, we
+    are basically still writing <emphasis>rules</emphasis> to validate documents. A more natural fit for a "conventional"
+    XML document would be a schema. Can a domain-specific language be derived for word-processing documents, to
+    express their expected structure more declaratively?</para>
+    <para>Some work has also been done to derive an XML-based schema for a
+      document’s expected disposition of styles <xref linkend="FCDP"/>. The schema is authored in RELAX NG and specifies the allowed structures for a document (it is based on OOXML only so far) at an
+    abstract level. An instance valid to this schema therefore specifies in schema-like language (it looks similar in some respects to RELAX NG itself,
+    having occurrence indicators and group/sequence structures, but with document-specific enhancements) the expected
+    pseudo-structure of a word-processing document. For instance, a simplistic "style schema" for an extended abstract might be:</para>
+    <programlisting language="xml" xml:id="style-schema">&lt;StyleSchema 
+xmlns="http://ns.franciscave.com/styleschema">
+    &lt;Start>
+        &lt;Document>
+            &lt;Ref name="articlehead"/>
+            &lt;OneOrMore>
+                &lt;Ref name="bodytext"/>
+            &lt;/OneOrMore>
+            &lt;Optional>
+                &lt;Group>
+                    &lt;Ref name="bibhead"/>
+                    &lt;OneOrMore>
+                        &lt;Ref name="bib"/>
+                    &lt;/OneOrMore>
+                &lt;/Group>
+            &lt;/Optional>
+        &lt;/Document>
+    &lt;/Start>
+    &lt;Define name="articlehead">
+        &lt;Para styleID="articlehead"/>
+    &lt;/Define>
+    &lt;Define name="bodytext">
+        &lt;Para styleID="bodytext"/>
+    &lt;/Define>
+    &lt;Define name="bibhead">
+        &lt;Para styleID="bibhead"/>
+    &lt;/Define>
+&lt;/StyleSchema></programlisting>
+    <para>This is a more declarative way to express what is expected, and looks familiar from the schema-writing perspective. 
+      <code>Start</code> defines the starting point for a validator, and <code>Document</code> contains the structures allowed in a document valid to this schema.</para>
+    <para>Element <code>Para</code> specifies the style name expected at this point, through its <code>styleID</code> attribute. This element's content model is given in 
+      the RELAX NG schema as:</para>
+    <programlisting language="xml">&lt;element name="Para">
+  &lt;zeroOrMore>
+    &lt;choice>
+      &lt;ref name="Drawing"/>
+      &lt;ref name="DocProperty"/>
+      &lt;ref name="Text"/>
+      &lt;ref name="Tab"/>
+      &lt;ref name="Bookmark"/>
+      &lt;ref name="Comment"/>
+      &lt;ref name="ParaAnyOf"/>
+    &lt;/choice>
+  &lt;/zeroOrMore>
+  &lt;attribute name="styleID">
+    &lt;text/>
+  &lt;/attribute>
+&lt;/element></programlisting>
+    <para>therefore the expected content of the paragraph can also be specified at this level. For instance, to say that the bibliography heading should always be "References":</para>
+    <programlisting language="xml">&lt;Define name="bibhead">
+    &lt;Para styleID="bibhead">
+      &lt;Text>References&lt;/Text>
+    &lt;/Para>
+&lt;/Define></programlisting>
+    <para><code>Text</code> also has the <code>styleID</code> attribute available, so it is also possible to specify expected inline styles.</para>
+    <para>Apart from the declarative strengths of a schema language, this approach also has the potential to specify the expected content of a document 
+      in a format-agnostic way (i.e. independent of the OOXML or ODF dialect used). A notable limitation is that there is no facility currently to express datatypes.</para>
+    <section>
+      <title>Auto-generated Schematron</title>
+      <para>It is also possible to go some way in using XSLT to generate the kind of Schematron rules we <link linkend="rule-types">started out</link> with.</para>
+      <para>The first implied rule in the style schema <link linkend="style-schema">above</link> is that the first style in the document should be "articlehead". Consider the following naive XSLT:</para>
+      <programlisting language="xml">
+&lt;!-- Ref in first position in Document -->
+&lt;xsl:template match="sts:Document/sts:Ref[1]">
+&lt;sch:pattern id="{local-name()}-
+  {count(preceding::sts:Ref)}">
+&lt;sch:rule context="w:body//w:p
+  [not(preceding::w:p[ancestor::w:body])]">
+&lt;!-- first para in body -->
+&lt;sch:let name="style-name" 
+  value="w:pPr/w:pStyle/@w:val"/>
+&lt;sch:assert test='$style-name = "{@name}"'>
+  expected first para to be styled
+'&lt;xsl:value-of select="@name"/>'; got 
+  '&lt;sch:value-of select="$style-name"/>'
+&lt;/sch:assert>
+&lt;xsl:choose>
+&lt;xsl:when test="following-sibling::*[1]
+  [self::sts:OneOrMore]">
+&lt;xsl:variable name="next-style" 
+  select="following-sibling::*[1]/sts:Ref"/>
+&lt;sch:assert
+  test="following::*[1][self::w:p]
+  /w:pPr/w:pStyle/@w:val = '{$next-style/@name}'"
+  >expected style 
+  '&lt;xsl:value-of select="$next-style/@name"/>'; got
+      '&lt;sch:value-of select="."/>'&lt;/sch:assert>
+&lt;/xsl:when>
+&lt;!-- etc. -->
+&lt;/xsl:choose>
+&lt;/sch:rule>
+&lt;/sch:pattern>
+&lt;/xsl:template></programlisting>
+      <para>With the caveat that this is part of an early stage of a work-in-progress, and targets only a simple subset of what the style schema can express, there is potential at least to 
+      author some of the constraints more declaratively and generate Schematron rules automatically to express these checks. The output is as follows:</para>
+      <programlisting language="xml"><![CDATA[[<pattern id="Ref-0">
+  <rule 
+    context="w:body//w:p[not(preceding::w:p[
+                              ancestor::w:body])]">
+     <let name="style-name" 
+      value="w:pPr/w:pStyle/@w:val"/>
+    <assert test="$style-name = 
+      &#34;articlehead&#34;">expected first para to
+      be styled  'articlehead'; got 
+      '<value-of select="$style-name"/>'</assert>
+    <assert test="following::*[1][self::w:p]
+/w:pPr/w:pStyle/@w:val = 'bodytext'">expected style 
+'bodytext'; got '<value-of select="."/>'
+    </assert>
+  </rule>
+</pattern>]]></programlisting>
+    </section>
+  </section>
+  
+  <section>
+    <title>Further applications</title>
+    <para>The OOXML and ODF families of schemas of course cover a wider variety of office documents than just word-processing ones.</para>
+    <para>Business rules could apply to many of these with a strong textual component, from the relatively simple &#x2013; ensuring every slide in a presentation bears 
+      the corporate logo &#x2013; to verifying the consistency and integrity of spreadsheets.</para>
+    <para>Because spreadsheets are often used in a way that overloads their original, intended purpose, 
+      e.g. to track or specify requirements, or capture a report from an automated process, much importance can be
+    invested in them and their maintenance. Like other valuable (perhaps curated) documents, they may require validation beyond the 
+    in-built tools of Excel and Calc.</para>
+    <para>It is possible to validate spreadsheets and present faults as annotations to the user at render-time in much the same way as for word-processing XML.</para>
+    <example>
+      <title>The comment model in SpreadsheetML</title>
+      <programlisting language="xml">&lt;Cell>
+ &lt;Data ss:Type="String">bad data&lt;/Data>
+ &lt;Comment ss:Author="Author">
+  &lt;ss:Data xmlns="http://www.w3.org/TR/REC-html40">
+   &lt;B>
+    &lt;Font html:Face="Tahoma" x:Family="Swiss" 
+      html:Size="8" 
+      html:Color="#000000">Author:&lt;/Font>
+   &lt;/B>
+   &lt;Font html:Face="Tahoma" x:Family="Swiss" 
+     html:Size="8" 
+     html:Color="#000000"
+     >&amp;#10;a problem here&lt;/Font>
+  &lt;/ss:Data>
+ &lt;/Comment>
+&lt;/Cell></programlisting>
+    </example>
+    <para>This is a trivial example, but shows how the commenting style differs from WordprocessingML: the <code>Comment</code> is a wrapper element, since a 
+      single comment can only appear within a single cell, and HTML can be used to style its text.</para>
+    <para>At some point, however, particularly if many business rules are used to layer validation onto the spreadsheet, the question is whether
+    a spreadsheet is still an appropriate choice for capturing the information in the first place.</para>
+  </section>
+  
+  <section>
+    <title>Conclusion</title>
+    <para>When data quality matters and XML is captured in a non-native XML environment, tools like Schematron can still be used to interrogate underlying XML formats. 
+    Business rules expressed as Schematron can be written laboriously in full, or with some effort abstracted at the rule or the content level.
+    A further abstraction to create a DSL for word-processing styles is useful in this respect, and it is possible to get some of the way towards validating a document against
+    such a schema, again using Schematron, this time generated automatically.</para>
+    <para>It is often beneficial to present data errors to authors and editors unfamiliar with XML in a more accessible way. Schematron, along with some XSLT, enables the
+    presentation of these errors in the context of the original document. It would be interesting to see applications of this technique to other types of office document.</para>
+  </section>
+
+  <bibliography>
+
+    <biblioentry xml:id="OOXML" xreflabel="[1]">
+      <abbrev>1</abbrev>
+      <title>Office Open XML</title>
+      <author>
+        <orgname>Microsoft Corporation</orgname>
+      </author>
+      <publishername><link
+          xl:href="http://www.ecma-international.org/publications/standards/Ecma-376.htm"
+          >ECMA</link></publishername>
+    </biblioentry>
+    
+    <biblioentry xml:id="ODF" xreflabel="[2]">
+      <abbrev>2</abbrev>
+      <title>Open Document Format</title>
+      <author>
+        <orgname>OASIS</orgname>
+      </author>
+      <publishername><link xl:href="https://www.oasis-open.org/standards#opendocumentv1.2">OASIS</link></publishername>
+    </biblioentry>
+    
+    <biblioentry xml:id="SVRL" xreflabel="[3]">
+      <abbrev>3</abbrev>
+      <title>Schematron Validation Reporting Language</title>
+      <author>
+        <orgname>ISO/IEC</orgname>
+      </author>
+      <publishername><link xl:href="http://standards.iso.org/ittf/PubliclyAvailableStandards/index.html">ISO/IEC 19757-3:2006</link></publishername>
+    </biblioentry>
+    
+    <biblioentry xml:id="FCDP" xreflabel="[4]">
+      <abbrev>4</abbrev>
+      <title>A style schema for word-processing
+    documents</title>
+      <author>
+        <personname>
+          <firstname>Francis</firstname>
+          <surname>Cave</surname>
+        </personname>
+        <affiliation>
+          <orgname>Francis Cave Digital Publishing</orgname>
+        </affiliation>
+      </author>
+      <date>February 2015</date>
+      <bibliosource>Personal communication</bibliosource>
+    </biblioentry>
+
+  </bibliography>
+</article>

@@ -1,0 +1,403 @@
+<?xml version="1.0" encoding="UTF-8"?><?oxygen RNGSchema="http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng" type="xml"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-28" version="5.0">
+  <info xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>XML Authoring On Mobile Devices</title>
+    <author>
+      <personname><firstname>George</firstname>
+        <surname>Bina</surname></personname>
+      <email>george@oxygenxml.com</email>
+      <uri>http://www.oxygenxml.com</uri>
+      <personblurb>
+        <para>George Bina is one of the founders of Syncro Soft, the
+          company that develops <productname>oXygen XML
+            Editor</productname>. He has more 15 years experience in
+          working with XML and related technologies including
+            <acronym>XML</acronym> related projects, oXygen
+            <acronym>XML</acronym> Editor and participation in open
+          source projects, the most notable being DITA-NG - a Relax NG
+          implementation of DITA - and oNVDL - an open source
+          implementation of the NVDL standard, project that is now
+          merged into Jing.</para>
+      </personblurb>
+      <affiliation>
+        <orgname>Syncro Soft / oXygen XML Editor</orgname>
+        <address><street>Fermei 42</street>
+<postcode>200782</postcode> <city>Craiova</city>
+<country>Romania</country></address>
+      </affiliation>
+    </author><!--
+    <copyright>
+      <year>2014</year>
+      <holder>Syncro Soft Ltd. All rights reserved.</holder>
+    </copyright> -->
+    <abstract>
+      <para>Not too long ago <acronym>XML</acronym>-born content was not
+        present in a mobile-friendly form on mobile devices. Now, many
+        of the <acronym>XML</acronym> frameworks like DocBook, DITA and
+        TEI provide output formats that are tuned to be used on mobile
+        devices. These are either different electronic book formats
+        (EPUB, Kindle) or different mobile-friendly web formats. </para>
+      <para>Many people find <acronym>XML</acronym> authoring difficult
+        on computers, let alone mobile devices. However, due to the
+        constantly increasing number of mobile devices, that made people
+        create mobile-friendly output formats from
+          <acronym>XML</acronym> documents, there is clearly a need to
+        provide also direct access to authoring <acronym>XML</acronym>
+        content on these devices. </para>
+      <para>I would like to explore the options for providing
+          <acronym>XML</acronym> authoring on mobile devices and
+        describe our current work and the technology choices we made to
+        create an authoring solution for mobile devices. Trying to
+        enable people to create <acronym>XML</acronym> documents on
+        mobile devices is a very exciting, mainly because the user
+        interaction is completely different on a mobile device:
+        different screen resolutions, different interaction methods
+        (touch, swipe, pinch), etc. See how we imagined
+          <acronym>XML</acronym> authoring on an Android phone or on
+        iPad! How about editing <acronym>XML</acronym> on a smart TV?
+        Leverage speech recognition/dictation and handwriting
+        recognition technologies that are available on mobile devices to
+        enable completely new ways of interacting with
+          <acronym>XML</acronym> documents!</para>
+    </abstract>
+    <keywordset>
+      <keyword>XML</keyword>
+      <keyword>authoring</keyword>
+      <keyword>mobile</keyword>
+      <keyword>review</keyword>
+      <keyword>user experience</keyword>
+    </keywordset>
+  </info>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Introduction</title>
+    <para>When an <acronym>XML</acronym>-based solution is implemented the lowest impedance
+      for communicating between different processing steps is to use
+      <acronym>XML</acronym>, so people try to use <acronym>XML</acronym> in as many places as possible, but
+      there are usually a few processes where using <acronym>XML</acronym> is not always
+      easy. One of these processes is the review of <acronym>XML</acronym> content. Another
+      process is the contribution of initial content from people that
+      are not familiar with <acronym>XML</acronym>.</para>
+    <para>A traditional review process will convert the <acronym>XML</acronym> information
+      to an output format, usually PDF, and have reviewers annotate that
+      PDF with comments, then align the PDF with the <acronym>XML</acronym> documents that
+      generated it to identify the places in the <acronym>XML</acronym> source the comments
+      refer to and manually act on those comments to make the
+      corresponding changes to the <acronym>XML</acronym> documents. </para>
+    <figure>
+      <title>Traditional  review process</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/traditional-review.gif" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>This process has many steps and some of them are not automated
+      so they not only consume time but errors can appear at different
+      stages. Many of the issues can be solved by adopting a direct <acronym>XML</acronym>
+      review process, where users can annotate directly on the <acronym>XML</acronym>
+      content, and add not only comments but also make changes to the
+      document that will be considered proposed changes. Thus,
+      responding to a comment by identifying the <acronym>XML</acronym> source the comment
+      refers to and then updating the document as described in the
+      comment can be replaced with an simple action to accept a proposed
+      change to the document.</para>
+    <figure>
+      <title>Direct <acronym>XML</acronym> review process</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/direct-xml-review.gif" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>Contributing initial content is very much linked to the tools
+      the users already know and the devices he has access to. Thus
+      initial content is contributed in whatever format the users can
+      use and then converted to <acronym>XML</acronym> to be able to enter the <acronym>XML</acronym>-based
+      solution. Usually people use Word and there is a conversion
+      process that tries to get from Word to <acronym>XML</acronym>. We can cut the
+      conversion cost if we are able to get this initial content in <acronym>XML</acronym>
+      form.</para>
+    <figure>
+      <title>Non <acronym>XML</acronym> data conversion to <acronym>XML</acronym> vs <acronym>XML</acronym> first</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/xml-first.gif" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>When you move to an <acronym>XML</acronym>-based solution it is important to be
+      able to cut costs on the review process and to implement an
+      <acronym>XML</acronym>-first system, where people can contribute initial data
+      directly in <acronym>XML</acronym>. We tried to address these problems and we
+      currently provide solutions for both the review process and for
+      creating an <acronym>XML</acronym>-first solution. However, the current solution
+      requires the use of a laptop or a desktop computer.</para>
+    <para>The people that perform reviews or the ones that contribute
+      initial content are in general external to the department that
+      deals with the <acronym>XML</acronym>-based solution, so it is difficult to control
+      the resources available to these people. The increasing use of
+      mobile devices during the last years and the projections for next
+      years show that mobile devices are not something we can ignore
+      (mobile devices are expected to exceed the number of desktops this
+      year) and the only device some of those people have may be a
+      mobile one. So, if we want to be able to cut the costs and the
+      complexity of processes similar to the ones described, we need to
+      be able to provide at least direct <acronym>XML</acronym> review and simplified <acronym>XML</acronym>
+      authoring on mobile devices.</para>
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Technology choices</title>
+    <para>Once we decided to start building a tool for <acronym>XML</acronym> authoring on
+      mobile devices the next step was to decide on what technologies
+      that will be based on. The first decision was if it was to be a
+      native application or a web application.</para>
+    <para>From our experience with oXygen we found that it is great to
+      be able to support multiple platforms with the same code - oXygen
+      being built in Java works on any platform that provides a JVM. So
+      one problem with a native solution was that we had to build a
+      different application for each mobile platform while a web
+      application will allow us to reuse the same code for all devices,
+      as long as they support the required web technology
+        (<acronym>HTML5</acronym> and JavaScript). A web application has
+      also other advantages over a native application like immediate
+      update, no app-store interference and an important one - the fact
+      that it will work also on desktops. A disadvantage will be that
+      the access to device specific functionality will not be possible
+      but it should be possible to use a hybrid application if such
+      functionality will be critical in the future.</para>
+    <para>Another decision point was on how much processing should be
+      done on the client and how much on the server. Targeting mobile
+      devices we wanted to have as little as possible processing on the
+      client, in order not to drain the device battery. This factor and
+      the fact that we already have in Java many of the components
+      needed for <acronym>XML</acronym> authoring made us decide to prefer the server side
+      processing to the client processing and keep the current oXygen on
+      the server and have only the display part on the client side, like
+      a remote display, thus reusing almost all of the existing
+      components and technology stack.</para>
+    <para>We experimented with different approaches for a rendering <acronym>XML</acronym>
+      in the web application, including:<orderedlist>
+        <listitem>
+          <para>Placing <acronym>XML</acronym> directly inside an <acronym>HTML</acronym> document and render
+            it though the same <acronym>CSS</acronym> that we use now</para>
+        </listitem>
+        <listitem>
+          <para>Using the Canvas to display the rendered <acronym>XML</acronym> document,
+            similar to how it is done inside oXygen, using a <acronym>CSS</acronym> parser
+            that will provide the rendering styles for each
+            element</para>
+        </listitem>
+        <listitem>
+          <para>Render/convert the <acronym>XML</acronym> as/to <acronym>HTML</acronym> and convert the <acronym>CSS</acronym>
+            used for <acronym>XML</acronym> to match the converted <acronym>HTML</acronym> format</para>
+        </listitem>
+      </orderedlist></para>
+    <para>In the first case we hit limitations in the browser support
+      for <acronym>CSS</acronym> that made it impossible to use this
+      approach. For example browsers do not support the
+        <acronym>CSS</acronym>
+      <code>attr/2</code> function as specified in CSS3, where along
+      with the first parameter that specifies the attribute name you can
+      specify also a second parameter that represents the attribute
+      value type. This is used in oXygen to specify that an attribute
+      value is a <acronym>URI</acronym> and it should be a link.</para>
+    <para>In the second case we implemented all the rendering primitives
+      that are used in oXygen (we have a Graphics interface that is used
+      for rendering the <acronym>XML</acronym> documents and the methods
+      from this interface were implemented also based on the
+        <acronym>HTML5</acronym> Canvas) but then we needed also the
+        <acronym>CSS</acronym> parser, the layout engine, caret
+      management, etc. which were not easy tasks.</para>
+    <para>In the 3rd approach we converted the <acronym>XML</acronym>
+      document to <acronym>HTML5</acronym> and then we modified the
+        <acronym>CSS</acronym> that matched on <acronym>XML</acronym> to
+      match on the converted <acronym>HTML5</acronym> structure to
+      obtain the same rendering as the
+        <acronym>XML</acronym>+<acronym>CSS</acronym> that we currently
+      use. This allows us to use the browser editing support for
+        <acronym>HTML</acronym> to modify the document content.</para>
+    <para>For mobile interaction we use JQuery mobile due to existing
+      experience - we use this also for the mobile-friendly WebHelp
+      transformations that we provide for <acronym>DITA</acronym> and
+      DocBook. However, other frameworks may be used as we plan to
+      support multiple templates for the user interface.</para>
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Web application architecture</title>
+    <para>Here it is a diagram showing the current architecture showing
+      how the oXygen existing support is reused on the server
+      side:</para>
+    <figure>
+      <title>oXygen web application architecture</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/web_editing_1920x1080-2.png" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>Three components can be identified:<itemizedlist>
+        <listitem>
+          <para>oXygen on the server</para>
+        </listitem>
+        <listitem>
+          <para>The <acronym>HTML</acronym>+JavaScript that render the
+            document on the client side</para>
+        </listitem>
+        <listitem>
+          <para>Content storage that can be in the form of a
+              <acronym>CMS</acronym></para>
+        </listitem>
+      </itemizedlist></para>
+    <para>oXygen on the server is a Java servlet that encapsulates the
+      Java-based oXygen to provide the visual editing support. It reuses
+      the same customizations created for the oXygen desktop that come
+      in the form or frameworks and plugins. This allows for example to
+      reuse the editing support for DITA, DocBook, etc. as well as
+      plugins that provide access to remote repositories like the
+        <acronym>CMS</acronym> connector plugins.</para>
+    <para>The server part will generate
+      <acronym>HTML5</acronym>+JavaScript for an <acronym>XML</acronym>
+      file that when rendered will provide the view for that
+        <acronym>XML</acronym> document. The generated
+        <acronym>HTML5</acronym> content keeps <acronym>XML</acronym>
+      related information in <code>data-*</code> attributes. The
+        <acronym>CSS</acronym> that matched on <acronym>XML</acronym> is
+      automatically converted to match on the generated
+        <acronym>HTML5</acronym> and its <code>data-*</code> attributes
+      that encode the <acronym>XML</acronym> information. The conversion
+      from <acronym>XML</acronym> to <acronym>HTML5</acronym> uses
+      mainly <code>div</code> elements but sometimes it also takes
+      advantage of specific <acronym>HTML</acronym> elements, like the
+      table element for example.</para>
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Samples</title>
+    <para>We will demo <acronym>XML</acronym> reviewing functionality,
+      using custom <acronym>XML</acronym> interfaces and full
+        <acronym>XML</acronym> editing. Here you can see some
+      screen-shots taken on iPad:</para>
+    <figure>
+      <title>A DITA topic</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/iPad-DITA.jpg" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>Note the highlights that represent areas with associated
+      comments as well as the added and deleted content styled with
+      underline and strikeout decorations.</para>
+    <figure>
+      <title>A DocBook article</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/iPad-DocBook.jpg" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>Here we have a DocBook article rendered though CSS with
+      different structure like images and lists. Note again the comment
+      highlights and the decorations for changed content.</para>
+    <figure>
+      <title>Review Panel showing all review comments and
+        changes</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/iPad-ReviewPanel.jpg" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>You can swipe right on the editing area to make the Review
+      Panel visible. When you swipe over a review entry the available
+      actions are displayed so you can easily act on a review to edit or
+      remove a comment, accept or reject a change. Swipe left to hide
+      the Review Panel and return to the editor.</para>
+    <figure>
+      <title>A custom XML editing interface</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/iPad-customInterface.jpg" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>Note the inline action marked with <quote>[+]</quote> that can
+      be used to add a new section to the document.</para>
+    <figure>
+      <title>Enter a date value using the standard iPad date
+        picker</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/iPad-datePicker.png" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>Different form controls can be used to build custom interfaces
+      that will provide access to text and attribute values, thus making
+      the editing simpler and removing the need to train users. Each
+      form control will use the native support on each platform, thus
+      the user will have the same editing experience he is already used
+      to on that device.</para>
+    <figure>
+      <title>Text editing with changes recorded as
+        tracked-changes</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/iPad-textEditing.jpg" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>Here you can see the editing mode, where we have the keyboard
+      show up and the document contains a caret. The changes in this
+      case are recorded as tracked changes.</para>
+    <figure>
+      <title>Inserting markup</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/iPad-insertMarkup.jpg" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>You can insert markup either with the dedicated action or by
+      pressing the enter key in the virtual keyboard. That will show a
+      popup with valid element names where you can filter to see only
+      the elements that match, then select one to insert in the
+      document.</para>
+    <figure>
+      <title>A DITA topic on a smart TV</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/tv.jpg" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <para>The web editing platform works on any device supporting
+        <acronym>HTML5</acronym> and JavaScript, in this case we have it
+      running on a smart TV. </para>
+  </sect1>
+  <sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Conclusions</title>
+    <para>XML editing on mobile devices can solve some real use-cases
+      where people that are not XML-aware can contribute XML content
+      using their preferred or available device at that moment. Creating
+      a customized user interface using form controls bind to attribute
+      values and inline actions reduce the training sometimes to zero -
+      probably this is the way further, putting more effort on the
+      developer to customize the user interface so that users will not
+      have to think in terms of XML concepts but focus on the
+      information they want to record. </para>
+    <para>There are large costs connected with integrating the reviewers
+      feedback on some output format back into the XML source and
+      sometimes that feedback is lost. A solution that will record
+      reviewers feedback directly in the XML documents reduces
+      dramatically the costs and effort and elliminates many steps in
+      the workflow that can introduce errors.</para>
+    <para>There is a lot of exploration to come up with the best
+      possible user interface that takes advantage of specific input
+      methods and interaction patterns from mobile devices and this is
+      just the start.</para>
+    <para>More generally, the web editing support for XML makes it
+      available on any device, not only on mobile devices and it will be
+      interesting to see if we can get different other applications
+      based on XML like an XML-based blogging system or an XML-based
+      wiki-like system.</para>
+  </sect1>
+</article>

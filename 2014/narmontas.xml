@@ -1,0 +1,1382 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-9" version="5.0" xml:lang="en">
+
+  <info xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>XML Processing in Scala</title>
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Dino</firstname>
+          <surname>Fancellu</surname>
+        </personname>
+        <email>dino@felstar.com</email>
+        <affiliation>
+          <orgname>Felstar Ltd</orgname>
+        </affiliation>
+      </author>
+      <author>
+        <personname>
+          <firstname>William</firstname>
+          <surname>Narmontas</surname>
+        </personname>
+        <email>william@scalawilliam.com</email>
+        <affiliation>
+          <orgname>Apt Elements Ltd</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+    <keywordset>
+      <keyword>Scala</keyword>
+      <keyword>XML</keyword>
+      <keyword>XQuery</keyword>
+      <keyword>XSLT</keyword>
+      <keyword>XQJ</keyword>
+      <keyword>Java</keyword>
+      <keyword>Processing</keyword>
+    </keywordset>
+    <abstract>
+      <para>Scala is an established static- and strongly-typed functional and object-oriented scalable
+        programming language for the JVM with seamless Java interoperation.</para>
+      <para>Scala and its ecosystem are used at LinkedIn, Twitter, Morgan Stanley among many
+        companies demanding remarkable time to market, robustness, high performance and
+        scalability.</para>
+      <para>This paper shows you Scala's strong native XML support, powerful XQuery-like constructs,
+        hybrid processing via XQuery for Scala, and increased XML processing performance. You will
+        learn how you can benefit from Scala’s practicality in a commercial setting, ultimately
+        increasing your productivity.</para>
+    </abstract>
+  </info>
+
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <title>Introduction</title>
+
+    <para>Programming style: Scala’s immutability, functional programming, first-class XML make it
+      rather similar to XQuery. Scala’s for-comprehensions were inspired by Philip Wadler from his work with XQuery. <xref linkend="paper-9_odersky-future-of-scala"/>
+    </para>
+    <para>Ecosystem: Scala’s seamless Java interoperation gives you access to all of Java’s
+      libraries, the JVM 
+      <xref linkend="paper-9_seamless-java-interop"/>
+      and many outstanding Scala
+      libraries <footnote><para><link xl:href="http://scalatest.org/">ScalaTest</link></para></footnote>
+      <footnote><para><link xl:href="http://akka.io/">Akka</link></para></footnote>
+      <footnote><para><link xl:href="http://www.playframework.com/">Play Framework</link></para></footnote>.
+      </para>
+    <para>Scalability: Scala’s scalability and design negate the need
+      for design patterns in solving a language’s design flaws. It is everything that Java should
+      have been.</para>
+    <para>XML handling: Scala’s XML handling includes the standard XML types such as
+        <code>Element</code>, <code>Attribute</code>, <code>Node</code>. It also includes the
+        <code>NodeSeq</code> type which extends <code>Seq[Node]</code> (a sequence of nodes),
+      meaning that all of Scala’s collections functionality for sequences is available for XML
+      types. The key Scala XML documentation can be found at its author’s Burak Emir's Scala XML
+      book <xref linkend="paper-9_scala-xml-book"/>, scala.xml API <footnote>
+        <para><link xl:href="http://www.scala-lang.org/files/archive/nightly/docs/xml/">scala.xml
+            API</link></para>
+      </footnote> and scala-xml GitHub repository <footnote>
+        <para><link xl:href="https://github.com/scala/scala-xml/">scala-xml GitHub
+          repository</link></para>
+      </footnote> . </para>
+
+  </section>
+
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Five minutes to understanding Scala</title>
+    <para>This paper covers a relevant selection of Scala’s capabilities. There are many great
+      resources to learn about traits, partial functions, case classes, etc. We will cover the
+      necessary essentials for this paper. See Scala crash course <xref linkend="paper-9_scala-crash-course"/> and a selected presentation <xref linkend="paper-9_scala-the-short-introduction"/> for detailed
+      walk-throughs. </para>
+    <para>Like with XQuery and other functional programming languages we recommend programming Scala
+      in an immutable fashion, although Scala allows you to program in an Object Oriented fashion or
+      hybrid of the two, making it especially suited to migrating from a Java code base.</para>
+    <para>Scala’s types are static, strong and mostly inferred, to the extent that it can feel like
+      a scripting language <xref linkend="paper-9_scala-static-language-feels-dynamic"/>
+      
+      . Your IDE and Scala’s compiler
+      will inform you of your program’s correctness very early on - including XML
+      well-formedness.</para>
+    <para>Scala’s ‘implicits’ enable you to define new methods on values in a limited scope. With
+      implicits and type inference your code becomes very compact <xref linkend="paper-9_scala-doc-implicit-classes"/> <xref linkend="paper-9_pimp-my-library"/>. In fact, this paper displays
+      types only for the sake of clarity.</para>
+    <para>Scala is about expressions, not statements. The last expression in a block of expressions
+      is the return value. The same applies to if-statements and try-catch.</para>
+    <para>Scala is best used from within IntelliJ IDEA and Eclipse with the Scala IDE plug-in.
+      <xref linkend="paper-9_best-ide-for-scala"/>
+    
+    </para>
+    <section>
+      <title>Values and functions</title>
+      <para>Scala &amp; XQuery:</para>
+      <itemizedlist mark="bullet">
+        <listitem>
+          <para><code>def fun(params): type</code> similar to <code>declare function
+              local:fun(params): type</code></para>
+        </listitem>
+        <listitem>
+          <para><code>val xyz = {expression}</code> similar to <code>let $xyz :=
+            {expression}</code></para>
+        </listitem>
+      </itemizedlist>
+      <para>Functions can be passed around easily. Example:</para>
+      <programlisting language="scala">def incrementedByOne(x: Int) = x + 1
+
+(1 to 5).map(incrementedByOne)
+| Vector(2, 3, 4, 5, 6)</programlisting>
+      <para>This example however can be slimmed down to</para>
+      <programlisting language="scala">(1 to 5).map(x =&gt; x + 1)
+| Vector(2, 3, 4, 5, 6)</programlisting>
+      <para>Where <code language="scala">x =&gt; x + 1</code> is an anonymous (lambda) function. It
+        can be slimmed down further to</para>
+      <programlisting language="scala">(1 to 5).map(_+1)
+| Vector(2, 3, 4, 5, 6)</programlisting>
+      <para>Scala’s collections, such as lists, sets and maps come in mutable and immutable flavours <xref linkend="paper-9_scala-collections-overview"/>
+        . They will be used
+        throughout the examples.</para>
+    </section>
+    <section>
+      <title>Strings and string interpolation</title>
+      <para>The triple double-quote syntax negates escaping of double-quotes in string literals.
+        E.g.</para>
+      <programlisting language="scala">val title = """An introduction to "Scala""""</programlisting>
+      <para>Scala supports string interpolation 
+        
+        <xref linkend="paper-9_string-interpolation"/>
+        
+        similar to
+        that in PHP, Perl and CoffeeScript - with the ‘s’ modifier:</para>
+      <programlisting language="scala">val language = "Scala"
+val interpolatedTitle =
+  s"""An introduction to "$language""""</programlisting>
+      <para>String interpolation turns <code language="scala">$language</code> into <code language="scala">${language.toString}</code>.</para>
+      <para>Scala’s triple-quoted strings may be multi-line, as shown in the examples
+        section.</para>
+    </section>
+    <section>
+      <title>Named parameters</title>
+      <para>Where further clarity for method calls is needed, you can use named parameters:</para>
+      <programlisting language="scala">def makeLink(url: String, text: String) =
+  s"""&lt;a href="$url"&gt;$text&lt;/a&gt;"""
+
+makeLink(text = "XML London 2014",
+  url="http://www.xmllondon.com/")
+| &lt;a href="http://www.xmllondon.com/"&gt;
+  XML London 2014&lt;/a&gt;</programlisting>
+    </section>
+    <section>
+      <title>For-comprehensions</title>
+      <para>For-comprehensions
+        <xref linkend="paper-9_crash-course-iteration"/>
+        will
+        be familiar to a programmer who has used Python, LINQ, XQuery, Ruby, Haskell, F#, Erlang,
+        Clojure.</para>
+      <para>You can rewrite the previous example <code>(1 to 5).map(x =&gt; x + 1)</code> as a
+        for-comprehension:</para>
+      <programlisting language="scala">for ( x &lt;- (1 to 5) ) yield x + 1
+| Vector(2, 3, 4, 5, 6)</programlisting>
+      <para>These comprehensions <code language="scala">yield</code> results by iterating over
+        multiple collections:</para>
+      <programlisting language="scala">val software = Map(
+  "Browser" -&gt; Set("Firefox", "Chrome",
+    "Internet Explorer"),
+  "Office Suite" -&gt; Set(
+    "Google Drive", "Microsoft Office",
+    "Libre Office")
+)
+for { (softwareKind, programs) &lt;- software
+       program &lt;- programs
+       if program endsWith "e"
+} yield s"$softwareKind: $program"
+| List(Browser: Chrome, Office Suite: Google Drive,
+  Office Suite: Microsoft Office,
+  Office Suite: Libre Office)</programlisting>
+      <para> Inside a for-comprehension, Scala and XQuery once again share similarities:</para>
+      <itemizedlist mark="bullet">
+        <listitem>
+          <para><code language="scala">x &lt;- {expression}</code> similar to <code language="scala">for $x in {expression}</code></para>
+        </listitem>
+        <listitem>
+          <para><code language="scala">if {condition}</code> similar to <code language="scala">where
+              {condition}</code></para>
+        </listitem>
+        <listitem>
+          <para><code language="scala">abc = {expression}</code> similar to <code language="scala">let $abc := {expression}</code></para>
+        </listitem>
+        <listitem>
+          <para><code language="scala">yield {expression}</code> similar to <code language="scala">return {expression}</code></para>
+        </listitem>
+      </itemizedlist>
+    </section>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Scala's strong native XML support</title>
+    <para>Unlike Java, XML is a first class citizen in Scala and is can be used as a native data type.</para>
+    <para>The scala.xml library source code is available on GitHub.<footnote>
+        <para><link xl:href="https://github.com/scala/scala-xml/">scala-xml library
+          GitHub</link></para>
+      </footnote></para>
+    <section>
+      <title>Basic Inline XML</title>
+      <para>XML literals can be embedded directly in code with curly braces.</para>
+      <programlisting language="scala">val title = "XML London 2014"
+val xmlTree = &lt;div&gt;
+  &lt;p&gt;Welcome to &lt;em&gt;{title}&lt;/em&gt;!&lt;/p&gt;
+&lt;/div&gt;</programlisting>
+      <para>Serializing this XML structure works as expected:</para>
+      <programlisting language="scala">xmlTree.toString
+| &lt;div&gt;
+|   &lt;p&gt;Welcome to &lt;em&gt;XML London 2014&lt;/em&gt;!&lt;/p&gt;
+| &lt;/div&gt;        </programlisting>
+      <para>These XML literals are checked for well formedness at compile time or even in your IDE
+        reducing errors.</para>
+      <para>Curly braces can be escaped with double braces. e.g.</para>
+      <programlisting language="scala">val squiggles = &lt;root&gt;I like {{squiggles}}&lt;/root&gt;
+| &lt;root&gt;I like {squiggles}&lt;/root&gt;</programlisting>      
+    </section>
+    <section>
+      <title>Reading</title>
+      <para>Scala can load XML from Java’s <code>File</code>, <code>InputStream</code>,
+          <code>Reader</code>, <code>String</code> using the <code>scala.xml.XML</code> object. Here
+        is an XML document in <code>String</code> form:
+        <programlisting language="scala">val pun =
+"""&lt;pun rating="extreme"&gt;
+|  &lt;question&gt;Why do CompSci students need
+|glasses?&lt;/question&gt;
+|  &lt;answer&gt;To C#&lt;!--
+|C# is a Microsoft's programming language
+|--&gt;.&lt;/answer&gt;
+|&lt;/pun&gt;""".stripMargin</programlisting>Loading
+        an XML document from a String gives us a node:
+        <programlisting language="scala">scala.xml.XML.loadString(pun)
+| &lt;pun rating="extreme"&gt;
+|   &lt;question&gt;Why do CompSci students need
+| glasses?&lt;/question&gt;
+|   &lt;answer&gt;To C#.&lt;/answer&gt;
+| &lt;/pun&gt;</programlisting>When
+        you need XML comments use the <code>ConstructingParser</code>
+        <xref linkend="paper-9_constructing-parser"/>
+        :<programlisting language="scala">scala.xml.parsing.ConstructingParser
+.fromSource(scala.io.Source.fromString(pun),
+preserveWS = true).document().docElem
+| &lt;pun rating="extreme"&gt;
+|   &lt;question&gt;Why do CompSci students need
+| glasses?&lt;/question&gt;
+|   &lt;answer&gt;To C#&lt;!--
+| C# is a Microsoft's programming language
+| --&gt;.&lt;/answer&gt;
+| &lt;/pun&gt;</programlisting></para>
+      <section>
+        <title>Look ups and XPath alternatives </title>
+        <para>Scala has its own XPath-like methods for querying from XML trees</para>
+        <programlisting language="scala">val listOfPeople = &lt;people&gt;
+  &lt;person&gt;Fred&lt;/person&gt;
+  &lt;person&gt;Ron&lt;/person&gt;
+  &lt;person&gt;Nigel&lt;/person&gt;
+&lt;/people&gt;
+listOfPeople \ "person"
+| NodeSeq(&lt;person&gt;Fred&lt;/person&gt;,
+  &lt;person&gt;Ron&lt;/person&gt;, &lt;person&gt;Nigel&lt;/person&gt;)</programlisting>
+        <para>Wildcard is similar</para>
+        <programlisting language="scala">listOfPeople \ "_"
+| NodeSeq(&lt;person&gt;Fred&lt;/person&gt;,
+  &lt;person&gt;Ron&lt;/person&gt;, &lt;person&gt;Nigel&lt;/person&gt;)</programlisting>
+        <para>Looking for descendants</para>
+        <programlisting language="scala">val fact = &lt;fact type="universal"&gt;
+&lt;variable&gt;A&lt;/variable&gt; = &lt;variable&gt;A&lt;/variable&gt;
+&lt;/fact&gt;
+fact \\ "variable"
+| NodeSeq(&lt;variable&gt;A&lt;/variable&gt;,
+  &lt;variable&gt;A&lt;/variable&gt;)</programlisting>
+        <para>Querying attributes is similar</para>
+        <programlisting language="scala">fact \ "@type"
+| : scala.xml.NodeSeq = universal
+fact \@ "type"
+| : String = universal</programlisting>
+        <para>Looking up elements by namespace (see <xref linkend="paper-9_fn-show-namespaces"/> for <code>showNamespaces</code>):</para>
+        <programlisting language="scala">val tree = &lt;document&gt;
+  &lt;embedded xmlns="urn:test:embedding"&gt;
+    &lt;description&gt;
+      &lt;referenced xmlns="urn:test:referencing"&gt;
+        &lt;metadata&gt;
+          &lt;title xmlns=""&gt;Untitled&lt;/title&gt;
+        &lt;/metadata&gt;
+      &lt;/referenced&gt;
+    &lt;/description&gt;
+  &lt;/embedded&gt;
+&lt;/document&gt;
+
+(tree \\ "_").
+  filter(_.namespace == "urn:test:referencing").
+  map(showNamespace).foreach(println)
+
+| {urn:test:referencing}referenced
+| {urn:test:referencing}metadata</programlisting>
+        <para>Looking up attributes by namespace:</para>
+        <programlisting language="scala">&lt;node xmlns="urn:meta" demo="test"/&gt; \ "@demo"
+| test
+&lt;node xmlns:meta="urn:meta" meta:demo="test"/&gt; \
+  "@{urn:meta}demo"
+| test</programlisting>
+        <para>The reason that backslashes were chosen instead of the usual forward slashes is due to
+          the use of <code>//</code> for Scala comments. i.e. the <code>//</code> would never even be seen.</para>
+        
+        <para>Scala's XML is
+          displayed as a NodeSeq type which extends <code>Seq[Node]</code>. This means we get
+          Scala's collections for free. Here are some
+          examples:</para><programlisting language="scala">val root = &lt;numbers&gt;
+  {for {i &lt;- 1 to 10} yield
+    &lt;number&gt;{i}&lt;/number&gt;}
+&lt;/numbers&gt;
+val numbers = root \ "number"
+numbers(0)
+| &lt;number&gt;1&lt;/number&gt;
+numbers.head
+| &lt;number&gt;1&lt;/number&gt;
+numbers.last
+| &lt;number&gt;10&lt;/number&gt;
+numbers take 3
+| NodeSeq(&lt;number&gt;1&lt;/number&gt;, &lt;number&gt;2&lt;/number&gt;,
+  &lt;number&gt;3&lt;/number&gt;)
+numbers filter(_.text.toInt &gt; 6)
+| NodeSeq(&lt;number&gt;7&lt;/number&gt;, &lt;number&gt;8&lt;/number&gt;,
+  &lt;number&gt;9&lt;/number&gt;, &lt;number&gt;10&lt;/number&gt;)</programlisting>
+          <para>The default <code>apply</code> method for <code>NodeSeq</code> is an alias for
+            <code>filter</code>:</para>
+          <programlisting language="scala">numbers(_.text.toInt &gt; 6)
+| NodeSeq(&lt;number&gt;7&lt;/number&gt;, &lt;number&gt;8&lt;/number&gt;,
+  &lt;number&gt;9&lt;/number&gt;, &lt;number&gt;10&lt;/number&gt;)
+numbers maxBy(_.text)
+| &lt;number&gt;9&lt;/number&gt;
+numbers maxBy(_.text.toInt)
+| &lt;number&gt;10&lt;/number&gt;
+numbers.reverse
+| NodeSeq(&lt;number&gt;10&lt;/number&gt;, &lt;number&gt;9&lt;/number&gt;,
+  &lt;number&gt;8&lt;/number&gt;, &lt;number&gt;7&lt;/number&gt;,
+  &lt;number&gt;6&lt;/number&gt;, &lt;number&gt;5&lt;/number&gt;,
+  &lt;number&gt;4&lt;/number&gt;, &lt;number&gt;3&lt;/number&gt;,
+  &lt;number&gt;2&lt;/number&gt;, &lt;number&gt;1&lt;/number&gt;)
+numbers.groupBy(_.text.toInt % 3)
+| Map(
+  2 -&gt; NodeSeq(&lt;number&gt;2&lt;/number&gt;,
+  &lt;number&gt;5&lt;/number&gt;, &lt;number&gt;8&lt;/number&gt;),
+  1 -&gt; NodeSeq(&lt;number&gt;1&lt;/number&gt;,
+  &lt;number&gt;4&lt;/number&gt;, &lt;number&gt;7&lt;/number&gt;,
+  &lt;number&gt;10&lt;/number&gt;),
+  0 -&gt; NodeSeq(&lt;number&gt;3&lt;/number&gt;,
+  &lt;number&gt;6&lt;/number&gt;, &lt;number&gt;9&lt;/number&gt;))</programlisting><programlisting language="scala">val jokes = &lt;jokes&gt;
+  &lt;pun rating="fine"&gt;
+    &lt;question&gt;Q: Why did the functions stop
+calling each other?&lt;/question&gt;
+    &lt;answer&gt;A: Because they had constant
+arguments.&lt;/answer&gt;
+  &lt;/pun&gt;
+  &lt;pun rating="extreme"&gt;
+    &lt;question&gt;Why do
+CompSci students need glasses?&lt;/question&gt;
+    &lt;answer&gt;To C#&lt;!--
+C# is a Microsoft programming language
+--&gt;.&lt;/answer&gt;
+  &lt;/pun&gt;
+&lt;/jokes&gt;</programlisting>
+        <para>Querying descendant attributes works as
+          expected<programlisting language="scala">jokes \\ "@rating"
+| NodeSeq(fine, extreme)</programlisting></para>
+        <para>Querying elements by path works
+          fine<programlisting language="scala">jokes \ "pun" \ "question"
+| NodeSeq(&lt;question&gt;Q: Why did the functions stop
+| calling each other?&lt;/question&gt;, &lt;question&gt;Why do
+| CompSci students need glasses?&lt;/question&gt;)</programlisting></para>
+        <para>Querying attributes byf
+          path:<programlisting language="scala">jokes \ "pun" flatMap (_\ "@rating")
+| NodeSeq(fine, extreme)</programlisting><programlisting language="scala">(jokes \ "pun") \\ "@rating" 
+| NodeSeq(fine, extreme)</programlisting></para>
+        <para>However node equality can surprise with XML literals <footnote>
+            <para><link xl:href="https://github.com/scala/scala-xml/issues/25"/></para>
+          </footnote>:<programlisting language="scala">&lt;node&gt;{2}&lt;/node&gt; == &lt;node&gt;2&lt;/node&gt;
+| false
+&lt;node&gt;{2}&lt;/node&gt; == &lt;node&gt;{2}&lt;/node&gt; 
+| true</programlisting></para>
+      </section>
+    </section>
+    <section>
+      <title>Scala XML namespace handling</title>
+      <para>Namespaces are handled well. The empty namespace is '<code>null</code>'.
+        (see <xref linkend="paper-9_fn-show-namespaces"/> for <code>showNamespaces</code>):<programlisting language="scala">val tree = &lt;document&gt;
+  &lt;embedded xmlns="urn:test:embedding"&gt;
+    &lt;description&gt;
+      &lt;referenced xmlns="urn:test:referencing"&gt;
+        &lt;metadata&gt;
+          &lt;title xmlns=""&gt;Untitled&lt;/title&gt;
+        &lt;/metadata&gt;
+      &lt;/referenced&gt;
+    &lt;/description&gt;
+  &lt;/embedded&gt;
+&lt;/document&gt;
+
+showNamespaces(tree)
+| {null}document
+  {urn:test:embedding}embedded
+  {urn:test:embedding}description
+  {urn:test:referencing}referenced
+  {urn:test:referencing}metadata
+  {null}title</programlisting></para>
+      <section>
+        <title>Scala XML is unidirectional and immutable</title>
+        <para>Unlike the XPath model, Scala XML is unidirectional, i.e. a node does not know its
+          parent, so lacks reverse axes, also no forward/sibling axes. This was done because adding
+          in parents is expensive whilst maintaining immutability. For many problem spaces that may
+          not matter. If it does for you then you are free to fall back to the full
+          XPath/XQuery/XSLT model as shown below</para>
+      </section>
+      <section>
+        <title>XQS</title>
+        <para>We use a tiny wrapper library called XQS (XQuery for Scala) <xref linkend="paper-9_xqs-github"/> in various places
+          throughout this paper. Its main aim is to allow for a Scala metaphors when using XQuery.
+          However even outside of XQuery usage, it allows for easy interoperation between the worlds
+          of Scala XML and Java DOM. For example in the XPath example below, it supplies toDom to
+          turn Scala XML to a w3c DOM, and the ability to turn a NodeSet into a Scala
+          NodeSeq.</para>
+      </section>
+      <section>
+        <title>Using XPath from Scala </title>
+        <programlisting language="scala">import com.felstar.xqs.XQS._
+val widgets = &lt;widgets&gt;
+  &lt;widget&gt;Menu&lt;/widget&gt;
+  &lt;widget&gt;Status bar&lt;/widget&gt;
+  &lt;widget id="panel-1"&gt;Panel&lt;/widget&gt;
+  &lt;widget id="panel-2"&gt;Panel&lt;/widget&gt;
+&lt;/widgets&gt;
+val xpath = XPathFactory.newInstance().newXPath()
+val nodes: NodeSeq = xpath.evaluate(
+  "/widgets/widget[not(@id)]",
+  toDom(widgets),
+  XPathConstants.NODESET
+).asInstanceOf[NodeList]
+nodes
+| NodeSeq(&lt;widget&gt;Menu&lt;/widget&gt;,
+  &lt;widget&gt;Status bar&lt;/widget&gt;)</programlisting>
+        <para>Natively in
+          Scala:<programlisting language="scala">(widgets \ "widget")(
+  widget =&gt; (widget \ "@id").isEmpty
+)
+| NodeSeq(&lt;widget&gt;Menu&lt;/widget&gt;,
+  &lt;widget&gt;Status bar&lt;/widget&gt;)</programlisting></para>
+      </section>
+      <section>
+        <title>XML Transformations</title>
+        <para>Scala provides XML transformation functionality via a <code>RuleTransformer</code>
+          that takes multiple <code>RewriteRule</code>s. The following example uses pattern matching
+          and a native XML
+          extractor:<programlisting language="scala">val peopleXml = &lt;people&gt;
+    &lt;john&gt;Hello, John.&lt;/john&gt;
+    &lt;smith&gt;Smith is here.&lt;/smith&gt;
+    &lt;another&gt;Hello.&lt;/another&gt;
+  &lt;/people&gt;
+
+val rewrite =
+  new RuleTransformer(new RewriteRule {
+    override def transform(node: Node) =
+      node match {
+        case &lt;john&gt;{_}&lt;/john&gt; =&gt;
+          &lt;john&gt;Hello, John.&lt;/john&gt;
+        case &lt;smith&gt;{text}&lt;/smith&gt; =&gt;
+          &lt;smithX&gt;{text}!!!!&lt;/smithX&gt;
+        case n: Elem if n.label != "people" =&gt;
+          n.copy(label = "renamed")
+        case other =&gt; other
+  }
+})
+rewrite.transform(peopleXml)
+| &lt;people&gt;
+|     &lt;john&gt;Hello, John.&lt;/john&gt;
+|     &lt;smithX&gt;Smith is here.!!!!&lt;/smithX&gt;
+|     &lt;renamed&gt;Hello.&lt;/renamed&gt;
+|   &lt;/people&gt;</programlisting></para>
+        <section>
+          <title>Alternatively: calling XSLT from Scala</title>
+          <programlisting language="scala">val stylesheet =
+&lt;xsl:stylesheet
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="2.0"&gt;
+  &lt;xsl:template match="john"&gt;
+    &lt;xsl:copy&gt;Hello, John.&lt;/xsl:copy&gt;
+  &lt;/xsl:template&gt;
+  &lt;xsl:template match="node()|@*"&gt;
+    &lt;xsl:copy&gt;
+      &lt;xsl:apply-templates select="node()|@*"/&gt;
+    &lt;/xsl:copy&gt;
+  &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;
+import com.felstar.xqs.XQS._
+val xmlResultResource = new java.io.StringWriter()
+val xmlTransformer =
+  TransformerFactory
+  .newInstance().newTransformer(stylesheet)
+xmlTransformer.transform(peopleXml,
+  new StreamResult(xmlResultResource))
+xmlResultResource.getBuffer
+| &lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;people&gt;
+     &lt;john&gt;Hello, John.&lt;/john&gt;
+     &lt;smith&gt;Smith is here.&lt;/smith&gt;
+     &lt;another&gt;Hello.&lt;/another&gt;
+   &lt;/people&gt;</programlisting>
+          <para>We found XSLT more effective than Scala for designing XML transformations as XSLT
+            has been designed explicitly for this task. Thus we can mix-and-match transformations
+            when XSLT is nicer than Scala and vice-versa. John Snelson's transform.xq showcases
+            mixed transforms with querying in XQuery <xref linkend="paper-9_transform-xq"/>. Alike can be
+            achieved in Scala.</para>
+        </section>
+      </section>
+      <section>
+        <title>XML Pull Parsing from Scala</title>
+        <programlisting language="scala">// 4GB file, comes back in a second.
+val downloadUrl =
+  "http://dumps.wikimedia.org" +
+  "/enwiki/20140402/enwiki-20140402-abstract.xml"
+val src = Source.fromURL(downloadUrl)
+val er = XMLInputFactory.newInstance().
+  createXMLEventReader(src.reader)
+   
+implicit class XMLEventIterator(ev: XMLEventReader)
+  extends scala.collection.Iterator[XMLEvent] {
+  def hasNext = ev.hasNext
+  def next = ev.nextEvent()
+}
+    
+er.dropWhile(!_.isStartElement).take(10)
+  .zipWithIndex.foreach {
+    case (ev, idx) =&gt;
+      println(s"${idx+1}:\t$ev")
+  }
+    
+src.close()
+ 
+| 1:	&lt;feed&gt;
+| 2:	
+| 
+| 3:	&lt;doc&gt;
+| 4:	
+| 
+| 5:	&lt;title&gt;
+| 6:	Wikipedia: Anarchism
+| 7:	&lt;/title&gt;
+| 8:	
+| 
+| 9:	&lt;url&gt;
+| 10:	http://en.wikipedia.org/wiki/Anarchism</programlisting>
+      </section>
+      <section>
+        <title>Calling XQuery from Scala</title>
+        <para>The standard API for XQuery on Java is XQJ <xref linkend="paper-9_jsr-225"/>. XQJ drivers are
+          available for several databases such as MarkLogic and XQuery processors such as Saxon
+            <xref linkend="paper-9_xqj-net"/>
+          <xref linkend="paper-9_wikipedia-xqj"/> meaning Scala can consume XQuery result sets.</para>
+          
+          <programlisting language="scala">import com.felstar.xqs.XQS._
+val conn = getYourXQueryConnection()
+val ret: NodeSeq = conn(
+  "/widgets/widget[not(@id)]", widgets)
+| NodeSeq(&lt;widget&gt;Menu&lt;/widget&gt;,
+  &lt;widget&gt;Status bar&lt;/widget&gt;)
+
+val ret2: NodeSeq = conn(
+  """|for $w in /widgets/widget
+     |order by $w return $w""".stripMargin,
+  widgets)
+| NodeSeq(&lt;widget&gt;Menu&lt;/widget&gt;,
+  &lt;widget id="panel-1"&gt;Panel&lt;/widget&gt;, 
+  &lt;widget id="panel-2"&gt;Panel&lt;/widget&gt;,
+  &lt;widget&gt;Status bar&lt;/widget&gt;)</programlisting>
+        <para>A pure Scala version:</para>
+          <programlisting language="scala">(widgets \ "widget").sortBy(_.text) </programlisting>
+      </section>
+    </section>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Extensibility</title>
+    <para>Using Scala’s “implicits” you can enrich types by adding new functionality.
+      <programlisting language="scala">val oo = &lt;oo&gt;
+&lt;x id="1"&gt;123&lt;/x&gt;
+&lt;x id="2"&gt;1234&lt;/x&gt;
+&lt;x id="x"&gt;xxxxx&lt;/x&gt;
+&lt;x id="3"&gt;1235&lt;/x&gt;
+&lt;/oo&gt;</programlisting></para>
+    <para>Treating attribute values, which are strings, as doubles, implicitly when needed, and
+      without any NumberFormatExceptions. Uses the scala.util.Try class that wraps exceptions in a
+      functional
+      manner<programlisting language="scala">implicit def toSafeDouble(st: String) =
+  scala.util.Try{st.toDouble}.getOrElse(Double.NaN)
+
+(oo \ "x").filter( _ \@ "id" &lt; 3)
+| NodeSeq(&lt;x id="1"&gt;123&lt;/x&gt;, &lt;x id="2"&gt;1234&lt;/x&gt;)
+(oo \\ "@id").map(_.text: Double).
+  filterNot(_.isNaN).sum
+| 6.0</programlisting></para>
+    <para>Here are some examples of selecting multiple items according to their index:</para>
+    <programlisting language="scala">val root = &lt;nodes&gt;
+  &lt;node&gt;a (0)&lt;/node&gt;
+  &lt;node&gt;b (1)&lt;/node&gt;
+  &lt;node&gt;c (2)&lt;/node&gt;
+  &lt;node&gt;d (3)&lt;/node&gt;
+  &lt;node&gt;e (4)&lt;/node&gt;
+  &lt;node&gt;f (5)&lt;/node&gt;
+  &lt;node&gt;g (6)&lt;/node&gt;
+  &lt;node&gt;h (7)&lt;/node&gt;
+  &lt;node&gt;i (8)&lt;/node&gt;
+&lt;/nodes&gt;
+val nodes = (root \ "node")
+
+implicit class indexFunctionality(ns: NodeSeq) {
+  def filterByIndex(p: Int =&gt; Boolean): NodeSeq =
+    ns.zipWithIndex.collect {
+      case (value, index) if p(index) =&gt; value
+    }
+  def filterByIndex(b: GenSeq[Int]*): NodeSeq=
+    filterByIndex(b.flatten.toSet)
+  def apply(n1: Int, n2: Int*) =
+    ns(n1) ++ ns.filterByIndex(n2.toSet)
+  def apply(b: GenSeq[Int]*): NodeSeq =
+    filterByIndex(b.flatten.toSet)
+}
+nodes.filterByIndex(_ &gt; 6)
+| NodeSeq(&lt;node&gt;h (7)&lt;/node&gt;, &lt;node&gt;i (8)&lt;/node&gt;)
+nodes(0, 4, 7)
+| NodeSeq(&lt;node&gt;a (0)&lt;/node&gt;, &lt;node&gt;e (4)&lt;/node&gt;,
+  &lt;node&gt;h (7)&lt;/node&gt;)
+nodes(1 to 3)
+| NodeSeq(&lt;node&gt;b (1)&lt;/node&gt;, &lt;node&gt;c (2)&lt;/node&gt;,
+  &lt;node&gt;d (3)&lt;/node&gt;)
+nodes(1 to 3, 5 until 7)
+| NodeSeq(&lt;node&gt;b (1)&lt;/node&gt;, &lt;node&gt;c (2)&lt;/node&gt;,
+  &lt;node&gt;d (3)&lt;/node&gt;,
+  &lt;node&gt;f (5)&lt;/node&gt;, &lt;node&gt;g (6)&lt;/node&gt;)</programlisting>
+    <para>Note that root can alternatively be generated
+      using:<programlisting language="scala">val root = &lt;nodes&gt;{('a' to 'i').zipWithIndex.map{
+  case (letter, index) =&gt;
+    &lt;node&gt;{letter} ({index})&lt;/node&gt;
+}}&lt;/nodes&gt;</programlisting></para>
+    <para>This is how we lookup elements by namespace. You can see how extensible Scala becomes
+      (using
+      <xref linkend="paper-9_fn-show-namespaces"/>):<programlisting language="scala">val tree = &lt;document&gt;
+  &lt;embedded xmlns="urn:test:embedding"&gt;
+    &lt;description&gt;
+      &lt;referenced xmlns="urn:test:referencing"&gt;
+        &lt;metadata&gt;
+          &lt;title xmlns=""&gt;Untitled&lt;/title&gt;
+        &lt;/metadata&gt;
+      &lt;/referenced&gt;
+    &lt;/description&gt;
+  &lt;/embedded&gt;
+&lt;/document&gt;
+implicit class nsElement(nodeSeq: NodeSeq) {
+  val regex = """^\{(.+)\}(.+)$""".r
+  def \\#(path: String): NodeSeq = {
+    val regex(namespace, el) = path
+    for {
+      node &lt;- nodeSeq \\ el
+      if node.namespace == namespace
+    } yield node
+  }
+  def \#(path: String): NodeSeq = {
+    val regex(namespace, el) = path
+    for {
+      node &lt;- nodeSeq \ el
+      if node.namespace == namespace
+    } yield node
+  }
+}
+
+(tree \\# "{urn:test:referencing}_").
+  map(showNamespace).mkString("\n")
+| {urn:test:referencing}referenced
+  {urn:test:referencing}metadata</programlisting></para>
+    <section>
+      <title>Further Extensibility: XQuery-like constructs</title>
+      <para>Here we implement the XQuery 3.0 use case Q4 Part 3 <xref linkend="paper-9_xquery-3-use-case-groupby"/>.</para>
+      <para>XQuery
+        code:<programlisting language="scala">&lt;result&gt;{
+  for $store in /root/*/store
+  let $state := $store/state
+  group by $state
+  order by $state
+  return
+    &lt;state name="{$state}"&gt;{
+      for $product in /root/*/product
+      let $category := $product/category
+      group by $category
+      order by $category
+      return
+        &lt;category name="{$category}"&gt;{
+          for $sales in /root/*/record[
+            store-number = $store/store-number
+            and product-name = $product/name]
+          let $pname := $sales/product-name
+          group by $pname
+          order by $pname
+          return
+            &lt;product name="{$pname}"
+            total-qty="{sum($sales/qty)}"/&gt;
+          }&lt;/category&gt;
+    }&lt;/state&gt;
+}&lt;/result&gt;</programlisting></para>
+      <para>Scala code:</para>
+      <programlisting language="scala">def loadXML(ref: String) = {
+  val filename = s"benchmarks-xml/$ref"
+  val file = new File(filename)
+  scala.xml.XML.loadFile(file)
+}
+
+val allStores = loadXML("stores.xml") \ "store" groupByOrderBy "state"
+val allProducts = loadXML("products.xml") \ "product" groupByOrderBy "category"
+val allRecords = loadXML("sales-records.xml") \ "record" groupByText "product-name"
+
+&lt;result&gt;{
+  for {
+    (state, stateStores) &lt;- allStores
+    storeNumbers = (stateStores \ "store-number").textSet
+  } yield &lt;state name={state}&gt;{
+    for {
+      (category,products)&lt;- allProducts
+      productRecords = allRecords.filterKeys{(products\"name").textSet}
+    } yield &lt;category name={category}&gt;{
+      for {
+        (productName, productSales)&lt;- productRecords
+        filteredSales = productSales.filter(n =&gt; storeNumbers(n\"store-number" text) )
+        if filteredSales.nonEmpty
+        totalQty = (filteredSales \ "qty").map(_.text.toInt).sum
+      }
+      yield &lt;product name={productName} total-qty={totalQty.toString}/&gt;
+      }&lt;/category&gt;
+    }&lt;/state&gt;
+  }&lt;/result&gt;</programlisting>
+      <para>An extensibility class used is attached in <xref linkend="paper-9_extensions"/>.</para>
+    </section>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Performance vs XQuery</title>
+    <section>
+        <title>Assumptions</title>
+      
+      <para>Core i7-3820 @ 3.6 GHz, 4 core, Windows 7 Professional, 64 bit, 16 GB Ram, Java 7 u51
+        64bit, default JVM settings. Scala 2.11, XMLUnit, XQJ interfaces, XQS Scala bindings 2
+        XQuery implementations A and B. Sources are located on GitHub <xref linkend="paper-9_benchmark-source"/>. </para>
+    </section>
+    <section>
+      <title>Methodology</title>
+      <para>Using prepared statements for the XQuery, can be switched off, B performance drops like
+        a stone without it, and not really fair, so turn on prepared statements. Scala has no
+        concept of these, as there is nothing to prepare or parse. Also cached the conversion of XML
+        to a DOMSource for the XQuery, so we don’t measure that effort when timing the XQueries. Put
+        in switch to serialize results to string, so as to ensure that any potential lazy values are
+        materialized. Selected various queries from <xref linkend="paper-9_xquery-use-cases"/> also a XQuery
+        3.0 example from <xref linkend="paper-9_xquery-3-use-case-groupby"/>. Runs both XQuery and Scala in
+        a single run, 3 runs of 10,000 queries, with the results of the first 2 runs thrown away to
+        get a good JVM jit warmup. Its very easy to get misleading results from badly thought out
+        benchmarks. Warm up is very important, JVM runs best when code is hotspotted. For each query
+        we emits the XQuery time, Scala time, and the ratio of these times, XQuery:Scala. We plot a
+        graph of these values, showing first 2 values as a bar, the ratio as a line. </para>
+    </section>
+    <section>
+      <title>Benchmarks</title>
+      
+      
+      <figure xml:id="paper-9_scala-vs-xquery">
+        <title>Impl A XQuery vs Scala</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/graph-a.svg" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      
+          <table>
+        <title>Impl A XQuery vs Scala</title>
+            <tgroup cols="4">
+              <colspec colname="c1"/>
+              <colspec colname="c2"/>
+              <colspec colname="c3"/>
+              <colspec colname="c4"/>
+            <thead>
+              <row>
+                <entry>Query</entry>
+                <entry>Ratio</entry>
+                <entry>XQuery</entry>
+                <entry>Scala</entry>
+              </row>
+            </thead>
+            <tbody>
+            <row>
+              <entry>Q1</entry>
+              <entry>38.27</entry>
+              <entry>2449</entry>
+              <entry>64</entry>
+            </row>
+            <row>
+              <entry>Q2</entry>
+              <entry>29.89</entry>
+              <entry>2600</entry>
+              <entry>87</entry>
+            </row>
+            <row>
+              <entry>Q3</entry>
+              <entry>33</entry>
+              <entry>2574</entry>
+              <entry>78</entry>
+            </row>
+            <row>
+              <entry>Q4</entry>
+              <entry>7.75</entry>
+              <entry>3325</entry>
+              <entry>429</entry>
+            </row>
+            <row>
+              <entry>Q5</entry>
+              <entry>23.91</entry>
+              <entry>3372</entry>
+              <entry>141</entry>
+            </row>
+            <row>
+              <entry>Q6</entry>
+              <entry>40.1</entry>
+              <entry>2927</entry>
+              <entry>73</entry>
+            </row>
+            <row>
+              <entry>Q7</entry>
+              <entry>17.86</entry>
+              <entry>2590</entry>
+              <entry>145</entry>
+            </row>
+            <row>
+              <entry>Q9</entry>
+              <entry>32.04</entry>
+              <entry>1602</entry>
+              <entry>50</entry>
+            </row>
+            <row>
+              <entry>Q10</entry>
+              <entry>12.48</entry>
+              <entry>2994</entry>
+              <entry>240</entry>
+            </row>
+            <row>
+              <entry>Q11</entry>
+              <entry>26.86</entry>
+              <entry>2847</entry>
+              <entry>106</entry>
+            </row>
+            <row>
+              <entry>Q4_3.0</entry>
+              <entry>6.89</entry>
+              <entry>4921</entry>
+              <entry>714</entry>
+            </row>
+            </tbody>
+            </tgroup>
+          </table>
+      
+      
+      <figure xml:id="paper-9_scala-vs-saxon">
+        <title>Impl B XQuery vs Scala</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/graph-b.svg" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      
+      
+      <table>
+        <title>Impl B XQuery vs Scala</title>
+        <tgroup cols="4">
+          <colspec colname="c1"/>
+          <colspec colname="c2"/>
+          <colspec colname="c3"/>
+          <colspec colname="c4"/>
+          <thead>
+            <row>
+              <entry>Query</entry>
+              <entry>Ratio</entry>
+              <entry>XQuery</entry>
+              <entry>Scala</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry>Q1</entry>
+              <entry>9.57</entry>
+              <entry>603</entry>
+              <entry>63</entry>
+            </row>
+            <row>
+              <entry>Q2</entry>
+              <entry>7.11</entry>
+              <entry>619</entry>
+              <entry>87</entry>
+            </row>
+            <row>
+              <entry>Q3</entry>
+              <entry>7.4</entry>
+              <entry>592</entry>
+              <entry>80</entry>
+            </row>
+            <row>
+              <entry>Q4</entry>
+              <entry>1.74</entry>
+              <entry>750</entry>
+              <entry>430</entry>
+            </row>
+            <row>
+              <entry>Q5</entry>
+              <entry>5.44</entry>
+              <entry>816</entry>
+              <entry>150</entry>
+            </row>
+            <row>
+              <entry>Q6</entry>
+              <entry>8.26</entry>
+              <entry>611</entry>
+              <entry>74</entry>
+            </row>
+            <row>
+              <entry>Q7</entry>
+              <entry>3.89</entry>
+              <entry>579</entry>
+              <entry>149</entry>
+            </row>
+            <row>
+              <entry>Q9</entry>
+              <entry>4.59</entry>
+              <entry>225</entry>
+              <entry>49</entry>
+            </row>
+            <row>
+              <entry>Q10</entry>
+              <entry>2.21</entry>
+              <entry>478</entry>
+              <entry>216</entry>
+            </row>
+            <row>
+              <entry>Q11</entry>
+              <entry>6.33</entry>
+              <entry>658</entry>
+              <entry>104</entry>
+            </row>
+            <row>
+              <entry>Q4_3.0</entry>
+              <entry>2.49</entry>
+              <entry>1715</entry>
+              <entry>688</entry>
+            </row>
+          </tbody>
+        </tgroup></table>
+    </section>
+      <section><title>Conclusions</title>
+        <para>Scala is faster in all these use cases. Very similar to XQuery
+        in its language construction. No doubt there are use cases where XQuery may be better, like
+        an XML database. This is not black or white, a religious issue, simply a matter of
+        choice.</para>
+      </section>
+      </section>
+      <section xmlns:xl="http://www.w3.org/1999/xlink"><title>Practicality</title>
+        <section><title>Enterprise usage</title><para>Scala is well established in enterprises <xref linkend="paper-9_scala-case-studies"/>. While having
+        access to the JVM Scala makes it easy to reuse the solid and tested libraries of the JVM
+        ecosystem as well as an enterprise’s legacy Java code <xref linkend="paper-9_guardian-case-study"/>.
+        Scala’s terseness makes domain modelling much more precise <xref linkend="paper-9_dsl-using-scala"/>. Enterprise can migrate slowly to using all-Scala. The amount of code to maintain
+        decreases, so number of moving parts decreases. </para>
+          </section>
+        <section><title>ScalaTest</title><para>ScalaTest, then test either
+        your whole domain with property based testing, and ensure that the parties you are dealing
+        with understand what your XML processing code does. Again, whether your XML processing code
+        is inside Scala, XSLT, XQuery or MarkLogic, makes no difference. XMLUnit works nicely with
+        Scala.</para>
+        </section>
+      <section><title>Other integration features</title>
+        <para>Scala 2.11 makes itself available as a scripted
+        language to JSR-223 
+        
+        <xref linkend="paper-9_jsr-223-compliance"/>. Scala’s Akka
+          <footnote><para><link xl:href="http://akka.io/">Akka</link></para></footnote>
+          and <footnote><para><link xl:href="http://www.playframework.com/">Play framework</link></para></footnote> provide many
+        integration features with the rest of the world including 
+        
+        JSON <footnote><para><link xl:href="http://www.playframework.com/documentation/2.2.x/ScalaJson"/></para></footnote>
+          and WebSockets 
+          
+<footnote><para><link xl:href="http://www.playframework.com/documentation/2.2.x/ScalaWebSockets">Play Framework documentation, WebSockets in Scala guide</link></para></footnote>. With macros you can
+        create programs that create programs. Meaning your language is not getting in your way with
+        ‘design patterns’ when focusing on the problem you’re trying to solve. This includes
+        creating bindings such as serializers and deserializers of your favourite formats (e.g. binary
+        via Scala Pickling <footnote><para><link xl:href="http://lampwww.epfl.ch/~hmiller/pickling/"/></para></footnote>, JSON via json4s
+          <footnote><para><link xl:href="http://json4s.org/"/></para></footnote>.</para>
+        <para>We would like to see more research in querying with Scala such as Fatemeh Borran-Dejnabadi's paper <xref linkend="paper-9_scala-xquery-shipping"/> 
+        .</para>
+      </section>
+      </section>
+    <section xmlns:xl="http://www.w3.org/1999/xlink">
+        <title>Conclusions</title>
+      <para>Possibilities with using Scala for XML processing are almost
+        limitless. Pick and mix how you want to process your XML in Scala: powerful collections
+        methods, for-comprehensions, XML generation, XPath, XSLT, XML databases and XQuery engines
+        via XQS/XQJ, XML streaming via StAX. Scala makes it possible to simplify complex logic into
+        domain specific programs and use a combination of the best tools for achieving your targets.
+        As Java has not advanced as far in terms of the language, Scala has secured the niche of the
+        effective programmer and the effective business. For you as a functional programmer Scala’s
+        concepts will already be familiar. You lose none of your existing Java ecosystem and gain so
+        much more. It is another important tool in your armoury for efficient and lucid data
+        processing. </para>
+    </section>
+  
+  
+  
+  <bibliography xmlns:xl="http://www.w3.org/1999/xlink">
+    
+    <biblioentry xml:id="paper-9_odersky-future-of-scala">
+      <!--<abbrev>OderskyFutureOfScala</abbrev>-->
+      <abbrev>1</abbrev>
+      <title>Martin Odersky on the Future of Scala (25:00)</title>
+      <biblioid class="uri">http://www.infoq.com/interviews/martin-odersky-scala-future</biblioid>
+      <authorgroup>
+        <author>
+          <personname><firstname>Sadek</firstname>
+            <surname>Drobi</surname></personname>
+        </author>
+        <author>
+          <personname><firstname>Martin</firstname>
+            <surname>Odersky</surname></personname>
+        </author>
+      </authorgroup>
+      <publishername>InfoQ</publishername>
+    </biblioentry>
+    
+      <biblioentry xml:id="paper-9_seamless-java-interop">
+      <!--  <abbrev>SeamlessJavaInterop</abbrev>
+       --><abbrev>2</abbrev>
+        <title>What is Scala? Seamless Java interop</title>
+        <author>
+        <personname><firstname>Martin</firstname>
+          <surname>Odersky</surname></personname>
+      </author>
+        <biblioid class="uri">http://www.scala-lang.org/what-is-scala.html#seamless_java_interop</biblioid>
+      </biblioentry>
+    
+      <biblioentry xml:id="paper-9_scala-xml-book">
+       <!-- <abbrev>ScalaXmlBook</abbrev>
+         --><abbrev>3</abbrev>
+        <title>Scala XML Book</title>
+        <author>
+        <personname><firstname>Burak</firstname>
+          <surname>Emir</surname></personname>
+      </author>
+        <biblioid class="uri">https://sites.google.com/site/burakemir/scalaxbook.docbk.html?attredirects=0</biblioid>
+      </biblioentry>
+    
+      <biblioentry xml:id="paper-9_scala-crash-course">
+        <!--<abbrev>ScalaCrashCourse</abbrev>
+        --><abbrev>4</abbrev>
+        <title>Scala Crash Course</title>
+        <date>February 20, 2014</date>
+        <publishername>University of California, San Diego</publishername>
+        <author>
+        <personname><firstname>Ravi</firstname>
+          <surname>Chugh</surname></personname>
+      </author>
+        <biblioid class="uri">http://cseweb.ucsd.edu/classes/wi14/cse130-a/lectures/scala/00-crash.html</biblioid>
+      </biblioentry>
+    
+      <biblioentry xml:id="paper-9_scala-the-short-introduction">
+        <!--<abbrev>ScalaShortIntroduction</abbrev>
+        --><abbrev>5</abbrev>
+        <title>Scala - The Short Introduction</title>
+        <author>
+        <personname><firstname>Jerzy</firstname>
+          <surname>Müller</surname></personname>
+      </author>
+        <biblioid class="uri">http://scalacamp.pl/intro/#/start</biblioid>
+      </biblioentry>
+    
+      <biblioentry xml:id="paper-9_scala-static-language-feels-dynamic">
+        <!--<abbrev>ScalaStaticFeelsDynamic</abbrev>
+        --><abbrev>6</abbrev>
+        <title>Scala: The Static Language that Feels Dynamic</title>
+        <author>
+        <personname><firstname>Bruce</firstname>
+          <surname>Eckel</surname></personname>
+      </author>
+        <publishername>Artima, Inc.</publishername>
+        <date>June 12, 2011</date>
+        <biblioid class="uri">http://www.artima.com/weblogs/viewpost.jsp?thread=328540</biblioid>
+      </biblioentry>
+    
+    <biblioentry xml:id="paper-9_scala-doc-implicit-classes">
+      <!--<abbrev>ScalaImplicitClasses</abbrev>
+      --><abbrev>7</abbrev>
+      <title>Implicit classes overview, Scala documentation</title>
+      <publishername>http://scala-lang.org</publishername>
+      <biblioid class="uri">http://docs.scala-lang.org/overviews/core/implicit-classes.html</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_pimp-my-library">
+      <!--<abbrev>PimpMyLibrary</abbrev>
+      --><abbrev>8</abbrev>
+      <title>Pimp my Library</title>
+      <author>
+        <personname><firstname>Martin</firstname>
+          <surname>Odersky</surname></personname>
+      </author>
+      <publishername>Artima, Inc.</publishername>
+      <date>October 9, 2006</date>
+      <biblioid class="uri">http://www.artima.com/weblogs/viewpost.jsp?thread=179766</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_best-ide-for-scala">
+      <!--<abbrev>BestIdeForScala</abbrev>
+      --><abbrev>9</abbrev>
+      <title>Scala: Which is the best IDE for Scala Development?</title>
+      <publishername>Quora</publishername>
+      <author>
+        <personname><firstname>Navad</firstname>
+          <surname>Samet</surname></personname>
+      </author>
+      <date>January 13, 2014</date>
+      <biblioid class="uri">http://www.quora.com/Scala/Which-is-the-best-IDE-for-Scala-Development/answer/Nadav-Samet-1</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_scala-collections-overview">
+      <!--<abbrev>ScalaCollections</abbrev>
+      --><abbrev>10</abbrev>
+      <title>Scala Collections overview</title>
+      <publishername>scala-lang.org</publishername>
+      <biblioid class="uri">http://docs.scala-lang.org/overviews/collections/overview.html</biblioid>
+    </biblioentry> 
+    
+    <biblioentry xml:id="paper-9_string-interpolation">
+      <!--<abbrev>StringInterpolation</abbrev>
+      --><abbrev>11</abbrev>
+      <title>String Interpolation</title>
+      <publishername>scala-lang.org</publishername>
+      <author>
+        <personname><firstname>Josh</firstname>
+          <surname>Suereth</surname></personname>
+      </author>
+      <biblioid class="uri">http://docs.scala-lang.org/overviews/core/string-interpolation.html</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_crash-course-iteration">
+      <!--<abbrev>CrashCourseIteration</abbrev>
+      --><abbrev>12</abbrev>
+      <title>Iteration &amp; Recursion - Scala crash course</title>
+      <author>
+        <personname><firstname>Ravi</firstname>
+          <surname>Chugh</surname></personname>
+      </author>
+      <publishername>University of California, San Diego</publishername>
+      <date>February 27, 2014</date>
+      <biblioid class="uri">http://cseweb.ucsd.edu/classes/wi14/cse130-a/lectures/scala/01-iterators.slides.html</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_constructing-parser">
+      <!--<abbrev>ConstructingParser</abbrev>
+      --><abbrev>13</abbrev>
+      <title>scala.xml.parsing.ConstructingParser</title>
+      <publisher>
+        <publishername>scala-lang.org</publishername>
+      </publisher>
+      <biblioid class="uri">http://www.scala-lang.org/files/archive/nightly/docs/xml/#scala.xml.parsing.ConstructingParser</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_xqs-github">
+      <!--<abbrev>XQSGitHub</abbrev>
+      --><abbrev>14</abbrev>
+      <title>XQuery for Scala</title>
+      <author>
+        <personname><firstname>Dino</firstname>
+          <surname>Fancellu</surname></personname>
+      </author>
+      <biblioid class="uri">https://github.com/fancellu/xqs</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_transform-xq">
+      <!--<abbrev>TransformDotXq</abbrev>
+      --><abbrev>15</abbrev>
+      <biblioid class="uri">http://archive.xmlprague.cz/2012/files/xmlprague-2012-proceedings.pdf#page=183</biblioid>
+      <title>Transform.xq: A transformation library for XQuery 3.0</title>
+      <author>
+        <personname><firstname>John</firstname>
+          <surname>Snelson</surname></personname>
+      </author>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_jsr-225">
+      <!--<abbrev>JSR225XQJ</abbrev>
+      --><abbrev>16</abbrev>
+      <title>JSR 225: XQuery API for Java (XQJ)</title>
+      <authorgroup>
+        <author>
+          <personname><firstname>Maxim</firstname>
+            <surname>Orgiyan</surname></personname>
+        </author>
+        <author>
+          <personname><firstname>Marc</firstname>
+            <surname>Van Cappellen</surname></personname>
+        </author>	
+      </authorgroup>
+      <biblioid class="uri">https://jcp.org/en/jsr/detail?id=225</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_xqj-net">
+      <!--<abbrev>XQJ.NET</abbrev>
+      --><abbrev>17</abbrev>
+      <title>XQJ.NET</title>
+      <author><personname><firstname>Charles</firstname><surname>Foster</surname></personname></author>
+      <biblioid class="uri">http://xqj.net/</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_wikipedia-xqj">
+      <!--<abbrev>WikipediaXQJ</abbrev>
+      --><abbrev>18</abbrev>
+      <title>XQuery API for Java</title>
+      <biblioid class="uri">http://en.wikipedia.org/wiki/XQuery_API_for_Java</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_xquery-3-use-case-groupby">
+      <!--<abbrev>XQuery3UseCasesQ4</abbrev>
+      --><abbrev>19</abbrev>
+      <title>XQuery 3.0 Use Cases - Group By Q4</title>
+      <publishername>W3C Working Group</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/xquery-30-use-cases/#groupby_q4</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_benchmark-source">
+      <!--<abbrev>BenchmarkSourceGitHub</abbrev>
+      --><abbrev>20</abbrev>
+      <title>Benchmark sources</title>
+      <biblioid class="uri">https://github.com/ScalaWilliam/XMLLondon2014/</biblioid>
+      <author>
+        <personname><firstname>Dino</firstname>
+          <surname>Fancellu</surname></personname>
+      </author>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_xquery-use-cases">
+      <!--<abbrev>XQueryUseCases</abbrev>
+      --><abbrev>21</abbrev>
+      <title>XML Query Use Cases</title>
+      <publishername>W3C Working Group</publishername>
+      <date>March 23, 2007</date>
+      <biblioid class="uri">http://www.w3.org/TR/xquery-use-cases/</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_scala-case-studies">
+      <!--<abbrev>ScalaCaseStudies</abbrev>
+      --><abbrev>22</abbrev>
+      <title>Case Studies &amp; Stories</title>
+      <publishername>Typesafe, Inc.</publishername>
+      <biblioid class="uri">https://typesafe.com/company/casestudies</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_guardian-case-study">
+      <!--<abbrev>GuardianCaseStudy</abbrev>
+      --><abbrev>23</abbrev>
+      <title>The Guardian case study</title>
+      <publishername>Typesafe, Inc.</publishername>
+      <biblioid class="uri">http://downloads.typesafe.com/website/casestudies/The-Guardian-Case-Study-v1.1.pdf</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_dsl-using-scala">
+      <!--<abbrev>DSLforSocialModeling</abbrev>
+      --><abbrev>24</abbrev>
+      <title>Implementing a DSL for Social Modeling: an Embedded Approach Using Scala</title>
+      <author>
+        <personname><firstname>Jesús</firstname>
+          <othername>López</othername>
+          <surname>González</surname></personname>
+      </author>
+      <author>
+        <personname><firstname>Juan</firstname>
+          <surname>Manuel</surname></personname>
+      </author>
+      <date>October 13, 2013</date>
+      <biblioid class="uri">http://www.infoq.com/presentations/speech-dsl-social-process</biblioid>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_jsr-223-compliance">
+      <!--<abbrev>JSR223</abbrev>
+      --><abbrev>25</abbrev>
+      <title>SI-874 JSR-223 compliance for the interpreter</title>
+      <biblioid class="uri">https://github.com/scala/scala/pull/2238</biblioid>
+      <author>
+        <personname><firstname>Adriaan</firstname>
+          <surname>Moors</surname></personname>
+      </author>
+    </biblioentry>
+    
+    <biblioentry xml:id="paper-9_scala-xquery-shipping">
+      <!--<abbrev>ScalaXQueryShipping</abbrev>
+      --><abbrev>26</abbrev>
+      <title>Efficient Semi-structured Queries in Scala using XQuery Shipping</title>
+      <author>
+        <personname><firstname>Fatemeh</firstname>
+          <surname>Borran-Dejnabadi</surname></personname>
+      </author>
+      <date>February 2006</date>
+      <biblioid class="uri">http://infoscience.epfl.ch/record/85493/files/Scala_XQuery.pdf</biblioid>
+    </biblioentry>
+    </bibliography>
+  
+  
+  <appendix xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-9_fn-show-namespaces">
+    <title>The showNamespace(-s) methods</title>
+    <programlisting language="scala">def showNamespace(node: Node) = 
+  s"{${node.namespace}}${node.label}"
+
+def showNamespaces(ofTree: NodeSeq) =
+  (ofTree \\ "_").map(showNamespace).mkString("\n")</programlisting>
+  </appendix>
+  
+  <appendix xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-9_extensions">
+    <title>Extensions for NodeSeq</title>
+    <programlisting language="scala">val XQueryEquals = new Equiv[NodeSeq] {
+  def equiv(a: NodeSeq, b: NodeSeq): Boolean = {
+    (a.map(_.text).toSet &amp;
+     b.map(_.text).toSet).size &gt; 0
+  }
+}
+
+implicit class nsExtensions(nodeSeq: NodeSeq) {
+  
+  def ===(b: NodeSeq): Boolean =
+    XQueryEquals.equiv(nodeSeq, b)
+  
+  def ===(b: GenTraversable[String]): Boolean =
+    b.exists(text =&gt;
+      XQueryEquals.equiv(nodeSeq, Text(text)))
+  
+  def ===(hasValue: String): Boolean =
+    nodeSeq.text == hasValue
+  
+  def sortedByText: NodeSeq =
+    nodeSeq.sortBy(_.text)
+
+  def sortedText: Seq[String] =
+    nodeSeq.map(_.text).sorted
+  
+  def sortedByLookup(ofPath: String): NodeSeq =
+    nodeSeq.sortBy(node =&gt; (node \ ofPath).text)
+  
+  def groupByText(ofPath: String)
+    : Map[String, NodeSeq] =
+    nodeSeq.groupBy(node =&gt; (node \ ofPath).text)
+  
+  def groupByOrderBy(ofPath: String)
+    : List[(String, NodeSeq)] =
+    groupByText(ofPath).toList.sortBy(_._1)
+  
+  def textSet: Set[String] =
+    nodeSeq.map(_.text).toSet
+  
+}</programlisting>
+    
+  </appendix>
+</article>

@@ -1,0 +1,456 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-1" version="5.0">
+    <info xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>JSON and XML: a new perspective</title>
+        <abstract>
+            <para>A lot has already been said about the tumultuous relationship between JSON and
+                XML. A number of binding tools have been proposed. Extensions to the XPath Data
+                Model (XDM) and functions are being considered for XSLT 3.0 and XQuery 3.1 to define
+                maps and arrays, two item types that would facilitate the import of JSON
+                objects.</para>
+            <para>The author of this paper has already published and presented papers proposing an
+                XML serialization for XSLT 3.0 maps and arrays, a detailed comparison between XML
+                and JSON data models and a proposal to extend the XDM to better bridge the gap
+                between these data models.</para>
+            <para>None of these efforts seems to be totally satisfying to eliminate the fundamental
+                impedance mismatch between JSON and XML suggesting that we may not have found the
+                right angle to look at this problem.</para>
+            <para>Rather than proposing yet another conversion methodology, this paper proposes a
+                new perspective to look at the differences between JSON and XML which might more
+                constructive than the ones which had been adopted so far.</para>
+        </abstract>
+        <author>
+            <personname>
+                <firstname>Eric</firstname>
+                <surname>van der Vlist</surname>
+            </personname>
+            <personblurb>
+                <para>Eric is an independent consultant and trainer. His domains of expertise
+                    include Web development and XML technologies.</para>
+                <para>He is the creator and main editor of <link xlink:href="http://xmlfr.org">XMLfr.org</link>, the main site dedicated to XML technologies in French,
+                    the author of the O'Reilly animal books XML Schema and RELAX NG and has been
+                    involved in the ISO DSDL (<link xlink:href="http://dsdl.org">http://dsdl.org</link>) working group focused on XML schema
+                    languages.</para>
+                <para>He his based in Paris and you can reach him by mail (<link xlink:href="mailto:vdv@dyomedea.com">vdv@dyomedea.com</link>) or meet him in
+                    one of the many conferences where he presents his projects.</para>
+            </personblurb>
+            <affiliation>
+                <orgname>Dyomedea</orgname>
+            </affiliation>
+        </author>
+    </info>
+    <section xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>State of the art</title>
+        <para>It is now admitted, even among the most traditionalist XML communities, that the
+            ability to seamlessly integrate JSON and HTML5 is key to the future of the XML
+            ecosystem.</para>
+        <para>When a business object is serialized in XML
+            as:<programlisting>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;anvil reference="acme-5103"&gt;
+  &lt;weight unit="pound"&gt;9.5&lt;/weight&gt;
+  &lt;composition&gt;best wrought iron&lt;/composition&gt;
+  &lt;price currency="USD"&gt;.15&lt;/price&gt;
+&lt;/anvil&gt;</programlisting>the
+            underlying XML data model is usually not significant and that raises endless questions
+            such as "should we use attributes or elements for the reference? the weight?, the
+            composition? the price?".</para>
+        <note>
+            <para>It must be noted that there is not such a thing as "the XML data model" and this
+                paper  will refer to the <link xlink:href="http://www.w3.org/TR/xpath-datamodel/">XDM 2.0</link>. The differences between the XDM versions can be found in <link xlink:href="http://balisage.net/Proceedings/vol8/html/Vlist01/BalisageVol8-Vlist01.html#d159474e108">my paper</link> for Balisage 2012.</para>
+        </note>
+        <para>JSON having been designed as the syntax to define literal object data structure in
+            JavaScript you don't have to answer to these questions to serialize the same object in
+            JSON:<programlisting language="javascript">{
+  "anvil": {
+    "reference": "acme-5103",
+    "weight": {
+      "unit": "pound",
+      "value": 9.5
+    },
+    "composition": "best wrought iron",
+    "price": {
+      "currency": "USD",
+      "value": .15
+    }
+  }
+}</programlisting></para>
+        <para>When we look at these two documents with the model of the object that's been
+            serialized in mind the translation between the two formats seems quite obvious and most
+            of the time it really is obvious.</para>
+        <para>The simplicity of such approaches have led to a number of software solutions that
+            perform this kind of translations. </para>
+        <para>The trickiest questions they have to solve are:<itemizedlist>
+                <listitem>
+                    <para>Type inference (XML &gt; JSON)</para>
+                </listitem>
+                <listitem>
+                    <para>Distinction between singletons (single element arrays) and primitive types
+                        (XML &gt; JSON)</para>
+                </listitem>
+                <listitem>
+                    <para>Distinction between elements and attributes (JSON &gt; XML). </para>
+                </listitem>
+            </itemizedlist></para>
+        <para>These approaches are working fine in many cases to convert data representations back
+            and/or forward between JSON and XML, however this is not enough when the goal is to
+            provide an automatic conversion of any JSON data structure:<itemizedlist>
+                <listitem>
+                    <para>Some implicit or explicit knowledge of the business data model serialized
+                        in the document is needed.</para>
+                </listitem>
+                <listitem>
+                    <para>The "lexical space" of JSON is wider than the lexical space of XML. This
+                        is the case for any string but we can't do much to cope with this difference
+                        and also for JSON keys which are commonly matched to element and attribute
+                        names.</para>
+                </listitem>
+            </itemizedlist></para>
+        <para>A solution to avoid these issues is to extend the XML data model to add JSON maps and
+            arrays to the existing item types. Early Working Drafts of XSLT 3.0 and XQuery 3.1 are
+            both following this approach. These item types are added to the XPath Data Model (XDM)
+            and coexist with the existing item types. The new item types being designed to be a
+            superset of JSON maps and array it is obviously be possible to consider any JSON object
+            as an XDM first class object.</para>
+        <para>This does not address the conversion of XML per see into JSON (considered as out of
+            its scope) and creates a clear distinction between XML nodes and the new item types
+            which cannot be accessed by XPath axis and require their specific sets of
+            functions.</para>
+        <para>To avoid this segmentation of item types, several proposals have been made which
+            extend the notion of XML elements to make them compatible with JSON maps and arrays.
+            However it is much harder to change existing XDM item types than add new ones and these
+            proposals are personal initiatives which are not likely to influence any
+            standard.</para>
+        <para>Another option is to serialize JSON objects in XML and this is the approach proposed
+            by <link xlink:href="http://χίμαιραλ.com/">χίμαιραλ (chimeral)</link> and <link xlink:href="http://www.w3.org/TR/xslt-30/#json-to-xml-mapping">XSLT 3.0</link>. Such
+            serializations can provide JSON to XML round-tripping but are always verbose.</para>
+        <note>
+            <para>You'll find a detailed list and classification of some of these solutions in my
+                    <link xlink:href="http://archive.xmlprague.cz/2013/files/xmlprague-2013-proceedings.pdf#d6e3546">talk at XML Prague 2013</link></para>
+        </note>
+    </section>
+    <section xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>A new perspective</title>
+        <para>I have been working on the relationship between JSON and XML since XML Prague 2012. I
+            have read a number of papers, listened to many presentations and done presentations on
+            the topic at Balisage 2012 and XML Prague 2013.</para>
+        <para>Even if clever practical solutions have been proposed which work well for real world
+            applications I still felt some itchiness for a topic both so simple and so complicated
+            and I think that what we need is a new way to look at both formats.</para>
+        <para>This new perspective will not solve the problem by itself but might be a ground on
+            which new proposals can be built and the purpose of this paper is not to propose a
+            conversion between JSON and XML but to explore the relationship between these
+            formats.</para>
+        <para>Let's take the comparison published in my <link xlink:href="http://archive.xmlprague.cz/2013/files/xmlprague-2013-proceedings.pdf#d6e3546">talk at XML Prague 2013</link>:<blockquote>
+                <para>We have both maps of key/value pairs and ordered arrays in JSON and XML, but
+                    that's where the similarities stop!</para>
+                <para>In JSON, maps of key/value pairs are called objects. Keys can be any string
+                    and values may be either primitive or structured types.</para>
+                <para>In XML, elements have a map of key/value pairs among their properties. This
+                    map is called attributes. Keys (i.e. attribute names) are subject to lexical
+                    restrictions and values cannot be structured types.</para>
+                <para>In JSON, ordered arrays are called arrays and their members may be either
+                    primitive or structured.</para>
+                <para>In XML, elements have an ordered array of children nodes among their
+                    properties. Their members can be elements, comments, PIs or text nodes. XML text
+                    nodes are the kind of nodes which is the more similar to JSON's primitive types.
+                    However, adjacent text nodes are concatenated (which of course is not the case
+                    of adjacent primitive values in a JSON array). </para>
+            </blockquote></para>
+        <para>We are comparing on one side a data model composed of maps, arrays and atomic types
+            and on the other side a data model composed of more complex objects, themselves
+            including maps and arrays.</para>
+        <para>Is that really a good idea to put on the same ground basic building blocks and
+            components made with these building blocks?</para>
+        <para>Shouldn't we rather consider XML nodes as assembly of JSON maps and arrays?</para>
+        <para>What's happening if we try to serialize the XML data model in JSON?</para>
+        <para>The XDM defines an awful lot of properties and we will focus on the main ones.</para>
+        <para>As a first approximation, an XML element can be considered as a map with:<itemizedlist>
+                <listitem>
+                    <para>A name</para>
+                </listitem>
+                <listitem>
+                    <para>A map of attributes (which must be atomic types)</para>
+                </listitem>
+                <listitem>
+                    <para>An array of children (which can be either strings (text nodes) or
+                        elements.</para>
+                </listitem>
+            </itemizedlist></para>
+        <para>Serialized with these conventions, the XML document describing the anvil can be seen
+            as:<programlisting language="javascript">{
+  "name": "anvil",
+  "attributes": {"reference": "acme-5103"},
+  "children": [
+    {
+      "name": "weight",
+      "attributes": {"unit": "pound"},
+      "children": ["9.5"]
+    },
+    {
+      "name": "composition",
+      "attributes": {},
+      "children": ["best wrought iron"]
+    },
+    {
+      "name": "price",
+      "attributes": {"currency": "USD"},
+      "children": [".15"]
+    }
+  ]
+}</programlisting></para>
+        <para>The difference that immediately strikes the eyes when compared to the previous JSON
+            definition of the anvil is that it is more verbose and that's true but this is so by
+            design: this is no longer a JSON description of an anvil but a JSON description of the
+            XML document describing an anvil.</para>
+        <para>This description is very close to the XDM and can be used with mixed
+            content:<programlisting>&lt;p&gt;I can support &lt;a href="http://en.wikipedia.org/wiki/PCDATA"&gt;&lt;b&gt;mixed&lt;/b&gt; content&lt;/a&gt;!&lt;/p&gt;</programlisting>becomes:<programlisting language="javascript">{
+  "name": "p",
+  "attributes": {},
+  "children": [
+    "I can support ",
+    {
+      "name": "a",
+      "attributes": {
+        "href":
+        "http://en.wikipedia.org/wiki/PCDATA"
+      },
+      "children": [
+        {
+          "name": "b",
+          "attributes": {},
+          "children": ["mixed"]
+        },
+        " content"
+      ]
+    },
+    "!"
+  ]
+}</programlisting></para>
+    </section>
+    <section xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>So what?</title>
+        <section>
+            <title>A good theory</title>
+            <para>This exercise clearly shows the relation between JSON and XML:<itemizedlist>
+                    <listitem>
+                        <para>JSON is a generic format to describe data structures made of maps,
+                            arrays and a few basic simple types.</para>
+                    </listitem>
+                    <listitem>
+                        <para>XML is a more specialized format to describe tree composed of "nodes"
+                            which do carry their own semantic and can be serialized in JSON.</para>
+                    </listitem>
+                </itemizedlist>This difference is the essence of the "fat" described by Douglas
+                Crockford in his famous "Fat-Free alternative to XML" paper at XML 2006 and might
+                have been widely acknowledged by the XML community if presented in a less inflamed
+                fashion.</para>
+            <para>The questions raised when trying to convert our XML and JSON samples such as:<itemizedlist>
+                    <listitem>
+                        <para>from XML to JSON: is the weight a property of the anvil? can it occur
+                            more than once and be included in an array?, ...</para>
+                    </listitem>
+                    <listitem>
+                        <para>from JSON to XML: should the composition be an element or an
+                            attribute? , ...</para>
+                    </listitem>
+                </itemizedlist>are a sign that we are misusing XML and using its nodes as generic
+                data structure components which they are not meant to be.</para>
+        </section>
+        <section>
+            <title>Navigation</title>
+            <para>Of course, acknowledging this fundamental difference between JSON and XML doesn't
+                solve the issue of converting XML to JSON (and vice versa) and does not even
+                diminish the need for such conversions. </para>
+            <para>That doesn't make this serialization a purely theoretical exercise deprived of any
+                practical use and XML documents and serialized XML documents are in fact quite handy
+                to manipulate in JavaScript!</para>
+            <section>
+                <title>In plain JavaScript</title>
+                <para>Navigating amongst attributes is of course really
+                    easy:<programlisting language="javascript">anvil.attributes["reference"]</programlisting> or when the
+                    attribute name is a valid JavaScript
+                    name:<programlisting language="javascript">anvil.attributes.reference</programlisting></para>
+                <para>Navigating amongst children elements may seem more challenging but would
+                    arguably not be more difficult than doing so using the DOM... However it becomes
+                    much easier if we define a simple function such
+                    as:<programlisting language="javascript">elt=function(name) {
+  return function(o) {
+    return o.name==name
+  }
+}</programlisting>and
+                    use it to filter
+                    children:<programlisting language="javascript">anvil.children.filter(
+  elt('price')
+)[0].attributes.currency</programlisting></para>
+                <para>This can be still easier if we append a new method to JavaScript
+                    objects:<programlisting language="javascript">Object.prototype.elt = function(name) { 
+  return this.filter(elt(name))
+}</programlisting>and
+                    just use it to access children
+                    elements:<programlisting language="javascript">anvil.children.elt('price')[0].attributes.currency</programlisting></para>
+            </section>
+            <section>
+                <title>With a JSON query library</title>
+                <para>It would be easy to add other methods to facilitate this navigation but we can
+                    also rely on existing libraries such as <link xlink:href="http://jsonselect.org">json:select()</link> which inspiration is to be the jQuery of JSON
+                    objects.</para>
+                <para>Let's start by defining a shorter name for json:select()'s match()
+                    method:<programlisting language="javascript">js=JSONSelect.match</programlisting></para>
+                <para>If we feel lucky we can access the anvil's reference like
+                    this:<programlisting language="javascript">js('.reference', anvil)</programlisting></para>
+                <para>This would work with our simple example but like jQuery, json:select() does
+                    deep searches and this relies on the fact that there is no reference attribute
+                    anywhere else than for the anvil root element. A safer method is to restrict our
+                    expression to match only the
+                    root:<programlisting language="javascript">js(':root &gt; .attributes &gt; .reference', anvil)</programlisting></para>
+                <para>Again, this would work with our simple example because the root element is the
+                    anvil. If we want to find the references of any anvil element that might be
+                    anywhere in the JSON object we should be less restrictive and
+                    write:<programlisting language="javascript">js(':has(.name:val("anvil")) &gt; .attributes &gt; .reference', anvil)</programlisting>which
+                    can be (slightly) shortened into the almost
+                    equivalent:<programlisting language="javascript">js(
+  '.name:val("anvil") ~ .attributes &gt; .reference',
+  anvil
+).toString()</programlisting>
+                </para>
+                <para>This is more verbose than the <code>anvil.attributes["reference"]</code> that
+                    we've written in plain JavaScript but that does more since it's performing a
+                    deep search for any anvil. This is also quite generic and the same pattern can
+                    be used to search for price's
+                    currencies:<programlisting language="javascript">js(
+  '.name:val("price") ~ .attributes &gt; .currency',
+  anvil
+)</programlisting></para>
+            </section>
+        </section>
+        <section>
+            <title>Other usages</title>
+            <para>The best indication that this kind of serialization may be useful is that... it is
+                not new and has already be implemented for several kind of applications!</para>
+            <section>
+                <title>html2json</title>
+                <para>Developed in October 2011, <link xlink:href="https://github.com/Jxck/html2json">html2json</link> is very
+                    similar the serialization used in this paper: the only differences are in names
+                    (tag instead of name, attr instead of attributes and child instead of
+                    children).</para>
+                <para>Unfortunately, its <link xlink:href="https://github.com/Jxck">author</link>
+                    hasn't documented its use cases and we don't really know what his JavaScript
+                    implementation has been used for.</para>
+            </section>
+            <section>
+                <title>JsonML</title>
+                <para><link xlink:href="http://www.jsonml.org/">JsonML</link> has its own website
+                    which is much more explicit about its motivation and use cases:<blockquote>
+                      <attribution><link xlink:href="http://www.JsonML.org">JsonML.org</link></attribution>
+                        <para>JsonML (JSON Markup Language) is an application of the <link xlink:href="http://json.org/">JSON (JavaScript Object
+                                Notation)</link> format. The purpose of JsonML is to provide a
+                            compact format for transporting XML-based markup as JSON which allows it
+                            to be losslessly converted back to its original form.</para>
+                        <para>Native XML/XHTML doesn't sit well embedded in JavaScript. When XHTML
+                            is stored in script it must be properly encoded as an opaque string.
+                            JsonML allows easy manipulation of the markup in script before
+                            completely rehydrating back to the original form.</para>
+                    </blockquote></para>
+                <para>The design choices behind JsonML seem to have been drawn by this use case and
+                    bend the result toward something which is concise and reasonably easy to read:
+                    XML elements are represented by an array of a string representing the element
+                    name, an optional map for its attributes and an optional children elements which
+                    can be either strings or arrays. With these conventions, the serialization of
+                    the anvil
+                    is:<programlisting language="javascript">[
+  "anvil",
+  {"reference": "acme-5103"},
+  [
+    "weight",
+    {"unit": "pound"},
+    "9.5"
+  ],
+  [
+    "composition",
+    "best wrought iron"
+  ],
+  [
+    "price",
+    {"currency": "USD"},
+    ".15"
+  ],
+]</programlisting></para>
+                <para>While this is more concise than the serializations that we've seen so far, I
+                    find it much less natural to convert elements into arrays than into maps.</para>
+                <para>Beside this first use case as a serialization to transport XML as JSON,
+                    JsonML.org mentions browser side templating (<link xlink:href="http://www.jsonml.org/bst/">JSBT</link>) as a second use
+                    case.</para>
+            </section>
+            <section>
+                <title>fastFrag</title>
+                <para>Client-side templating is the main use case of <link xlink:href="https://github.com/gregory80/fastFrag">fastFrag</link> which
+                    proposes its own serialization. This serialization is basically similar to what
+                    I propose in this paper with some added features to make it easier to use to
+                    create HTML fragments:<itemizedlist>
+                        <listitem>
+                            <para>The name is optional. Called type it defaults to "div".</para>
+                        </listitem>
+                        <listitem>
+                            <para>The most common attributes (id, css, ...) have been "promoted" to
+                                appear directly as keys of top level elements objects instead of
+                                being placed in the attributes map.</para>
+                        </listitem>
+                        <listitem>
+                            <para>The "attributes" key can also be spelled "attrs" or "attr" for
+                                brevity.</para>
+                        </listitem>
+                        <listitem>
+                            <para>A "text" key has been added which is a shortcut to create text
+                                only elements.</para>
+                        </listitem>
+                    </itemizedlist></para>
+                <para>If we forget these features and the fact that FastFrag is not meant to be used
+                    with arbitrary XML we get a serialization which is very similar to what we've
+                    already
+                    seen:<programlisting language="javascript">{
+  "attrs": {"reference": "acme-5103"},
+  "content": [
+    {
+      "attrs": {"unit": "pound"},
+      "content": {"text": "9.5"},
+      "type": "weight"
+    },
+    {
+      "content": {"text": "best wrought iron"},
+      "type": "composition"
+    },
+    {
+      "attrs": {"currency": "USD"},
+      "content": {"text": ".15"},
+      "type": "price"
+    }
+  ],
+  "type": "anvil"
+}</programlisting>
+                </para>
+            </section>
+        </section>
+    </section>
+    <section xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>Conclusion</title>
+        <para>JavaScript has become the assembly language for programming languages on the web. </para>
+        <para>I have no doubt that JSON should be the assembly language for any data model
+            -including XML- on the web and we have seen how easy it is to use JSON as a
+            serialization format for a subset of the XDM.</para>
+        <para>This presentation is too short to show how this subset could be extended to support
+            other XDM item types and properties such as namespaces, comments, processing
+            instructions but I have no doubt that this could be done in a number of different ways
+            without altering too much the simplicity of the serialization.</para>
+        <para>Beside the ability to round-trip XML to JSON conversions defining such a serialization
+            would be a good way to document the XML data model and could be a basis for building XML
+            libraries on top of existing JSON libraries.</para>
+        <para>Understanding that JSON is lower level than XML also helps to understand why
+            round-tripping XML to JSON is simple while round-tripping JSON to XML is harder and
+            verbose or application dependent.</para>
+        <para>The simplistic representation shown in this paper is merely a first step and defining
+            a standard representation of the XDM in JSON would help to acknowledge this relationship
+            and to implement tools to facilitate a peaceful coexistence of both formats.</para>
+    </section>
+</article>

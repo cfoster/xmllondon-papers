@@ -1,0 +1,734 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-8" version="5.0">
+
+	<info xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink">
+		<title>Language-aware XML Aggregation</title>
+
+		
+			<author>
+				<personname>
+					<firstname>Malte</firstname>
+					<surname>Brunnlieb</surname>
+				</personname>
+				<email>m_brunnl@cs.uni-kl.de</email>
+				<affiliation>
+					<orgname>Capgemini Deutschland GmbH, Germany</orgname>
+				</affiliation>
+				<affiliation>
+					<orgname>Technical University of Kaiserslautern, Germany</orgname>
+				</affiliation>
+			</author>
+			<author>
+				<personname>
+					<firstname>Steffen B.</firstname>
+					<surname>Holzer</surname>
+				</personname>
+				<email>holzer@rhrk.uni-kl.de</email>
+				<affiliation>
+					<orgname>Technical University of Kaiserslautern, Germany</orgname>
+				</affiliation>
+			</author>
+		
+
+		<keywordset>
+			<keyword>XML Aggregation</keyword>
+			<keyword>MergeSchema</keyword>
+			<keyword>2-way merge</keyword>
+			<keyword>Incremental Code Generation</keyword>
+		</keywordset>
+		
+		<abstract>
+			<para>
+				Looking at version control systems, XML data view updates, or simply code generation, merging XML based documents has become an omnipresent challenge these days. Each problem domain comes with its own facets of merge algorithms, like 2-way merges, 3-way merges, and patch description &amp; applications. In this paper, we will focus on the problem domain of code generation applying a 2-way merge with patch semantics. As XML DTDs and XSDs specify the syntax of XML languages, document merges become even harder when language semantics are taken into account. Additionally, due to the fact, that one XML document can be based on multiple XML languages separated by namespaces, an appropriate merge algorithm has to focus on each XML language specification rather than just considering XML meta-language syntax. For this need, we developed a XML-based description language called MergeSchema. It is designed for controlling a 2-way XML merge to also cover the semantics of a XML-based language during merge processing.
+			</para>
+		</abstract>
+
+	</info>
+
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-8_introduction" xml:base="includes/introduction.xml">
+	
+	<title>Motivation</title>
+	
+	<para>
+		The need of merging XML documents is quite old and omnipresent these days. As examples just take commonly known version control systems or data view updates <xref linkend="paper-8_Abiteboul2001"/>. Already available approaches can be classified into 2-way merge vs. 3-way merge techniques. In a 3-way merge the two documents to be merged are derived from a known common base document. Thus, a merge algorithm can take additional information into account by comparing each document to the common base document. Such information for example cover the knowledge about deletions, additions, or updates. In contrast to that, a 2-way merge focuses on the merge of two documents, which may not be derived from a common base document. Thus, no further information are available and the two documents to be merged can just be processed in an aggregative manner by taking language specifications into account.
+	</para>
+	
+	<para>
+		Merge techniques can also be classified into structural vs. line-based techniques. Whereas commonly used version control systems try to merge conflict based on line-based algorithms, only a view tools already provide structural merge techniques resulting in much better merge results due to the processed knowledge of the document's language. However, utilizing the XML meta-language as the basis for structural merge algorithms will easily result in unintended document merges as the concrete XML-based language of the documents is not considered at all. Therefore, there are different tools at least including DTD or XSD validation to not result in syntactically wrong merge results. But, as DTD and XSD just cover the specification of the syntax of a language, we experienced that the merge results are of a very generic nature. Especially in patch semantics, it would be much more beneficial to consider even the semantics of a document or architecture-driven coding conventions to generate merge results of higher quality specific to different use cases.
+	</para>
+	
+	<para>
+		Our approach will focus on the lack of language specific information during a 2-way structural merge by providing an additional XML document named MergeSchema to describe further merge relevant language characteristics of XML-based languages, whereas each MergeSchema specifies merge properties for exactly on XML language. Furthermore, we implemented a merge algorithm, which can process multiple MergeSchemas to process a 2-way structural merge of documents by a XML language aware algorithm.
+	</para>
+	
+	<section>
+		<title>Outline</title>
+		
+		<para>
+			The reminder of the paper is structured as follows. First, we will shortly introduce the context as well as the background of this work to fully understand the motivation behind the MergeSchema specification needs. Following, we will discuss the requirements on the notion of equality of XML nodes as well as on the aggregation needs of XML nodes. As a third step, we will present the MergeSchema and its specification to influence the merge in use case proper way. Furthermore, we will shortly describe additional features covered in the merge algorithm itself regarding the alignment of the merge result. Coming to a conclusion, we will discuss the limitations as well as our experiences with the approach.
+		</para>
+	</section>
+	
+</section>
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-8_context" xml:base="includes/context.xml">
+	<title>Patch Semantics in a Generative Context</title>
+    
+    <para>
+        Our approach of a 2-way structural XML merge has been developed in the context of code generation, in specific incremental code generation <xref linkend="paper-8_Brunnlieb2014"/>. Incremental code generation essentially focuses on the generation and integration of small code fragments specified by AIM Patterns <xref linkend="paper-8_Brunnlieb2016"/>. AIM Patterns are architecture dependent design patterns designed to be applied on an existing code base. This especially implies the generation and merging of new code into the current code base's code artifacts. AIM Patterns even specify the code artifacts to integrate new code to, which is basically driven by architectural code conventions <xref linkend="paper-8_Brunnlieb2016"/>. 
+    </para>
+    <para>
+        As an example in the context of XML languages, the application of an AIM Pattern might result in the generation of a new XML document, which has to be deployed to a specific code artifact (i.e. XML file). If the code artifact does not already exist in the specific deployment path, a new XML document will be deployed to the specified path. However, if the code artifact does exist, the generated XML document has to be merged with the existing XML document. In addition, there are high requirements on the readability of the merged documents in the context of interest as the merged documents are basically designed and maintained by humans.
+    </para>
+    <para>
+        In the case of structurally merging the generated document to an already existing one, the generated document is further called the <code>patch</code>, whereas the existing document will further be referenced as the <code>base</code>. Thus, the patch encodes the semantics of providing an update to the base document. This is especially is different to general 2-way merge approaches as we inject further semantics about the relationship of the two input documents into the merge algorithm. Furthermore, the patch semantics in this context have to be considered as of an additive nature as the patch does not provide any meta information about the addition, removalm or update of XML nodes at all. 
+    </para>
+</section>
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-8_ana" xml:base="includes/analysis.xml">
+
+	<title>Requirements of a Language-aware Merge</title>
+
+	<para>
+		There are basically two challenges for 2-way structural merge algorithms. First, equivalent document fragments have to be found and second, the operation to be performed has to be determined. As we are focusing on a merge algorithm to be usable for different XML-based languages, we even have to handle different notions of equality of element nodes. In the following, we discuss the notion of equality in more detail as well as different operations for aggregation. 
+	</para>
+
+	<section xml:id="paper-8_eq_of_nodes">
+		<title>Equality of nodes</title>
+		
+		<para>
+			Discussing the notion of equality of element nodes, the most trivial notion of equality is based on the recursive identity of all attributes and children nodes of an element. Another trivial notion of equality of element nodes can be fixed by relying on the <code>id</code> attribute already provided by the XML meta-language. However, in practice the identifying attribute does not always have to be named <code>id</code>. As an example, it might be also aliased by additional attributes as done in the specification of Spring Beans<footnote><para>https://www.springframework.org/schema/beans/spring-beans-4.0.xsd</para></footnote> by the <code>&lt;bean&gt;</code> element. A <code>&lt;bean&gt;</code> element provides the additionaly <code>name</code> attribute as an alias for the <code>id</code> attribute. Thus, it enables the developer to use characters not contained in the DOM ID type within the identifying string. Summarizing, a XML language-aware merge algorithm essentially should be able to analyze equality of elements based on arbitrary attributes.
+		</para>
+
+		<para>
+			Furthermore, the notion of equality can be easily also discussed on an element's children like any elements or textual nodes. As a first example, there is the significance of the order of child nodes. Considering <xref linkend="paper-8_ana1_1" xrefstyle="select:label"/> and <xref linkend="paper-8_ana1_2" xrefstyle="select:label"/> show different documents with different semantics indicating the importance of the consideration of node ordering.
+		</para>
+
+		<para>
+			<example xml:id="paper-8_ana1_1">
+				<title>DocBook section</title>
+				<programlisting language="xml" linenumbering="unnumbered">
+&lt;section&gt;
+  &lt;para&gt;for all men&lt;/para&gt;
+  &lt;para&gt;it exists one woman&lt;/para&gt;
+&lt;/section&gt;
+				</programlisting>
+			</example>
+			 In <xref linkend="paper-8_ana1_1" xrefstyle="select:label"/> consider docbook's semantics of the node <code>&lt;section&gt;</code> when switching the <code>&lt;para&gt;</code> elements. The semantics of the resulting document will change. In this specific example the ordering of <code>&lt;para&gt;</code> nodes is crucial for the semantics of the <code>&lt;section&gt;</code> node.
+		</para>
+
+		<para>
+			<example xml:id="paper-8_ana1_2">
+				<title>Data store</title>
+				<programlisting language="xml" linenumbering="unnumbered">
+&lt;data&gt;
+  &lt;entry id="1"&gt;...&lt;/entry&gt;
+  &lt;entry id="3"&gt;...&lt;/entry&gt;
+  &lt;entry id="2"&gt;...&lt;/entry&gt;
+&lt;/data&gt;
+				</programlisting>
+			</example>
+			In contrast to <xref linkend="paper-8_ana1_1" xrefstyle="select:label"/>, consider the simple XML data store in <xref linkend="paper-8_ana1_2" xrefstyle="select:label"/>. The order of child elements in this case does not have any impact on the semantics of the <code>&lt;data&gt;</code> node. However, the information about the nodes semantics are not specified in the language specifications as e.g. in DTDs or XSDs. For the design of a proper merge algorithm, these semantics have to be considered to enable a proper document merge. 
+		</para>
+
+		<para>
+			<example xml:id="paper-8_ana2">
+				<title>Example: HTML table</title>
+				<programlisting language="xml" linenumbering="unnumbered">
+&lt;table&gt;
+  &lt;tr&gt;&lt;th&gt;Cell A&lt;/th&gt;&lt;th&gt;Cell B&lt;/th&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;        ....         &lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;        ....         &lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+				</programlisting>
+			</example>
+			Of course, child elements contain even more information than just encoding information in its order. In <xref linkend="paper-8_ana2" xrefstyle="select:label"/> a HTML table is shown. Since it lacks an <code>&lt;id&gt;</code> or any other attribute, the notion of equality has to be based on other properties than already discussed. Lets assume for our personal needs, we want to merge two HTML documents containing a HTML table, whereas the tables are designed for the same purpose but the data rows differ. Given this semantics, we could use the column headers of the table as the most identifying property. To access this information, the equality analysis again has to retrieve information from the <code>&lt;table&gt;</code> elements children to obtain the notion of equality of the <code>&lt;table&gt;</code> element, i.e. the first table row. However, the notion of equality might also refer to any other child nodes or even attributes of them. This rather individual and more complex notion of equality indicates the complexity a generic merge algorithm has to deal with to enable proper 2-way structural merges for different XML languages.
+		</para>				
+	</section>
+
+	<section>
+		<title>Node Accumulation &amp; Aggregation</title>
+		<para>
+			After gathering the basic requirements, which can be easily enriched by further more complex examples, the next step is to discuss the different facets and restrictions on aggregating and accumulating element nodes as well as non-element nodes. Again, we provide different examples to visualize and gather the needs of different use cases of a 2-way merge in a generative context. 
+		</para>
+
+		<para>
+			<example xml:id="paper-8_ana4">
+				<title>Node multiplicity</title>
+				<informaltable width="100%">
+					<tr>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/analysis/4_base.xml">
+&lt;!-- 1st input --&gt;
+&lt;root&gt;
+  &lt;child id="1"/&gt;
+  &lt;child id="3"/&gt;
+&lt;/root&gt;
+</programlisting></td>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/analysis/4_structure.xml">
+&lt;!-- DTD --&gt;
+&lt;!ELEMENT root (child)*&gt;
+&lt;!ATTLIST child id ID&gt;
+</programlisting></td>
+					</tr>
+					<tr>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/analysis/4_patch.xml">
+&lt;!-- 2nd input --&gt;
+&lt;root&gt;
+  &lt;child id="1"/&gt;
+  &lt;child id="2"/&gt;
+&lt;/root&gt;
+</programlisting></td>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/analysis/4_result.xml">
+&lt;!-- intended result --&gt;
+&lt;root&gt;
+  &lt;child id="1"/&gt;
+  &lt;child id="3"/&gt;
+  &lt;child id="2"/&gt;
+&lt;/root&gt;
+</programlisting></td>
+					</tr>
+				</informaltable>
+			</example>
+			Considering <xref linkend="paper-8_ana4" xrefstyle="select:label"/>, both input documents contain an element that isn't present in the other one. Since the document definition allows <code>&lt;root&gt;</code> to contain an arbitrary number of <code>&lt;child&gt;</code> elements, the merge result should contain both relying on simple data storage semantics. In addition, the <code>&lt;child&gt;</code> elements with <code>id="1"</code> of both input documents should be matched and thus should appear only once in the result.
+		</para>
+
+		<para>
+			<example xml:id="paper-8_ana5">
+				<title>Unique nodes</title>
+			  <informaltable width="100%">
+					<tr><td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/analysis/5_structure.xml">
+&lt;!-- DTD --&gt;
+&lt;!ELEMENT root (child)&gt;
+&lt;!ATTLIST child id ID&gt;
+</programlisting></td></tr>
+					<tr>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/analysis/5_base.xml">
+&lt;!-- 1st input --&gt;
+&lt;root&gt;
+  &lt;child id="1"/&gt;
+&lt;/root&gt;
+</programlisting></td>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/analysis/5_patch.xml">
+&lt;!-- 2nd input --&gt;
+&lt;root&gt;
+  &lt;child id="2"/&gt;
+&lt;/root&gt;
+</programlisting></td>
+					</tr>
+				</informaltable>
+			</example>
+			<xref linkend="paper-8_ana5" xrefstyle="select:label"/> describes a simlar case, but in contrast to <xref linkend="paper-8_ana4" xrefstyle="select:label"/>, the <code>&lt;child&gt;</code> element can only occur once per document due to the changed language specification. Thus, simply accumulating the <code>&lt;child&gt;</code> nodes will not yield a valid result document regarding the language specification. Injecting additive patch semantics here while considering the first input as the base document and the second input as the patch document, the attributes value of the patch could be interpreted as an update for the matching attribute in the base document. However, it might be even more likely, that the base document should be left untouched in such case of a conflict. This obviously highly depends on the use case. Summarizing, there is a need of parameterizing the conflict handling to at least be able to prefer the base or patch to support different use cases for the structural merge algorithm. 
+		</para>
+		<para>
+			<example xml:id="paper-8_ana6">
+				<title>Accumulation of non-element nodes</title>
+			  <informaltable width="100%">
+					<tr>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/analysis/6_base.xml">
+&lt;!-- Base document --&gt;
+&lt;element id="1" type="a"&gt;
+  lorem
+&lt;/element&gt;
+</programlisting></td>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/analysis/6_patch.xml">
+&lt;!-- Patch document --&gt;
+&lt;element id="1" useage="b"&gt;
+  ipsum
+&lt;/element&gt;
+</programlisting></td>
+					</tr>
+					<tr><td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/analysis/6_result.xml">
+&lt;!-- possible result --&gt;
+&lt;element id="1" type="a" useage="b"&gt;
+  lorem
+  ipsum
+&lt;/element&gt;
+</programlisting></td></tr>
+				</informaltable>
+			</example>
+			Next to the handling of elements, especially in additive patch semantics, it would also make sense to accumulate non-element nodes to add or update new attributes or text nodes to already available nodes in the base documents. <xref linkend="paper-8_ana6" xrefstyle="select:label"/> shows a simple example of a base document and a patch document. Each containing an attribute that is not present in the other one. Merging base and patch, it can be assumed that both attributes are intended to occur in the resulting document. The even more interesting question raised in <xref linkend="paper-8_ana6" xrefstyle="select:label"/> is how to handle text nodes. In this example many different results can be discussed to be valid dependent on the document's semantics or even dependent on the intention of the merge. It can be easily seen, that the complexity of merging full text properly is very high and we are not able to takle this issue here exhaustively. However, especially in our daily context of XML used as specification language for framework configurations, you most often will find no full text in text nodes. Thus, we will focus on the simple use case of the merging text nodes like values of attributes. This indicates text nodes to just describe a simple structured value, which can be easily interpreted. By this, we can discuss different proper merge techniques of text nodes like appending text with or without a separator or even replace text nodes entirely in the base document by the patch's corresponding text node.
+		</para>
+	</section>
+
+	<section xml:id="paper-8_ana_result">
+		<title>Result of the analysis</title>
+
+		<para>
+			Summarizing, a generic 2-way XML merge algorithm just considering the XML meta-language specification will not be able to merge different XML-based languages properly. The same holds generic 2-way merge algorithms just considering the language specifications e.g. DTDs and XSDs as we observed, that the available XML language specifications do not cover all important properties for making a proper merge feasible. We observed, that the semantics of the language have to be considered to provide proper merge rules.			
+		</para>
+	</section>
+</section>
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-8_def" xml:base="includes/definition.xml">
+	
+	<title>The MergeSchema</title>
+	
+	<para>
+		To overcome the lack of information according to the notion of equality of nodes as well as according to the individual merge operation to be performed, our approach focuses on the specification of further merge relevant information in a seperate language specific document further referenced as MergeSchema. In the following section the important parts of the MergeSchema language will be presented essentially again on the basis of different examples. The MergeSchema itself is specified as a XML-based language<footnote><para>https://github.com/may-bee/lexeme/blob/development/src/main/resources/xsd/merge-schema.xsd</para></footnote> as well.
+	</para>
+
+	<section>
+		<title>Building the MergeSchema</title>
+
+		<para>
+			The basic idea of specifying different notions of equality for different element nodes is based on XPath expressions. Thus, the assessment of the equality of two element nodes will be done by evaluating and comparing the corresponding XPath expression on both element nodes to be compared.   
+			<example xml:id="paper-8_def1">
+				<title>MergeSchema for <xref linkend="paper-8_ana4" xrefstyle="select:label"/></title>
+				<programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/definition/1_ms.xml">&lt;merge-schema&gt;
+  &lt;handling for="child"&gt;
+    &lt;criterion xpath="./@id"/&gt;
+  &lt;/handling&gt;
+&lt;/merge-schema&gt;</programlisting>
+			</example>
+			As a first simple example consider the MergeSchema in <xref linkend="paper-8_def1" xrefstyle="select:label"/> provided for the input documents presented in <xref linkend="paper-8_ana4" xrefstyle="select:label"/>. The <code>merge-schema</code> contains one merge rule described by the <code>&lt;handling&gt;</code> element. The <code>handling</code> describes a simple equality expression for <code>&lt;child&gt;</code> elements, which are specified to be equal if their <code>id</code> attribute's values are equal. The latter is described in the match <code>&lt;criterion&gt;</code>, which <code>xpath</code> expression points to the child's <code>id</code> attribute node ("./" points to the current node, "@" to an attribute of that node). A handling specification for the <code>&lt;root&gt;</code> element is not necessary. It is always assumed that the document's root elements match according to their full qualified element name with each other. Otherwise, the 2-way merge will not be considered to be possible at all. Utilizing this MergeSchema the <code>&lt;child id="1"/&gt;</code> elements from <xref linkend="paper-8_ana4" xrefstyle="select:label"/> of the base and patch will be matched with each other. The remaining <code>child</code> element can simply be accumulated since no further match is found.
+		</para>
+		<para>
+			If no <code>handling</code> is specified for an element, element nodes will be compared due to their recursive identity, meaning comparing all attribute nodes as well as child nodes value by value. In contrast to that, you can also imagine elements to just occur once as specified in the language specification or simply as of code conventions of a target code architecture. As an example take the <code>&lt;title&gt;</code> element of the docbook specification. To ensure this, "./true()" can be used as a <code>criterion's xpath</code> expression, which simply always evaluates to true. This will lead to a match of any <code>title</code> element between base and patch under an equally identified parent element. Treating each <code>title</code> element to be equal for the merge algorithm, there are two use cases coming up with the patch semantics for processing the merge. On the one hand, you could imagine a prefer base approach, which simply discards the title element from the patch and leaves the matching base's <code>title</code> element untouched. On the other hand, you can discuss it the other way around, treating the patch as an update for the base resulting in the patch's <code>title</code> element to occurr in the result. However, both use cases can be easily motivated in a generative context and thus should be supported by a proper merge algorithm. For now we do not cover this as a property to be specified in the MergeSchema. However, it is configurable as a global parameter of our implementation of the merge algorithm allowing to prefer the base's or patch's value.
+		</para>
+		
+		<para>
+			<example xml:id="paper-8_def3">
+				<title>Individual merge of HTML tables</title>
+			  <informaltable width="100%">
+					<tr>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/definition/3_base.xml">
+&lt;!-- Base --&gt;
+&lt;table&gt;
+  &lt;tr&gt;
+    &lt;th&gt;Group No.&lt;/th&gt;
+    &lt;th&gt;Attendees&lt;/th&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td&gt;1&lt;/td&gt;
+    &lt;td&gt;John Doe&lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td&gt;2&lt;/td&gt;
+    &lt;td&gt;Joe Bloggs&lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/table&gt;
+</programlisting></td>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/definition/3_patch.xml">
+&lt;!-- Patch --&gt;
+&lt;table&gt;
+  &lt;tr&gt;
+    &lt;th&gt;Group No.&lt;/th&gt;
+    &lt;th&gt;Attendees&lt;/th&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td&gt;1&lt;/td&gt;
+    &lt;td&gt;G. Raymond&lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/table&gt;
+</programlisting></td>
+					</tr>
+					<tr>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/definition/3_ms.xml">
+&lt;!-- MergeSchema --&gt;
+&lt;merge-schema&gt;
+  &lt;handling for="table"&gt;
+    &lt;criterion xpath="./tr/th"/&gt;
+    &lt;handling for="tr"&gt;
+      &lt;criterion 
+        xpath="./td[1]/text()"/&gt;
+      &lt;handling for="td"
+        attachable-text="true"/&gt;
+    &lt;/handling&gt;
+  &lt;/handling&gt;
+&lt;/merge-schema&gt;
+</programlisting></td>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/definition/3_result.xml">
+&lt;!-- Result --&gt;
+&lt;table&gt;
+  &lt;tr&gt;&lt;!-- ==base --&gt;&lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td&gt;1&lt;/td&gt;
+    &lt;td&gt;John DoeG. Raymond&lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td&gt;2&lt;/td&gt;
+    &lt;td&gt;Joe Bloggs&lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/table&gt;
+</programlisting></td>
+					</tr>
+				</informaltable>
+			</example>
+			<xref linkend="paper-8_def3" xrefstyle="select:label"/> introduces a more complex example of merging two HTML tables in a very specific way. The base document specifies a double-columned table listing groups with their identifier and attendees. The intention of the patch is to add a new attendee to an already existing group by enriching the <code>Antendees</code> cell's value of the corresponding group by an additional person's name. Therefore, we describe the data to be added in the patch, in specific, the already known table and the group with the new attendee's name. To merge base and patch documents as intended, the merge schema has to be specified as follows. First, we identify the <code>table</code> by their column headers (<code>xpath="./tr/th"</code>) as already been discussed in <xref linkend="paper-8_ana2" xrefstyle="select:label"/>. Next, we have to identify the rows (<code>tr</code>) by their first column's value respectively <code>Group No.</code>(<code>xpath="./td[1]/text()"</code>). Given that, the merge algorithm will find the matching rows and compare its children, whereas the first column will obviously been detected as identity and left unchanged. However, the merge of the second column will result in a conflict unless a possibility of conflict resultion is given. Besides prefering one of the documents, there is also the ability to accumulate the patch's text nodes to the base's one's by adding a <code>handling</code> for <code>td</code> elements allowing text node attachments (<code>attachable-text="true"</code>). The current pitfall here, is the fact that the text nodes are simply accumulated and thus not appendend with any possibly custom text separator. This already shows one of the shortcomings of the current implementation. For the moment (custom) separators for appending text is just supported for attributes due to technical reasons of the algorithm implementation.
+		</para>
+		
+		<para>
+			Finally, working with XML we also have to discuss XML namespaces. Namespaces are used for language separation in XML documents as one XML document can contain elements from multiple XML-based languages. With the introduction of XML namespaces, the distinction between local and full qualified names of element nodes has to be considered. While the full qualified name looks like <code>nsp:tag-name</code> the local name is just the <code>tag-name</code> and <code>nsp:</code> the abbrevation of its namespace. To overcome the issue of non unique local names when using different XML namespaces in a document, we restrict each MergeSchema to one XML namespace. Thus, we analogously separated concerns as already done by the introduction of different XML namespaces respectively languages. As a consequence, the merge algorithm will have to adduce the correct MergeSchema dependent on the current element's namespace to gather further merge relevant information for each language. 
+			<example xml:id="paper-8_def_5">
+				<title>Consideration of XML namespaces</title>
+			  <informaltable width="100%">
+					<tr>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/definition/5_namespaces_base.xml">
+&lt;!-- Base --&gt;
+&lt;a:root xmlns:a="firstNameSpace"&gt;
+  &lt;a:child id="1"/&gt;
+  &lt;b:root xmlns:b="secondNamespace"&gt;
+    &lt;b:child id="1"/&gt;
+  &lt;/b:root&gt;
+&lt;/a:root&gt;
+</programlisting></td>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/definition/5_namespaces_patch.xml">
+&lt;!-- Patch --&gt;
+&lt;a:root xmlns:a="firstNameSpace"&gt;
+  &lt;a:child id="2"/&gt;
+  &lt;b:root xmlns:b="secondNamespace"&gt;
+    &lt;b:child id="2"/&gt;
+  &lt;/b:root&gt;
+&lt;/a:root&gt;
+</programlisting></td>
+					</tr><tr>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/definition/5_namespaces_schemas.xml">
+&lt;merge-schema&gt;
+	&lt;definition 
+    namespace="firstNamespace"/&gt;
+  &lt;handling for="child"&gt;
+    &lt;criterion xpath="./@id"/&gt;
+  &lt;/handling&gt;
+&lt;/merge-schema&gt;
+
+&lt;merge-schema&gt;
+  &lt;definition 
+    namespace="secondNamespace"/&gt;
+  &lt;handling for="child"&gt;
+    &lt;criterion xpath="true()"/&gt;
+  &lt;/handling&gt;
+&lt;/merge-schema&gt;
+</programlisting></td>
+						<td><programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/definition/5_namespaces_result.xml">
+&lt;!-- Result --&gt;
+&lt;a:root xmlns:a="firstNameSpace"&gt;
+  &lt;a:child id="1"/&gt;
+  &lt;a:child id="2"/&gt;
+  &lt;b:root xmlns:b="secondNamespace"&gt;
+    &lt;b:child id="2"/&gt;
+  &lt;/b:root&gt;
+&lt;/a:root&gt;
+</programlisting></td>
+					</tr>
+				</informaltable>
+			</example>
+			Considering <xref linkend="paper-8_def_5" xrefstyle="select:label"/>, the <code>child</code> element is present in two different languages introduced by the XML namespaces <code>firstNamespace</code> and <code>secondNamespace</code>. Different languages may most commonly introduce different semantics of poentially equally named elements. To provide a MergeSchema for each of the languages, we introduce the <code>definition</code> element to the <code>merge-schema</code> root indicating the <code>namespace</code> the MergeSchema corresponds to. <xref linkend="paper-8_def_5" xrefstyle="select:label"/> specifies the <code>child</code> element of the <code>firstNamespace</code> to match on its <code>id</code> attribute. In contrast to that, the <code>child</code> element of the <code>secondNamespace</code> is specified to match any <code>child</code> element of the same language, i.e. is forced to occur only once. To gain the result as shown in <xref linkend="paper-8_def_5" xrefstyle="select:label"/>, we in addition have to assume a global conflict resolution of <emphasis>patch wins</emphasis>. This simple example already indicates quite well, that by considering the elements' language semantics, we were able to merge the documents more properly than just assume the same semantics for each XML element regardless its language.
+		</para>
+	</section>
+	
+	<section xml:id="paper-8_def_visibility">
+		<title>Nesting of Handlings</title>
+	
+		<para>
+			The XML language definition allows a distinction between the type and the name of an element. The name and type information of an element is specified in the corresponding XSD or DTD. But especially, in an XSD the mapping between name and type is not bidirectional. This introduces mainly two issues with XSDs related to the specification of the MergeSchema presented so far. First, the name of an element needs only be unique under any parent element and second, types can be shared between multiple namespaces due to type reuse and extension. In order to overcome the second problem, we focus on element names rather than on the types to connect a MergeSchema's <code>handlings</code> to. Thus, we were able to ensure that a MergeSchema just covers the specification of the corresponding language rather than also covering the handling of types inherited from different languages. To also takle the first problem also, the MergeSchema specification allows nesting of <code>handlings</code> to specify the <code>handling's</code> context to be valid for. As given by the XML specification the context basically can be summarized as the axis of ancestors of a node.
+		</para>
+		<para>
+			 Introducing nesting immediately introduces the need of semantics for overriding <code>handlings</code> and their visibility for application. A <code>handling</code> is visible and thus applicable for all its sibling <code>handlings</code> and all <code>handlings</code> on the descendant axis. However, by specifying <code>handlings</code> for the same element names on the same descendant axis, the most specific <code>handling</code> in each context will visible and thus applicable dependending on the current context of the node to be processed by a merge algorithm. 
+			<example xml:id="paper-8_def_4">
+				<title>Nesting of handlings</title>
+				<programlisting language="xml" linenumbering="unnumbered" xml:base="../resources/xml/definition/4_onv.xml">
+&lt;merge-schema&gt;
+  &lt;handling name="a"/&gt;
+  &lt;handling name="b"&gt;
+    &lt;handling name="c"/&gt;
+    &lt;handling name="d"&gt;
+      &lt;handling name="a"/&gt;
+    &lt;/handling&gt;
+  &lt;/handling&gt;
+&lt;/merge-schema&gt;</programlisting>
+			</example>
+			For a better understanding consider <xref linkend="paper-8_def_4" xrefstyle="select:label"/>. Assuming the merge algorithm already merged <code>&lt;b&gt;</code> or <code>&lt;c&gt;</code> elements and stepping down on the descendant axis encounters an <code>&lt;a&gt;</code> element, we would apply the first <code>handling</code> declaration. However, if the merge algorithm would have merged a <code>&lt;d&gt;</code> element and stepping down on the descendant axis encountering an <code>&lt;a&gt;</code> element, we would apply the fifth <code>handling</code> since it overrides the first one. 
+		</para>
+	</section>
+	
+	<section>
+		<title>Reduction of Redundancy</title>
+		
+		<para>
+			MergeSchemas obviously can become quite large if considering complex XML languages. Often, many elements can be identified with the same <code>xpath</code> statement or merged with any specific default configuration. Some but not all XML languages use XML's id attribute as identifier for elements, e.g. reconsider the language for Spring Bean declaration discussed in <xref linkend="paper-8_eq_of_nodes" xrefstyle="select:label"/>. Such notion of equality might even hold for multiple elements of the smae language and thus will result in many duplicates of <code>criterion</code> specifications. Therefore, the <code>&lt;default-criterion&gt;</code> element has been introduced as a child of the <code>merge-schema</code> root to be able to change the default criterion with <code>xpath="./*"</code> (recursive equality) to anything more suitable specific to each language.
+		</para>
+	</section>
+	
+	<section xml:id="paper-8_def_not_covered">
+		<title>Further MergeSchema Features</title>
+		<para>
+			Similiar to many other concepts around 20% of the language specification of MergeSchemas already covers around 80% of use cases. Describing the whole language specification of MergeSchemas would exceed the scope of this paper. Therefore, we briefly want to point out also implemented concepts we could not cover in this scope, but which have been experienced to be necessary for real world application. 
+		</para>
+		<para>
+			<emphasis role="strong">Ignore order on matching criterion's XPath results:</emphasis> Evaluating the <code>xpath</code> expression of a <code>criterion</code> may result in an ordered list of nodes. By default, this list is compared to another list by considering the the order as well. However, as indicated in <xref linkend="paper-8_ana" xrefstyle="select:label"/>, ordering of nodes has not to be considered in each language.
+		</para>
+		<para>
+			<emphasis role="strong">Support for XSD type inheritance:</emphasis> As shortly discussed in <xref linkend="paper-8_def_visibility" xrefstyle="select:label"/>, XML introduces types and element names which are losely coupled. This may lead to redundancy e.g. of <code>criterion</code> specification in the MergeSchema as of the fact, that the MergeSchema refers to element names rather than to XML types but you may want to specify criterions not in each element anew. However, this is a very advanced topic, which is just partially adressed in our approach.
+		</para>
+		<para>
+			<emphasis role="strong">Connect multiple namespaces to one MergeSchema:</emphasis> Most commonly, XML namespace aliases for the latest release of evolving language specifications are introduced next to the XML namespaces for each released version of a XML language. Thus, the latest released language specification can be referenced by two different XML namespaces. However, you do not want to specify two equivalent MergeSchemas for it, but just connect a MergeSchema to different namespaces.
+		</para>
+		<para>
+			<emphasis role="strong">Conditional merge operations:</emphasis> In some use cases, the merge operation for elements has to differ in a specific context, e.g. the merge operation should be different for the first element respectively the subsequent elements with the same name. Therefore, we introduced some kind of <code>where</code> clauses to activate/deactivate <code>handlings</code> in specific contexts.
+		</para>
+		<para>
+			<emphasis role="strong">Value precedence specification:</emphasis> Especially attributes can be restricted to some enum values, which in case of a conflict during merge should not just processed stupidly based on a global conflict handling. Moreover, the merge algorithm should follow an individual precedence of the values specified in the MergeSchema. 
+		</para>
+	</section>
+</section>
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-8_algorithm" xml:base="includes/algorithm.xml">
+			
+		<title>LeXeMe</title>
+		
+		<para>
+			To enable structural 2-way merging of XML documents based on the previously introduced MergeSchema, we developed the Java library LeXeMe<footnote><para><emphasis role="underline">L</emphasis>anguage-aware <emphasis role="underline">X</emphasis>ML <emphasis role="underline">M</emphasis>erger; https://github.com/may-bee/lexeme</para></footnote> to be used in a company internally developed and maintained code generator <xref linkend="paper-8_Brunnlieb2014"/>. As of the complexity of the overall MergeSchema language specification, the following just focuses on an additional feature introduced by the merge algorithm itself rather than explaining how the algorithm implements the previously discussed language semantics of the MergeSchema in detail.
+		</para>
+		
+		<section>
+			<title>Preserving the Document Order</title>
+			
+			<para>
+				The merge algorithm implemented in LeXeMe mainly introduces one important additional feature to gain better merge results. Remembering the context considerations for our approach, the XML documents to be merged are also manipulated by humans. Thus, the merge result should be readable by humans easily. This essentially means, that it is important to preserve the ordering of the documents XML child elements to not destroy the humans mental model. Thus, the LeXeMe merge algorithm tries to preserve as much ordering in the document as possible to produce more predictable results for humans. The following listing of pseudo-code describes a simplified version of the merge algorithm to merge element nodes.
+				<programlisting linenumbering="numbered">
+mergeElement(base, patch)
+  FORALL elements IN patch.ChildElements AS pElem
+    IF (pElem.findMatch(base.ChildElements) AS bElem) THEN
+      // special case: child nodes list starts with text nodes
+      tNodes = text nodes patch.ChildNodes starts with  
+      IF (tNodes not empty &amp;&amp; pElem is first of patch.ChildElements) THEN
+        Add tNodes to base before base.bElem
+      // recursively merge pElem and bElem
+      base.bElem = mergeElement(bElem, pElem)
+      // handle subsequent text nodes
+      Add all subsequent text nodes of pElem after bElem
+      Remove tNodes and pElem from patch
+  // handle non matching nodes
+  IF (patch.ChildElements is not empty)
+    Try to align and merge remaining patch elements to base
+    Accumulate remaining nodes
+RETURN base</programlisting> 
+
+				The listing describes a method called <code>mergeElement</code>, which takes a <code>base</code> element node as well as a matching <code>patch</code> element node as inputs. For simplicity reasons, we ignored all the processing steps handling the corresponding MergeSchema specification and conflict handling. The algorithm starts with entering the root nodes of the base and patch, whereas it is assumed as a precondition for the shown function, that the root nodes match each other, i.e. have the same element name and namespace.
+			</para>
+			
+			<para>
+				The first part of the algorithm (line 2-12) tries to find a matching child element node (<code>bElem</code>) for each <code>patch</code> element child (<code>pElem</code>) in the list of element children of <code>base</code>. If there is a matching base child <code>bElem</code>, the algorithm merges <code>pElem</code> and <code>bElem</code> recursively (line 9). Furthermore and even more important, the text nodes are merged based on the location of <code>bElem</code> as a sophisticated comparison and alignment of text nodes is a non-trivial problem not covered. Thus, we chose to stick each list of sequent text nodes to their next element predecessor. Given that, all immediately subsequent text nodes of <code>pElem</code> will be merged right after <code>bElem</code> to the base (line 11). As we are just consider subsequent text nodes, the exceptional case of a list of children starting with text nodes is considered in lines 5-7.
+			</para>
+			
+			<para>
+				After processing all matched child elements of <code>patch</code> and their subsequent text nodes, the merge of the non-matching child elements of <code>patch</code> as well as their subsequent text nodes have to be merged as well. To find a suitable place for the remaining elements, we memorize the siblings of each child element of <code>patch</code>. Based on that knowledge, the algorithm tries to align and merge the remaining element nodes of <code>patch</code> to base. Surely, it is not trivial to preserve all orderings of the <code>patch</code>'s children in the <code>base</code> as well. Therefore, we simply implemented a first come first serve approach discarding non-preservable alignment needs of further nodes and thus prevent the algorithm from struggling with a general optimization problem. Finally, the remaining child elements and its text nodes, which could not be aligned and merged until now, are accumulated at the end of the <code>base</code> (line 16).  
+			</para>
+			
+			<para>
+				Summarizing, this part of the complete LeXeMe implementation is obviously a best effort approach, which essentially works with non-ordered XML documents best, just preserving some of the ordering within the document in the resulting document. This algorithm has not been designed to preserve the semantics of e.g. xHTML documents entirely. We claim, that this is not easily manageable as it will introduces the need for merging full text, which finally will lead to linguistic analysis.  
+			</para>		
+		</section>
+		
+		<section>
+			<title>Limitations to the Implementation</title>
+			
+			<para>
+				The merge algorithm implemented by LeXeMe assumes the root elements of the two input XML documents as mergable, i.e. declaring the same full qualified element name. Given that, the recursive merge processing is able to start and produce a result. Until now, the merge algorithm just aggregates nodes based on the MergeSchema and not based on the DTD or XSD knowledge as well. This especially includes the multiplicity constraints of a XSD, which can be more fine-grained than it can be described in a MergeSchema (1 to unbound). LeXeMe only validates the merge result against its DTD or XSD detecting wrongly accumulated nodes or attribute values. Furthermore, LeXeMe tries to preserve the document structure of the base as explained in the previous section. However, merging ordering sensitive documents as e.g. xHTML will remain unsolved taking the entire document semantics into account. At least our approach may produce non-intended results in its current implementation. Finally, as we introduced by the context the implementation is operating in, LeXeMe is not able to perform any deletions in the resulting document as the MergeSchema as well as the two documents simply do not provide any information to this regards.
+			</para>
+		</section>
+			
+</section>
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-8_evaluation" xml:base="includes/evaluation.xml">
+	
+	<title>Industrial Experiences</title>
+	
+	<para>
+		Compared to the previous implementation of a generic structural xml merger based on the XMLMerge <xref linkend="paper-8_XMLMerge"/> framework, the structural merge has become a lot more powerful with the LeXeMe. Although we tuned the generic XML merge algorithm a lot to make it even more smarter, we quickly observed multiple conflicts in our needs to merge different XML-based languages properly. As indicated, the original motivation for structurally merging XML files comes from the need of adding new XML contents to already existent XML documents. Especially in the context of Java applications, there are a bunch of frameworks, which can be configurated by using XML documents for various use cases. As an example, there are multiple XML documents to configure the component framework Spring. So we implemented some mergeSchemas<footnote><para>https://github.com/may-bee/lexeme/tree/development/src/main/resources/mergeSchemas</para></footnote> to be able to merge such configuration files even better than with generic XML merge approaches. We successfully used LeXeMe in a company internal generator implementation to add new <code>&lt;bean&gt;</code> declarations, add new <code>&lt;property&gt;</code> elements to already existing bean declarations, as well as update different XML attributes accordingly. Furthermore, we were able to generate additional XML code to Java persistence configurations<footnote><para>http://www.oracle.com/webfolder/technetwork/jsc/xml/ns/persistence/index.html</para></footnote> as well as to Dozer Mapper configurations<footnote><para>http://dozer.sourceforge.net</para></footnote>.  
+	</para>
+	
+</section>
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-8_conclusion" xml:base="includes/conclusion.xml">
+
+	<title>Conclusion</title>
+	
+	<para>
+		First, we discussed different examples of merging two XML documents to underline the different needs to be takled by a structural 2-way merge algorithm. Based on that, we developed a language specific MergeSchema, which encodes different rules derived from the language's semantics to handle structural merges properly for different XML-based languages. Finally, we described the core idea of the merge algorithm considering the MergeSchema. We showed, that structural 2-way merges for XML documents can be much more effective if considering further semantics of the language to be merged. However, specifying a MergeSchema for each XML based language to be supported for 2-way merging introduces additional effort. We further indicated different limitations of our approach as e.g. the arbitrary complex problem of merging text nodes has not been covered in our approach as we mainly focused on the structural merge rather than on the merge of text nodes potentially containing full text.  
+	</para>
+	
+	<para>
+		Finally, we identified the following future works. We identified the need to also process information from already available language specifications like DTD or XSD right during the merge to not end up in invalid results according to the language specification. This especially adresses the XSD as it not only provides more fine grained multiplicity constraints, but also gives hints about the validity of attribute values during merge. As another topic of future work, LeXeMe currently provides a parameter for conflict resolution globally indicating the algorithm to prefer the base or patch values when detecting non-resolvable conflicts. It might be more suitable to provide such kind of conflict resolution on a more fine-grained level specified per element in the MergeSchema. Thus, MergeSchemas could not only be used for language specific 2-way XML merge, but also for an use case specific document merge. 
+	</para>
+</section>
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-8_related_works" xml:base="includes/related_works.xml">
+	
+	<title>Related Works</title>
+	
+	<para>
+		DeltaXML <xref linkend="paper-8_LaFontaine2002"/> has been developed for merging documents by first deriving so called delta documents from two XML documents to be merged. Such delta document can then be further processed to show the differences or to be executed by a structural merge algorithm. This already is one of the major differences between LeXeMe and DeltaXML as DeltaXML determines a delta document of the inputs encoding all information of all input documents. Furthermore, DeltaXML just processes the XML meta-language and does not consider any further language specific merge properties during a merge. DeltaXML just provides a trivial matching algorithm and just provides a manual approach to influence element matching via <code>deltaxml:key</code> attributes by manipulating the input documents.
+	</para>
+	
+	<para>
+		XMLMerge <xref linkend="paper-8_XMLMerge"/> was mainly one of the open source libraries takling the general issue of merging XML documents in a 2-way fashion. However, programmatically adjusting the merge algorithm to some language needs will immediately collide with any other languages' needs. Diving deeper into the libraries API it may be also possible to encode an appropriate merge behavior for each XML language. However, you will have to change your programs implementation on changes or different merge needs, which makes the approach highly inflexible. To overcome this, we chose a more declarative approach to easily change merge properties without having to change the implementation of our merge algorithm.
+	</para>
+	
+	<para>
+		Our approach and the specification of the MergeSchema is somehow influenced by the work of Tufte and Maier <xref linkend="paper-8_Tufte2001"/>. They introduce a so called Merge Template, which purpose is quite similar to our MergeSchema. One of the basic differences is the context of application. The Merge Template is designed to accumulate XML elements from two input streams rather than from completely available and readable input documents. To identify a pair of mergeable elements the Merge Template specifies nodes which have to be identical in two considered input elements. Due to the fact, that they discuss streams as input, neither deep matching (i.e. matching via descendant nodes) nor matching of single nodes e.g. by attribute's values is supported. The approach via XPath as it is used in LeXeMe provides a lot more possibilites to define advanced matching criterias. The focus of the Merge Template and its corresponding accumulation algorithm only relies on non ordered XML data. XML languages implying ordering of nodes are thus not mergeable by Tufte and Maier's approach. 
+	</para>
+	
+</section>
+	<bibliography xmlns:xl="http://www.w3.org/1999/xlink" xmlns:xi="http://www.w3.org/2001/XInclude" xml:base="includes/bibliography.xml">
+	<title>Bibliography</title>
+	<biblioentry xml:id="paper-8_LaFontaine2002" xreflabel="[LaFontaine2002]">
+		<abbrev>LaFontaine2002</abbrev>
+		<authorgroup>
+			<author>
+				<personname>
+					<firstname>Robin</firstname>
+					<surname>La Fontaine</surname>
+				</personname>
+			</author>
+		</authorgroup>
+		<copyright>
+			<year>2002</year>
+		</copyright>
+		<publisher>
+			<publishername>XML Europe</publishername>
+		</publisher>
+		<title>Merging XML files: A new approach providing intelligent merge of xml data sets</title>
+	</biblioentry>
+	<biblioentry xml:id="paper-8_XMLMerge" xreflabel="[XMLMerge]">
+		<abbrev>XMLMerge</abbrev>
+		<authorgroup>
+			<author>
+				<personname>
+					<firstname>Pip</firstname>
+					<surname>Stuart</surname>
+				</personname>
+			</author>
+		</authorgroup>
+		<copyright>
+			<year>2004</year>
+		</copyright>
+		<title>XML::Merge - search.cpan.org</title>
+	  <biblioid class="uri">http://search.cpan.org/~pip/XML-Merge-1.2.565EgGd/Merge.pm</biblioid>
+		<address>
+			<remark>accessed 03/07/2016</remark>
+		</address>
+	</biblioentry>
+	<biblioentry xml:id="paper-8_Brunnlieb2014" xreflabel="[Brunnlieb2014]">
+		<abbrev>Brunnlieb2014</abbrev>
+		<authorgroup>
+			<author>
+				<personname>
+					<firstname>Malte</firstname>
+					<surname>Brunnlieb</surname>
+				</personname>
+			</author>
+			<author>
+				<personname>
+					<firstname>Arnd</firstname>
+					<surname>Poetzsch-Heffter</surname>
+				</personname>
+			</author>
+		</authorgroup>
+		<copyright>
+			<year>2014</year>
+		</copyright>
+		<publisher>
+			<publishername>GI</publishername>
+		</publisher>
+		<title>Architecture-driven Incremental Code Generation for Increased Developer Efficiency</title>
+	</biblioentry>
+	<biblioentry xml:id="paper-8_Brunnlieb2016" xreflabel="[Brunnlieb2016]">
+		<abbrev>Brunnlieb2016</abbrev>
+		<authorgroup>
+			<author>
+				<personname>
+					<firstname>Malte</firstname>
+					<surname>Brunnlieb</surname>
+				</personname>
+			</author>
+			<author>
+				<personname>
+					<firstname>Arnd</firstname>
+					<surname>Poetzsch-Heffter</surname>
+				</personname>
+			</author>
+		</authorgroup>
+		<copyright>
+			<year>2016</year>
+		</copyright>
+		<publisher>
+			<publishername>ACM</publishername>
+		</publisher>
+		<title>Application of Architecture Implementation Patterns by Incremental Code Generation</title>
+	</biblioentry>
+	<biblioentry xml:id="paper-8_LaFontaine2001" xreflabel="[LaFontaine2001]">
+		<abbrev>LaFontaine2001</abbrev>
+		<authorgroup>
+			<author>
+				<personname>
+					<firstname>Robin</firstname>
+					<surname>La Fontaine</surname>
+				</personname>
+			</author>
+		</authorgroup>
+		<copyright>
+			<year>2001</year>
+		</copyright>
+		<publisher>
+			<publishername>XML Europe</publishername>
+		</publisher>
+		<title>A Delta Format for XML: Identifying changes in XML files and representing the changes in XML</title>
+	</biblioentry>
+	<biblioentry xml:id="paper-8_Tufte2001" xreflabel="[Tufte2001]">
+		<abbrev>Tufte2001</abbrev>
+		<authorgroup>
+			<author>
+				<personname>
+					<firstname>Kristin</firstname>
+					<surname>Tufte</surname>
+				</personname>
+			</author>
+			<author>
+				<personname>
+					<firstname>David</firstname>
+					<surname>Maier</surname>
+				</personname>
+			</author>
+		</authorgroup>
+		<copyright><year>2001</year></copyright>
+		<publisher>
+		  <publishername>Bulletin of the IEEE Computer Society Technical Committee on Data Engineering</publishername>
+		</publisher>
+		<title>Aggregation and Accumulation of XML Data</title>
+	</biblioentry>
+	<biblioentry xml:id="paper-8_Abiteboul2001" xreflabel="[Abiteboul2001]">
+		<abbrev>Abiteboul2001</abbrev>
+		<authorgroup>
+			<author>
+				<personname>
+					<firstname>Serge</firstname>
+					<surname>Abiteboul</surname>
+				</personname>
+			</author>
+			<author>
+				<personname>
+					<firstname>Jason</firstname>
+					<surname>McHugh</surname>
+				</personname>
+			</author>
+			<author>
+				<personname>
+					<firstname>Michael</firstname>
+					<surname>Rys</surname>
+				</personname>
+			</author>
+			<author>
+				<personname>
+					<firstname>Vasilis</firstname>
+					<surname>Vassalos</surname>
+				</personname>
+			</author>
+			<author>
+				<personname>
+					<firstname>Janet L.</firstname>
+					<surname>Wiener</surname>
+				</personname>
+			</author>
+		</authorgroup>
+		<copyright><year>1998</year></copyright>
+		<publisher>
+		  <publishername>Stanford InfoLab</publishername>
+		</publisher>
+		<title>Incremental Maintenance for Materialized Views over Semistructured Data</title>
+	</biblioentry>
+
+</bibliography>
+</article>

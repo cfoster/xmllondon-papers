@@ -1,0 +1,544 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-15" version="5.0" xml:lang="en">
+
+  <info xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <title>An XML-based Approach for Data Preprocessing of Multi-Label Classification Problems</title>
+
+<!--    <subtitle>Examples &amp; a guide of how DocBook gets transformed
+              to a PDF</subtitle>
+-->
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Eduardo</firstname>
+		  <othername>Corrêa</othername>		  
+          <surname>Gonçalves</surname>
+        </personname>
+        <email>egoncalves@ic.uff.br</email>
+        <affiliation>
+          <orgname>Universidade Federal Fluminense (UFF)</orgname>
+        </affiliation>
+      </author>
+      <author>
+        <personname>
+          <firstname>Vanessa</firstname>
+          <surname>Braganholo</surname>
+        </personname>
+        <email>vanessa@ic.uff.br</email>
+        <affiliation>
+          <orgname>Universidade Federal Fluminense (UFF)</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+
+    <keywordset>
+      <keyword>Data Preprocessing</keyword>
+      <keyword>Text Categorization</keyword>
+      <keyword>Multi-Label Classification</keyword>
+    </keywordset>
+
+    <abstract>
+	<para>
+	Most of the data mining tools are only able to work with data structured 
+	either in relational tables or in text files with one record per line. 
+	However, both kinds of data representation are not well-suited to certain 
+	data mining tasks. One example of such task is multi-label classification, 
+	where the goal is to predict the states of a multi-valued target attribute. 
+	This paper discusses the use of XML as an alternative to represent datasets 
+	for multi-label classification processes, since this language offers 
+	flexible means of structuring complex information, thus potentially 
+	facilitating the major steps involved in data preprocessing. In order to 
+	discuss from a practical point of view, we describe the steps of an 
+	experience involving the preprocessing of a real text dataset.	
+	</para>
+    </abstract>
+
+  </info>
+
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <title>Introduction</title>
+
+    <para>
+      Multi-label classification (MLC) can be defined as the task of 
+	  automatically assigning an object into multiple categories based on its 
+	  characteristics <xref linkend="paper-15_biblio-cf09"/>. One of the most common 
+	  applications is text categorization, where the goal is to associate 
+	  documents to various subjects. For example: a trained multi-label 
+	  classifier could process the text summary of the movie "The King's Speech" 
+	  and determine its genres as "Biography", "Drama", and "History". Besides 
+	  text categorization, other important applications for MLC include 
+	  functional genomics (determining the functions of genes and proteins) and 
+	  the semantic categorization of images, video and music. The MLC problem is 
+	  more challenging than the traditional single-label classification (SLC) in 
+	  which objects can be associated with only a single target class. 
+	  Typically, MLC applications have to deal with a huge number of possible 
+	  label combinations. Considering a problem involving <emphasis>q</emphasis> 
+	  labels, the size of the output space in MLC is <emphasis>2^q</emphasis>
+	  whereas it is just <emphasis>q</emphasis> in SLC. Another important issue 
+	  concerns the existence of correlations between labels. For instance, a 
+	  movie is unlikely to be simultaneously labelled as "Romance" and "Horror", 
+	  since these two genres have a strong negative correlation. Thus, 
+	  algorithms capable of modelling label correlations tend to be more 
+	  accurate. Actually, recent research in MLC have primarily concentrated 
+	  efforts on the development of scalable techniques for modelling label 
+	  dependencies <xref linkend="paper-15_biblio-gpf13"/>, 
+	  <xref linkend="paper-15_biblio-rphf11"/>, <xref linkend="paper-15_biblio-cmm12"/>.
+	</para>
+    <para>
+	  However, an important characteristic that differentiates MLC and SLC has 
+	  been often neglected in literature. It corresponds to the fact that 
+	  real-world multi-label datasets (e.g. text data, multimedia data, etc.) 
+	  are usually much larger and more complex in structure than 
+	  single-label datasets. In spite of this situation, current multi-label 
+	  platforms <xref linkend="paper-15_biblio-meka"/>, <xref linkend="paper-15_biblio-mulan"/>
+	  have adopted the traditional ARFF flat file format ("one record per line") 
+	  to represent target datasets. This leads to two main problems: (i) the 
+	  format is unnatural for the representation of multi-label data; (ii) the 
+	  flat file format makes data preprocessing activities considerably more 
+	  cumbersome, since it is not suitable for querying and transformation. 
+    </para>
+    <para>
+      In other to tackle these problems, this paper proposes an XML-based 
+	  approach for data representation and preprocessing in multi-label 
+	  classification. The main goal is to discuss the advantages offered by 
+	  this approach to users of data mining tools, focusing on the text 
+	  categorization problem. The rest of this paper is organized as follows. 
+	  Section 2 presents a comparison between the ARFF and the XML formats, 
+	  highlighting the advantages associated with the use of the latter 
+	  format. Section 3 describes an experiment that applied the XML approach 
+	  for data preprocessing of a real-world dataset with movie information. 
+	  Section 4 summarizes this work and points to future research directions.
+    </para>
+
+  </section>
+
+  <!-- Section 2-->
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <title>Dataset Formats: ARFF versus XML</title>
+	
+	<para>
+	  Mulan <xref linkend="paper-15_biblio-mulan"/> and 
+	  MEKA <xref linkend="paper-15_biblio-meka"/> are the two most used platforms for 
+		multi-label classification in research projects. Both work on the top of 
+		the well-known Weka API <xref linkend="paper-15_biblio-weka"/> and adopt the 
+		Weka's standard ARFF format for dataset representation. This format is 
+		simple, intuitive, having become popular in the data mining field. Even 
+		so, it is not suitable for representing multi-label datasets. To support 
+		this claim, consider the following example. Suppose we want to perform 
+		the multi-label classification of a movie database. The goal is to 
+		classify the genres of movies in function of the movie summaries. In 
+		this case, both Mulan and MEKA would require an ARFF dataset structured 
+		similarly to the example below.
+	</para>
+	
+	<programlisting linenumbering="unnumbered">
+@relation Movies
+@attribute a {0, 1}
+@attribute abandon {0, 1} 
+@attribute about {0, 1} 
+...
+@attribute zoology {0, 1}
+@attribute genre_drama{0, 1}
+@attribute genre_mystery{0, 1}
+...
+@attribute genre_romance{0, 1}
+@data
+0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,1,0,0,1,...
+1,0,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,...
+...
+	</programlisting>	
+	
+	<para>
+	  Observe that the ARFF format requires the declaration of every distinct 
+	  word as a different attribute in the header. The data itself is structured 
+	  in the bag of words (BOW) format. Each line contains information of a 
+	  different movie. The 1 and 0 values represent, respectively, the presence 
+	  and the absence of the correspondent word in the summary. Although the 
+	  Weka API offers filters for the automatic conversion of free text into 
+	  BOW, this conversion represents just a small part of the data 
+	  preprocessing scenario. Typically, users of data mining tools need to 
+	  explore and transform data before executing the classification algorithm. 
+	  The BOW format is rather inadequate for querying and transformation 
+	  though. 	
+	</para>	
+	<para>
+	  XML is a language for specifying semi or completely structured data 
+	  adopted as a standard by many industries <xref linkend="paper-15_biblio-mb09"/>. 
+	  In the below code we show the "movies dataset" now structured in XML 
+	  format. We can immediately realize that XML allows for the representation 
+	  of movie information in a very natural way: each movie is simply delimited 
+	  by the tags &lt;movie&gt; and &lt;/movie&gt;. More interestingly, the 
+	  definition of multi-valued data, i.e., movies with multiple summaries 
+	  (&lt;plot&gt; tag) and genres (&lt;class&gt; tag), can be done in a quite 
+	  straightforward fashion (differently from the ARFF format). However, the 
+	  major advantage is that XML is able to potentially enhance data 
+	  preprocessing procedures. Through an XML environment, users of a data 
+	  mining tool can visualize, query, explore, and transform data in a simpler 
+	  and faster way, by the means of the standard languages 
+	  XSLT <xref linkend="paper-15_biblio-xslt"/> and 
+	  XQuery <xref linkend="paper-15_biblio-xquery"/> or using the 
+	  SAX API <xref linkend="paper-15_biblio-sax"/>. In the next section, we discuss the 
+	  advantages of the XML-based data preprocessing approach from a practical 
+	  point of view, describing an experiment performed over a real-world text 
+	  dataset. 	
+	</para>
+
+    <programlisting language="xml">
+&lt;?xml version="1.0" encoding="ISO-8859-1"?&gt;
+&lt;imdb&gt;
+  &lt;movie id="500"&gt;
+     &lt;title&gt;127 Hours&lt;/title&gt; 
+     &lt;plot&gt;127 Hours is the true story of ... 
+     &lt;plot&gt;On April 2003, the engineer, climber ...
+     &lt;class&gt;Adventure&lt;/class&gt;
+     &lt;class&gt;Biography&lt;/class&gt;
+     &lt;class&gt;Drama&lt;/class&gt;
+     &lt;class&gt;Thriller&lt;/class&gt;
+  &lt;/movie&gt;
+  &lt;movie id="501"&gt;
+     &lt;title&gt;The Bridges of Madison County&lt;/title&gt; 
+     &lt;plot&gt;Photographer Robert Kincaid wanders ...
+     &lt;class&gt;Drama&lt;/class&gt;
+     &lt;class&gt;Romance&lt;/class&gt;
+  &lt;/movie&gt;
+  ...  
+&lt;/imdb&gt;	</programlisting>	
+	
+  </section>
+  
+ <!-- Section 3-->
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <title>Experiment</title>
+	
+	<para>
+	  The IMDB dataset <xref linkend="paper-15_biblio-imdb"/> is real-world dataset 
+	  that keeps information about movies. Data is originally supplied in 
+	  several plain text files <footnote>
+            <para>
+			<link xl:href="http://www.imdb.com/interfaces"/></para>
+          </footnote> which are weekly updated with new 
+	  information. Each file stores different information regarding the 
+	  movies. The experiment described in this section involved the files 
+	  "plot.list" (movie summaries) and "genres.list" (movie genres). The goal 
+	  of our evaluation was to assess the advantages of using XML 
+	  representation in the data preprocessing step (step 2 in 
+	  Figure <xref linkend="paper-15_binary-image"/>), 
+	  supposing that a multi-label classifier to associate movies to genres 
+	  would be constructed. 
+	</para>
+	
+    <figure xml:id="paper-15_binary-image">
+      <title>Proposed steps for the construction of the multi-label classifier for IMDb data</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/Scheme.png" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+	
+	<para>
+	  The first step of the experiment consisted in the development of a simple 
+	  Java program called "imdb2XML" to generate the XML dataset from the plot 
+	  and genres plain files. The structure of this dataset is similar to the 
+	  one shown in the movies XML file presented in the last section. The final 
+	  XML dataset was composed by 153.499 movies, which corresponds to the 
+	  number of movies that are stored in the plot file and also in the genres 
+	  file. The second step represents the main goal of this paper: the defence 
+	  of an XML-based data preprocessing environment for multi-label 
+	  classification problems. During the experiment, at this step, the XQuery 
+	  language and the SAX API were used to querying, exploring and transforming 
+	  the XML IMDb dataset. Below, we list some of the several preprocessing 
+	  procedures that were performed. Observe that most of these procedures 
+	  cannot be directly performed over ARFF datasets. 	
+	  
+      <itemizedlist mark="bullet">
+        <listitem><para>Construction of a frequency table of movie genres. Among the 
+		28 possible genres, some of the most frequent are "Drama" (59,177), 
+		"Comedy" (38,377), and "Documentary" (27,590).</para>
+		</listitem>
+        <listitem><para>Generation of a word frequency table. This table was queried 
+		in several different ways. The query results were used to collect 
+		information about data and to guide data transformation operations over 
+		the XML dataset. Some examples:</para>
+			<itemizedlist mark="bullet">
+				<listitem><para>About half of the words occurs only once in the 
+				database (e.g. "agnosticism", "polyvision"). These words were 
+				removed from the dataset.</para> 
+				</listitem>
+				<listitem><para>Several misspelled words and typos (e.g. "caracters", 
+				  "theforce").</para>
+				</listitem>
+				<listitem><para>There is a large number of proper names, e.g. "Robert" 
+				  (3,053), "Rosemary" (229).</para>   
+				</listitem>
+				<listitem><para>Construction of a cross-tabulation table of words and 
+				genres. This table has helped us to identify the words that are 
+				most correlated to certain genres (ex: word "Broadway" and genre 
+				"Musical").</para>   
+				</listitem>
+				<listitem><para>Calculation of the correlation coefficient between all 
+				pairs of labels (e.g.: "Drama" x "Action", "Drama" x "Horror", 
+				etc.) to identify labels that are positively and negatively 
+				correlated.</para>
+				</listitem>
+			</itemizedlist>
+		</listitem>
+      </itemizedlist>
+	</para>
+	
+  </section>
+
+ <!-- Section 4-->
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+
+    <title>Conclusions</title>
+	
+	<para>
+	  Multi-label classification is a challenging problem in the field of data 
+	  mining, which requires considerable efforts in data preprocessing. In this 
+	  paper we discussed the use of an XML-based approach as a feasible and 
+	  adequate alternative for data preprocessing of multi-label datasets. The 
+	  advantages of XML could be evidenced in distinct two forms: first, through 
+	  a comparison between the formats XML and ARFF; second, through an 
+	  experiment involving a real text dataset. In this experiment, the XQuery 
+	  language and the SAX API were employed to perform data exploration and 
+	  transformation. As future work we intend to conduct new evaluations on 
+	  different multi-label datasets aiming at developing a general XML-based 
+	  framework for data preprocessing. 
+	</para>
+	
+  </section>
+  
+  <bibliography xmlns:xl="http://www.w3.org/1999/xlink">
+	<biblioentry xml:id="paper-15_biblio-cf09" xreflabel="[1]">
+      <abbrev>1</abbrev>
+      <title>A tutorial on multi-label classification techniques</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Andre</firstname>
+            <surname>de Carvalho</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Alex</firstname>
+            <surname>Freitas</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>Foundations of Computational Intelligence, 5, 2009</publishername>
+  	  <biblioid class="isbn">978-3-642-01535-9</biblioid>
+      <biblioid class="doi">10.1007/978-3-642-01536-6_8</biblioid>
+    </biblioentry>
+
+	<biblioentry xml:id="paper-15_biblio-gpf13" xreflabel="[2]">
+      <abbrev>2</abbrev>
+      <title>A genetic algorithm for optimizing the label ordering in multi-label classifier chains</title>
+      <authorgroup>
+        <author>
+          <personname>
+          <firstname>Eduardo</firstname>
+		  <othername>Corrêa</othername>		  
+          <surname>Gonçalves</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+          <firstname>Alexandre</firstname>
+          <surname>Plastino</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+          <firstname>Alex</firstname>
+          <surname>Freitas</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>ICTAI 2013</publishername>
+  	  <biblioid class="isbn">978-1-4799-2971-9</biblioid>
+      <biblioid class="doi">10.1109/ICTAI.2013.76</biblioid>
+    </biblioentry>
+  
+	<biblioentry xml:id="paper-15_biblio-rphf11" xreflabel="[3]">
+      <abbrev>3</abbrev>
+      <title>Classifier chains for multi-label classification</title>
+      <authorgroup>
+        <author>
+          <personname>
+          <firstname>Jesse</firstname>
+          <surname>Read</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+          <firstname>Bernhard</firstname>
+          <surname>Pfahringer</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+          <firstname>Geoff</firstname>
+          <surname>Holmes</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+          <firstname>Eibe</firstname>
+          <surname>Frank</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>Machine Learning 85(3)</publishername>
+  	  <biblioid class="issn">0885-6125</biblioid> 
+      <biblioid class="doi">10.1007/s10994-011-5256-5</biblioid>
+    </biblioentry>
+  
+  	<biblioentry xml:id="paper-15_biblio-cmm12" xreflabel="[4]">
+      <abbrev>4</abbrev>
+      <title>Incorporating label dependency into the binary relevance framework for multi-label classification</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Everton</firstname>
+            <surname>Alvares-Cherman</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+          <firstname>Jean</firstname>
+          <surname>Metz</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+          <firstname>Maria</firstname>
+		  <othername>Carolina</othername>		  
+          <surname>Monard</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>Expert Systems with Applications 39(2)</publishername>
+  	  <biblioid class="issn">0957-4174</biblioid>
+      <biblioid class="doi">10.1016/j.eswa.2011.06.056</biblioid>
+    </biblioentry>
+  
+    <biblioentry xml:id="paper-15_biblio-meka" xreflabel="[5]">
+      <abbrev>5</abbrev>
+      <title>MEKA - A multilabel/multitarget extension to WEKA</title>
+      <publishername>SourceForge.net</publishername>
+      <biblioid class="uri">http://meka.sourceforge.net/</biblioid>
+    </biblioentry>
+ 
+    <biblioentry xml:id="paper-15_biblio-mulan" xreflabel="[6]">
+      <abbrev>6</abbrev>
+      <title>Mulan: A Java library for multi-label learning</title>
+      <publishername>SourceForge.net</publishername>
+      <biblioid class="uri">http://mulan.sourceforge.net/</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-15_biblio-weka" xreflabel="[7]">
+      <abbrev>7</abbrev>
+      <title>Weka 3: data mining software in Java</title>
+      <publishername>University of Waikato</publishername>
+      <biblioid class="uri">http://www.cs.waikato.ac.nz/ml/weka/</biblioid>
+    </biblioentry>
+ 
+ 	<biblioentry xml:id="paper-15_biblio-mb09" xreflabel="[8]">
+      <abbrev>8</abbrev>
+      <title>XML: some papers in a haystack</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Mirella</firstname>
+            <surname>Moro</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Vanessa</firstname>
+            <surname>Braganholo</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Carina</firstname>
+            <surname>Dorneles</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Denio</firstname>
+            <surname>Duarte</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Renata</firstname>
+            <surname>Galante</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Ronaldo</firstname>
+            <surname>Mello</surname>            
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>ACM SIGMOD Record 38(2)</publishername>
+   	  <biblioid class="issn">0163-5808</biblioid>
+      <biblioid class="doi">10.1145/1815918.1815924</biblioid>
+    </biblioentry>
+ 
+    <biblioentry xml:id="paper-15_biblio-xslt" xreflabel="[9]">
+      <abbrev>9</abbrev>
+      <title>XSL Transformations (XSLT) Version 1.0</title>
+      <publishername>W3C</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/1999/REC-xslt-19991116</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-15_biblio-xquery" xreflabel="[10]">
+      <abbrev>10</abbrev>
+      <title>XQuery 1.0: An XML query language (second edition)</title>
+      <publishername>W3C</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/xquery/</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-15_biblio-sax" xreflabel="[11]">
+      <abbrev>11</abbrev>
+      <title>SAX 2.0.1: Simple API for XML</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>David</firstname>
+            <surname>Megginson</surname>            
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>David</firstname>
+            <surname>Brownell</surname>            
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>SAX Project</publishername>
+      <biblioid class="uri">http://www.saxproject.org/</biblioid>
+    </biblioentry>	
+	
+	<biblioentry xml:id="paper-15_biblio-imdb" xreflabel="[12]">
+      <abbrev>12</abbrev>
+      <title>IMDb – The Internet movie database</title>
+      <publishername>IMDb.com, Inc.</publishername>
+      <biblioid class="uri">http://www.imdb.com</biblioid>
+    </biblioentry>	
+	
+  </bibliography>
+
+</article>

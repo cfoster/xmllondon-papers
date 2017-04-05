@@ -1,0 +1,547 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-11" version="5.0">
+  <info xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Schematron - More useful than you’d thought</title>
+    <author>
+      <personname>
+        <firstname>Philip</firstname>
+        <surname>Fennell</surname>
+      </personname>
+      <affiliation>
+        <org>
+          <orgname>MarkLogic</orgname>
+        </org>
+      </affiliation>
+      <email>philip.fennell@gmail.com</email>
+    </author>
+    <abstract>
+      <para>The Schematron XML validation language has been around for about as long as XML and has been used extensively for validation tasks outside the gamut of what XML Schema 1.0 was designed for. The reference implementation is <emphasis role="italic">implemented</emphasis>, with great care, in XSLT, and with extensibility in mind. There are a number of points in the Schematron compilation process that provide opportunities to extend its basic behavior and allow other modes of report output to be generated. This paper looks at one example of extending Schematron to create an XML to RDF Mapping Language for flexible RDF triple construction and built-in source-data validation rules.</para>
+    </abstract>
+  </info>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Introduction</title>
+    <para>This paper looks at one example of extending Schematron <xref linkend="paper-11_sch"/> to create an XML to RDF Mapping Language with built-in data validation rules and flexible RDF triple construction.</para>
+    <para>The Schematron XML validation language has been around for about as long as XML and has been used extensively for all those validation tasks that fell outside the gamut of what XML Schema 1.0 was designed for. Put simply, Schematron allows you to define a context for a set of rule tests that, when applied to a source XML document, must fail if they’re not met or to report on the occurrences of nodes that you want to know about, and all using just XPath expressions.</para>
+    <programlisting language="xml">
+&lt;iso:schema
+  xmlns:iso="http://purl.oclc.org/dsdl/schematron"&gt;
+
+  &lt;iso:ns prefix="atom"
+          uri="http://www.w3.org/2005/Atom"/&gt;
+  &lt;iso:title&gt;Simple Atom Feed Rules&lt;/iso:title&gt;
+
+  &lt;iso:pattern&gt;
+    &lt;iso:title&gt;Atom Feed Root&lt;/iso:title&gt;
+    &lt;iso:rule context="/"&gt;
+      &lt;iso:assert test="atom:feed"&gt;
+        The document root must be
+        an atom:feed element.
+      &lt;/iso:assert&gt;
+    &lt;/iso:rule&gt;
+  &lt;/iso:pattern&gt;
+
+  &lt;iso:pattern&gt;
+    &lt;iso:title&gt;Required elements of
+               an Atom Feed&lt;/iso:title&gt;
+    &lt;iso:rule context="/atom:feed"&gt;
+      &lt;iso:assert test="atom:title"&gt;
+        atom:title is missing,
+        this is a required element.
+      &lt;/iso:assert&gt;
+      &lt;iso:assert test="atom:id"&gt;
+        atom:id is missing,
+        this is a required element.
+      &lt;/iso:assert&gt;
+      &lt;iso:assert test="atom:updated"&gt;
+        atom:updated is missing,
+        this is a required element.
+      &lt;/iso:assert&gt;
+    &lt;/iso:rule&gt;
+  &lt;/iso:pattern&gt;
+&lt;/iso:schema&gt;</programlisting>
+    <para>In the above example two contexts are defined, one for the document root, so we can test for the presence of the root element and the second is the root <code>/atom:feed</code> element itself, so we can test for its required child nodes. It is this principle that we will use later to help define the contexts for mapping XML nodes to RDF triples.</para>
+    <para>Now, it’s not that Schematron is under used and nor is it under appreciated but still there is a lot more to Schematron than meets the eye. Firstly, the reference implementation is <emphasis>implemented</emphasis>, with great care, in XSLT <xref linkend="paper-11_xslt"/>. This must have seemed a natural choice given the type of input documents, XML, and the community of developers that it would be serving and also not withstanding the fact that, as XML, XSLT can be created and transformed by XSLT - quite possibly my most favourite aspect of XSLT.</para>
+    <para>The original core of the reference implementation was written with extensibility in mind but its output, the validation report, was somewhat limited by being a plain text format. Therefore, secondly, with its endorsement as an ISO standard, came the Schematron Validation and Reporting Language (SVRL), which gave the report a structured XML output. Finally, the multi-step <emphasis>pipeline</emphasis> that is used to compile the Schematron schema into XSLT allows for multiple extension points to suite your desired application.</para>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Where else to use a rules-based reporting language?</title>
+    <para>With the increasing interest in the Semantic Web technologies, a lot of work has been done to bridge the gap between the existing RDBMS world and that of the Semantic Web so that the vast array of Relational systems can be queried with the SPARQL query language <xref linkend="paper-11_sparql"/> as though they were actually RDF graphs. This requires either a simplistic direct mapping from table rows and columns to RDF triples or a more thoughtful, and in reality far more practical, one that uses an intermediate mapping language to describe the construction of triples from the table schema. The W3C have Recommendations for both a Direct Mapping (RDB2RDF) <xref linkend="paper-11_rdb2rml"/> and a Relational to RDF Mapping Language (R2RML) <xref linkend="paper-11_r2rml"/>.</para>
+    <para>Tools currently exist that support both the Direct Mapping and the Mapping Language and can be used either as a SPARQL query layer, on top of an RDBMS, or as a standalone export tool that will dump a table, or tables, as RDF. As an aside, I think if you are to use these tools then you get the most value out of the SPARQL layer in prototyping the Mapping and then use the mapping to dump the database to RDF so you can bulk ingest into your Triple Store.</para>
+    <para>But what of XML to RDF? Certainly there is plenty of XML content, feeds, streams and data that exist out there but the options for extracting and mapping that information to RDF are confined to bespoke pieces of code. What would be useful is a way to express, in an XML and RDF oriented way, the identification of targets in the source XML, the context for a set of triples, define the subject URI, the properties (elements and attributes) you wish to map to your target RDF vocabulary and where to get the values that will become the objects of your triples. A rule-based language, like Schematron, gives us a hint as to how this might work.</para>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>A sketch of how we might use Schematron to map XML to RDF</title>
+    <para>If we look again at what a Schematron rule actually does, it defines a context, a node set, within an XML document, and allows you, by the use of XPath, to assert a validity test or report on the occurrence of a node relative to that context. Putting aside validity assertions for the moment, the <code>iso:report</code> instruction is the key here; although originally intended to simply report the presence of a node that matches a specific XPath pattern, it can be overridden to output, instead of a simple textual report message, any structured XML you require - in our case an RDF triple for each occurrence of the target node. The target node maps to the predicate of an RDF triple. Schematron has an <code>iso:value-of</code> instruction which, when used in conjunction with <code>iso:report</code>, can insert values, from the source document, into the message or in this case the <emphasis role="italic">object</emphasis> value of our triple. For each predicate/object pair one must define a subject URI, which can be derived wholly, or in part, from the context of the rule. More on this last aspect later.</para>
+    <para>Source XML:</para>
+    <programlisting language="xml">&lt;feed xmlns="http://www.w3.org/2005/Atom"&gt;
+  &lt;title&gt;Example Feed&lt;/title&gt;
+  &lt;link href="http://example.org/"/&gt;
+  &lt;updated&gt;2003-12-13T18:30:02Z&lt;/updated&gt;
+  &lt;id&gt;http://example.org/feeds/60a76c80&lt;/id&gt;
+&lt;/feed&gt;</programlisting>
+    <para>Mapped RDF Triples:</para>
+    <programlisting language="sparql">
+@prefix rdfs:     &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt; .
+@prefix xsd:      &lt;http://www.w3.org/2001/XMLSchema#&gt; .
+@prefix atom-owl: &lt;http://bblfish.net/work/atom-owl/2006-06-06/#&gt; .
+
+&lt;http://example.org/feeds/60a76c80&gt; rdfs:type atom-owl:Feed ;
+  atom-owl:title "Example Feed"@en ;
+  atom-owl:updated "2003-12-13T18:30:02Z"^^xsd:dateTime .</programlisting>
+    <para>In the above example we can see that there is a mapping that has been applied from the source Atom XML document to an RDF vocabulary called AtomOwl <xref linkend="paper-11_atomowl"/> which is an RDF modelling of Atom Feed format <xref linkend="paper-11_atom"/>. The following schema fragment illustrates how a conventional Schematron report can capture the necessary information to build the subject, predicate and object components of an RDF triple:</para>
+    <programlisting language="xml">&lt;iso:rule context="/atom:feed"&gt;
+  &lt;iso:assert test="atom:title"&gt;
+    atom:title is missing,
+    this is a required element.
+  &lt;/iso:assert&gt;
+  &lt;iso:report test="atom:title"&gt;
+    The '&lt;iso:value-of select="atom:id/text()"/&gt;'
+    feed has a title of
+    '&lt;iso:value-of select="atom:title/text()"/&gt;'
+    &lt;/iso:report&gt;
+&lt;/iso:rule&gt;</programlisting>
+    <blockquote>
+      <para>The '<emphasis role="bold">http://example.org/feeds/60a76c80</emphasis>' feed has a <emphasis role="bold">title</emphasis> of '<emphasis role="bold">Example Feed</emphasis>'</para>
+    </blockquote>
+    <para>In addition, if we want to introduce data validity constraints then the Schematron <code>iso:assert</code> instruction is still available for ensuring the integrity of the source XML before it is mapped to RDF.</para>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>XML Scissor-lift: An XML to RDF Mapping Language</title>
+    <para>May be it should have been called X2RML (XML to RDF Mapping Language), but, XML Scissor-lift derives its name from the term 'schema lifting', which is used by the Semantic Web community to describe the process of lifting the semantics of an XML grammar to a <emphasis role="italic">higher</emphasis> level by mapping its elements and attributes to terms in a target RDF vocabulary. </para>
+    <para>Scissor-lift uses Schematron along with aspects of the XML Pipeline Language (XProc) <xref linkend="paper-11_xproc"/>, URI Templates <xref linkend="paper-11_uritemp"/>, the Web Application Description Language (WADL) <xref linkend="paper-11_wadl"/> and the Triples in XML (TriX) <xref linkend="paper-11_trix"/> representation of RDF to provide some pre-existing patterns that should make it quicker to pick-up. XSLT is used for pre-compilation processing, extending Schematron and post mapping conversion to alternative RDF graph serializations.</para>
+    <section>
+      <title>A Basic Mapping Description</title>
+      <para>Looking at the previous source XML (Atom Feed) and the target RDF Vocabulary (AtomOWL), we see here a simple Scissor-lift mapping document:</para>
+      <programlisting language="xml">
+&lt;lift xmlns="https://github.com/anonymous/scissor-lift"
+      xmlns:atom="http://www.w3.org/2005/Atom"
+      name="atom-to-atom-owl"
+      version="1.0"&gt;
+
+  &lt;title&gt;Simple Atom Feed Rules&lt;/title&gt;
+
+  &lt;variable name="feedURI" select="
+    concat('http://example.org/feeds/',
+           substring-after(/atom:feed/atom:id, 'feeds/'))"/&gt;
+
+  &lt;pattern&gt;
+    &lt;title&gt;Atom Feed&lt;/title&gt;
+
+    &lt;rule context="/"&gt;
+      &lt;triple match="atom:feed"&gt;
+        &lt;uri select="$feedURI"/&gt;
+        &lt;uri&gt;http://www.w3.org/1999/02/22-rdf-syntax-ns#type&lt;/uri&gt;
+        &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#Feed&lt;/uri&gt;
+      &lt;/triple&gt;
+    &lt;/rule&gt;
+
+    &lt;rule context="/atom:feed"&gt;
+      &lt;triple match="atom:title"&gt;
+        &lt;uri select="$feedURI"/&gt;
+        &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#title&lt;/uri&gt;
+        &lt;plainLiteral xml:lang="en" select="atom:title"/&gt;
+      &lt;/triple&gt;
+      &lt;triple match="atom:updated"&gt;
+        &lt;uri select="$feedURI"/&gt;
+        &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#updated&lt;/uri&gt;
+        &lt;typedLiteral
+            datatype="http://www.w3.org/2001/XMLSchema#dateTime"
+            select="atom:updated"/&gt;
+      &lt;/triple&gt;
+    &lt;/rule&gt;
+  &lt;/pattern&gt;
+&lt;/lift&gt;</programlisting>
+      <para>In the above example we first define a <code>feedURI</code> variable that takes its value from the feed's <code>atom:id</code> element, this variable has global scope so can be used in any mapping rule. Then we define a pattern for the Feed which contains two rules; the first rule’s context is the document’s root and we generate a triple on matching the <code>atom:feed</code> element where we map the element to the <code>Feed</code> class of the AtomOwl Ontology. The <code>match</code> attribute takes an XPath expression who's context is that of the containing rule. The second rule’s context is the <code>atom:feed</code> element itself and we generate triples upon matching the <code>atom:title</code> and <code>atom:updated</code> elements. In both these cases we identify the predicates from the target vocabulary's <code>title</code> and <code>updated</code> terms respectively and selects the value of the objects from the atomized value of their matched elements.</para>
+      <para>The grammar for the triples is taken directly from the TriX RDF representation; the <code>uri</code>, <code>plainLiteral</code> and <code>typedLiteral</code> elements have been extended to accept either a literal string as their value or a <code>select</code> attribute which takes an XPath expression, including declared variables, that are evaluated at run time to provide the value for those elements. The context for the XPath expression is the context expression for the enclosing rule.</para>
+      <para>By default, Scissor-lift will generate a simple XML representation of the resulting graph using the TriX format, which directly corresponds to the format that we use to express the mapping:</para>
+      <programlisting language="xml">&lt;trix xmlns="http://www.w3.org/2004/03/trix/trix-1/"&gt;
+  &lt;graph&gt;
+    &lt;uri/&gt;
+    &lt;triple&gt;
+      &lt;uri&gt;http://example.org/feeds/60a76c80&lt;/uri&gt;
+      &lt;uri&gt;http://www.w3.org/1999/02/22-rdf-syntax-ns#type&lt;/uri&gt;
+      &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#Feed&lt;/uri&gt;
+    &lt;/triple&gt;
+    &lt;triple&gt;
+      &lt;uri&gt;http://example.org/feeds/60a76c80&lt;/uri&gt;
+      &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#title&lt;/uri&gt;
+      &lt;plainLiteral xml:lang="en"&gt;Example Feed&lt;/plainLiteral&gt;
+    &lt;/triple&gt;
+    &lt;triple&gt;
+      &lt;uri&gt;http://example.org/feeds/60a76c80&lt;/uri&gt;
+      &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#updated&lt;/uri&gt;
+      &lt;typedLiteral
+          datatype="http://www.w3.org/2001/XMLSchema#dateTime"&gt;
+        2003-12-13T18:30:02Z
+      &lt;/typedLiteral&gt;
+    &lt;/triple&gt;
+  &lt;/graph&gt;
+&lt;/trix&gt;</programlisting>
+      <para>From the TriX representation it is easy to generate N-Triples <xref linkend="paper-11_ntriples"/>, Turtle <xref linkend="paper-11_turtle"/>, JSON-LD <xref linkend="paper-11_jsonld"/> and RDF/XML <xref linkend="paper-11_rdfxml"/> using a subsequent XSLT transform.</para>
+    </section>
+    <section>
+      <title>Compiling and Executing a Mapping</title>
+      <para>As the mapping language is an extension of Schematron so its compiler implementation is an extension of the Schematron transforms. ISO Schematron uses a three step compilation process to generate the resulting XSLT transform: <orderedlist numeration="arabic">
+          <listitem>
+            <para>Include</para>
+          </listitem>
+          <listitem>
+            <para>Expand</para>
+          </listitem>
+          <listitem>
+            <para>Compile</para>
+          </listitem>
+        </orderedlist> which Scissor-lift adds a 'Translate' step before Schematron's Include step. The translation step converts the <code>lift</code> document into a ISO Schematron schema document:</para>
+      <programlisting language="xml">&lt;rule context="/atom:feed"&gt;
+  &lt;triple match="atom:title"&gt;
+    &lt;uri select="$feedURI"/&gt;
+    &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#title&lt;/uri&gt;
+    &lt;plainLiteral xml:lang="en" select="atom:title"/&gt;
+  &lt;/triple&gt;
+&lt;/rule&gt;</programlisting>
+      <para>becomes:</para>
+      <programlisting language="xml">&lt;iso:rule context="/atom:feed"&gt;
+  &lt;iso:report test="atom:title"&gt;
+    &lt;sl:uri select="$feedURI"/&gt;
+    &lt;sl:uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#title&lt;/sl:uri&gt;
+    &lt;sl:plainLiteral xml:lang="en" select="atom:title"/&gt;
+  &lt;/iso:report&gt;
+&lt;/iso:rule&gt;</programlisting>
+      <para>The children of the <code>iso:reprot</code> element are not in the ISO Schematron namespace so are not touched by Schematron's Include and Expand transforms but are processed, as we will see later, by the extensions to the Compile transform.</para>
+      <para>The resulting XSLT transform can be used to convert individual XML source document instances into RDF and the transform can be run in editors like oXygen <xref linkend="paper-11_oxygen"/>, where I tend to do all my development, and I use an XProc pipeline to orchestrate the compilation and transformation processes.</para>
+      <para>The transform can also operate in an XML database where it can be set to work converting XML documents in the database to RDF that can, in turn, be inserted into an RDF Triple Store. In the case of sending triples to a Triple Store, one of the standard RDF representations can be generated by using an XSLT transform to convert the afore mentioned TriX output into one of the recommended representations: N-Triples, Turtle, JSON-LD or RDF/XML.</para>
+    </section>
+    <section>
+      <title>Advanced Mapping Features</title>
+      <para>The following sections look at more advanced features of Scissor-lift that help us to build URIs, re-use definitions and determine data types.</para>
+      <section>
+        <title>Constructing URIs - URI Templates</title>
+        <para>A useful feature that was copied from WADL, but is a standard in its own right, are URI templates.</para>
+        <programlisting language="xml">&lt;pattern&gt;
+  &lt;title&gt;Atom Entry&lt;/title&gt;
+
+  &lt;rule context="/atom:feed/atom:entry"&gt;
+    &lt;triple match="."&gt;
+      &lt;uri template="http://example.org/feeds/{feedID}/entries/{entryID}"&gt;
+        &lt;param name="feedID"
+            select="substring-after(/atom:feed/atom:id, 'feeds/')"
+            type="xs:string"/&gt;
+        &lt;param name="entryID"
+            select="substring-after(atom:id, 'entries/')"
+            type="xs:string"/&gt;
+      &lt;/uri&gt;
+      &lt;uri&gt;http://www.w3.org/1999/02/22-rdf-syntax-ns#type&lt;/uri&gt;
+      &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#Entry&lt;/uri&gt;
+    &lt;/triple&gt;
+  &lt;/rule&gt;
+&lt;/pattern&gt;</programlisting>
+        <para>Rather than using, a potentially long-winded, <code>concat()</code> XPath expression to build a URI within a <code>select</code> attribute we can make use of the URI Template syntax and parameter declarations to insert values into the URI declared in the <code>template</code> attribute. In the above example we have the subject URI being comprised of two variable components, the feed's ID <code>{feedID}</code> and the entry's ID <code>{entryID}</code>. The <code>param</code> elements define the expressions that retrieve their respective values from the source XML. Although, not strictly speak required, the <code>type</code> attribute is provided to remind you what type of value you're generating.</para>
+        <para>The URI templates can be used on subject, predicate and object URIs, giving you maximum flexibility in create mappings.</para>
+      </section>
+      <section>
+        <title>Reuse - Abstract Patterns and Rules</title>
+        <para>Another feature that has been re-used from Schematron is the Abstract Patterns and Rules. Defining groups of triple mappings that can be re-used throughout the whole mapping saves a lot of time and duplication. In the following example we will see that there are a set of required elements for Atom that are common to both the feed and its entries: <code>title</code>, <code>id</code> and <code>updated</code>. The 'required' pattern is defined as abstract and its definition is used where a real pattern identifies itself 'is-a' instance of the 'required' pattern.</para>
+        <programlisting language="xml">&lt;pattern abstract="true" id="required"&gt;
+  &lt;title&gt;Abstract Required&lt;/title&gt;
+
+  &lt;rule context="$context"&gt;
+    &lt;triple match="atom:title"&gt;
+      &lt;uri select="$thisURI"/&gt;
+      &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#title&lt;/uri&gt;
+      &lt;plainLiteral xml:lang="en-GB" select="atom:title"/&gt;
+    &lt;/triple&gt;
+    &lt;triple match="atom:id"&gt;
+      &lt;uri select="$thisURI"/&gt;
+      &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#id&lt;/uri&gt;
+      &lt;typedLiteral datatype="http://www.w3.org/2001/XMLSchema#anyURI"
+          select="atom:id"/&gt;
+    &lt;/triple&gt;
+    &lt;triple match="atom:updated"&gt;
+      &lt;uri select="$thisURI"/&gt;
+      &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#updated&lt;/uri&gt;
+      &lt;typedLiteral datatype="http://www.w3.org/2001/XMLSchema#dateTime"
+          select="atom:updated"/&gt;
+    &lt;/triple&gt;
+  &lt;/rule&gt;
+&lt;/pattern&gt;
+
+&lt;pattern id="feed-required" is-a="required"&gt;
+  &lt;title&gt;Feed Required&lt;/title&gt;
+  &lt;param name="context" select="/atom:feed"/&gt;
+  &lt;param name="thisURI" select="$feedURI"/&gt;
+&lt;/pattern&gt;
+
+&lt;pattern id="entry-required" is-a="required"&gt;
+  &lt;title&gt;Entry Required&lt;/title&gt;
+  &lt;param name="context" select="/atom:feed/atom:entry"/&gt;
+  &lt;param name="thisURI"
+      select="concat($feedURI, '/entries/', substring-after(atom:id, 'entries/'))"/&gt;
+&lt;/pattern&gt;</programlisting>
+        <para>The parameters <code>context</code> and <code>thisURI</code>, defined where the abstract pattern is used, have their values substituted into the resulting triple mappings.</para>
+        <para>A more complex mapping used to convert an Atom <code>link</code> element into its corresponding triples can be defined as an abstract rule:</para>
+        <programlisting language="xml">&lt;pattern abstract="true"&gt;
+  &lt;title&gt;Abstract Rules&lt;/title&gt;
+
+  &lt;rule id="links" abstract="true"&gt;
+    &lt;triple match="." &gt;
+      &lt;uri select="$feedURI"/&gt;
+      &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#link&lt;/uri&gt;
+      &lt;id select="."/&gt;
+    &lt;/triple&gt;
+    &lt;triple match="." &gt;
+      &lt;id select="."/&gt;
+      &lt;uri&gt;http://www.w3.org/1999/02/22-rdf-syntax-ns#type&lt;/uri&gt;
+      &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#Link&lt;/uri&gt;
+    &lt;/triple&gt;
+    &lt;triple match="." &gt;
+      &lt;id select="."/&gt;
+      &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#to&lt;/uri&gt;
+      &lt;id select="@href"/&gt;
+    &lt;/triple&gt;
+    &lt;triple match="@href" &gt;
+      &lt;id select="@href"/&gt;
+      &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#src&lt;/uri&gt;
+      &lt;uri select="@href"/&gt;
+    &lt;/triple&gt;
+  &lt;/rule&gt;
+&lt;/pattern&gt;
+
+&lt;pattern&gt;
+  &lt;title&gt;Atom Feed Root&lt;/title&gt;
+
+  &lt;rule context="/"&gt;
+    &lt;triple match="atom:feed"&gt;
+      &lt;uri select="$feedURI"/&gt;
+      &lt;uri&gt;http://www.w3.org/1999/02/22-rdf-syntax-ns#type&lt;/uri&gt;
+      &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#Feed&lt;/uri&gt;
+    &lt;/triple&gt;
+  &lt;/rule&gt;
+
+  &lt;rule context="/atom:feed/atom:link"&gt;
+    &lt;extends rule="links"/&gt;
+  &lt;/rule&gt;
+&lt;/pattern&gt;</programlisting>
+        <para>and re-used in a pattern for the given context. Here the abstract rule is defined in the same way as the abstract pattern but is used where a rule declares that it 'extends' the abstract rule.</para>
+      </section>
+      <section>
+        <title>Hierarchical Structure and Blank Nodes</title>
+        <para>Quite often there will be situations where you need to map some XML node to a Class in the target vocabulary. In the previous example the <code>atom:link</code> element has attributes we also need to capture in the mapping, and although the link element is implicitly related to the feed by being a child of that feed we need to express that explicitly in RDF. The link has no specific ID (an anonymous resource) so we use the concept of a Blank Node (BNode) to assign a unique identifier to the link that is unique within the scope of the graph.</para>
+        <para>Scissor-lift provides a <code>select</code> attribute on the <code>id</code> element to define a context for creating the unique ID that can be shared by the respective subject and object URIs.</para>
+      </section>
+      <section>
+        <title>Type Discovery - XML Schema Reflection</title>
+        <para>As mentioned previously, the mapping process can run in an XML database, and in the case of MarkLogic <xref linkend="paper-11_ml"/> this enables an additional feature of Scissor-lift - auto-datatype discovery. If the source XML documents have an XML Schema associated with them, that is also loaded into MarkLogic, then during the conversion to RDF the transforms make use of MarkLogic's, little known, Schema Components API.</para>
+        <para>You can explicitly set the type of the triple's object using the <code>type</code> attribute on the <code>typedLiteral</code> element. However, if you leave this attribute off and, as already mentioned, you have an XML Schema in place, the transform will use the XML type annotations on the source XML to determine the base, Simple Type, of the source nodes and automatically assign that to their corresponding triple objects.</para>
+      </section>
+      <section>
+        <title>Data Integrity Checking - Assertions</title>
+        <para>Scissor-lift makes use of Schematron's <code>iso:report</code> instruction to carry the triple annotations into the compilation process. This leaves us free to use Schematron's <code>iso:assert</code> instruction to provide content validation tests that will help us ensure the integrity of the source XML.</para>
+        <programlisting language="xml">&lt;rule context="/atom:feed"&gt;
+  &lt;assert match="atom:title"&gt;atom:title is a required element.&lt;/assert&gt;
+  &lt;triple match="atom:title"&gt;
+    &lt;uri select="$thisURI"/&gt;
+    &lt;uri&gt;http://bblfish.net/work/atom-owl/2006-06-06/#title&lt;/uri&gt;
+    &lt;plainLiteral xml:lang="en-GB" select="atom:title"/&gt;
+  &lt;/triple&gt;
+&lt;/rule&gt;</programlisting>
+        <para>The above example illustrates how an assertion can be used as part of a triple mapping to ensure that the source XML contains a required element. The mapping process will fail for the context document if an assertion fails.</para>
+      </section>
+    </section>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>How Schematron was Extended</title>
+    <para>The reference implementation of Schematron, which uses XSLT for the compilation and validation execution, has been written with extension in mind. This was how the earlier version was extended to incorporate the SVRL report output. Starting from this point, it is relatively simple to override the SVRL generating templates to create the XML you wish to output from a report.</para>
+    <para>Scissor-lift uses XSLT's import mechanism to override the original behaviours of the <code>iso_schematron_skeleton_for_saxon.xsl</code> transform, where the main jump-off points are the "<code>process-root</code>" and "<code>process-report</code>" named templates which, as their names suggest, are the templates that processes the container for the rules and the <code>iso:report</code> instructions respectively. From this point onwards it is a case of creating templates that process the Scissor-lift triple-mapping instructions that will replace the original SVRL output.</para>
+    <para>Resulting from the compiler, the XSLT transform contains the templates that match the rule contexts and the logic that triggers the triple generation according to the matches declared in the mapping rules.</para>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Other Mapping Options</title>
+    <para>There is another, pre-existing XML to RDF mapping technique that was devised as part of the all-encompassing W3C Web Services work.</para>
+    <section>
+      <title>Semantic Annotations for WSDL and XML Schema (SAWSDL)</title>
+      <para>The SAWSDL <xref linkend="paper-11_sawsdl"/> technique uses annotation written into an XML Schema to define the mapping from XML to a target RDF vocabulary.</para>
+      <programlisting language="xml">
+&lt;xs:complexType name="feedType"
+                sawsdl:modelReference=
+"http://bblfish.net/work/atom-owl/2006-06-06/#Feed"
+&gt;
+  ...
+&lt;/xs:complexType&gt;</programlisting>
+      <para>The above example demonstrates a simple mapping of the feed's root element to AtomOwl's Feed class. This approach works fine for simple cases but when building a SAWSDL processor you are very limited as to how you create subject and object URIs without reverting to referencing external XSLT transforms to do the complicated pieces.</para>
+      <para>Other issues with SAWSDL include the need for an XML Schema in the first place and the willingness to add annotations to it. It was these restriction that provided the impetus to come up with an alternative approach that was both flexible and could be applied to arbitrary and schema-less XML.</para>
+    </section>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Conclusions</title>
+    <para>Schematron as a rule-based XML validation language is very effective and used extensively to build bespoke validation rule sets. The way the XSLT reference implementation was built has made it relatively straight forward to extended and override its original behaviour to allow new instructions into the Schematron grammar to generate different outputs from a rule-set processed by the compiler.</para>
+    <para>XML Scissor-lift is one such extension of Schematron that illustrates how Schematron can be used to generate a completely different type of 'report' document. The pipelines, transforms and related code have been used in a number of projects to map existing XML source content/data to RDF to good effect.</para>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Further Work</title>
+    <para>Any application that embeds XPath into its documents should be able to 'validate' the XPath expressions prior to evaluating them. Scissor-lift requires an additional pipeline step, before 'translation', to check that the XPath expressions are valid. This can be easily achieved using a user-defined XProc step to evaluate all the <code>select</code> and <code>match</code> attribute expressions against a 'dummy' source document. There is no need for the expressions to match anything but the simple act of attempting to evaluate them will allow the XProc engine to parse the expression and report an syntax errors.</para>
+    <para>The Scissor-lift project can be found on GitHub <xref linkend="paper-11_scissor-lift"/> where more documentation and examples are waiting to be created.</para>
+  </section>
+  <bibliography xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>References</title>
+    <biblioentry xml:id="paper-11_sch" xreflabel="[1]">
+      <abbrev>1</abbrev>
+      <bibliomset relation="url">
+        <title>ISO Schematron</title>
+        <pubdate>01 June 2006</pubdate>
+        <bibliosource><link xlink:href="http://www.schematron.com/">http://www.schematron.com/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_xslt" xreflabel="[2]">
+      <abbrev>2</abbrev>
+      <bibliomset relation="url">
+        <title>XSL Transformations (XSLT)</title>
+        <subtitle>W3C Recommendation</subtitle>
+        <pubdate>23 January 2007</pubdate>
+        <bibliosource><link xlink:href="http://www.w3.org/TR/xslt20/">http://www.w3.org/TR/xslt20/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_sparql" xreflabel="[3]">
+      <abbrev>3</abbrev>
+      <bibliomset relation="url">
+        <title>SPARQL 1.1 Query Language</title>
+        <subtitle>W3C Recommendation</subtitle>
+        <pubdate>21 March 2013</pubdate>
+        <bibliosource><link xlink:href="http://www.w3.org/TR/sparql11-query/">http://www.w3.org/TR/sparql11-query/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_rdb2rml" xreflabel="[4]">
+      <abbrev>4</abbrev>
+      <bibliomset relation="url">
+        <title>A Direct Mapping of Relational Data to RDF</title>
+        <subtitle>W3C Recommendation</subtitle>
+        <pubdate>27 September 2012</pubdate>
+        <bibliosource><link xlink:href="http://www.w3.org/TR/rdb-direct-mapping/">http://www.w3.org/TR/rdb-direct-mapping/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_r2rml" xreflabel="[5]">
+      <abbrev>5</abbrev>
+      <bibliomset relation="url">
+        <title>RDB to RDF Mapping Language</title>
+        <subtitle>W3C Recommendation</subtitle>
+        <pubdate>27 September 2012</pubdate>
+        <bibliosource><link xlink:href="http://www.w3.org/TR/r2rml/">http://www.w3.org/TR/r2rml/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_atomowl" xreflabel="[6]">
+      <abbrev>6</abbrev>
+      <bibliomset relation="url">
+        <title>AtomOwl Vocabulary</title>
+        <pubdate>26 June 2006</pubdate>
+        <bibliosource><link xlink:href="http://bblfish.net/work/atom-owl/2006-06-06/AtomOwl.html">http://bblfish.net/work/atom-owl/2006-06-06/AtomOwl.html</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_atom" xreflabel="[7]">
+      <abbrev>7</abbrev>
+      <bibliomset relation="url">
+        <title>Atom Syndication Format</title>
+        <pubdate>December 2005</pubdate>
+        <bibliosource><link xlink:href="http://tools.ietf.org/html/rfc4287">http://tools.ietf.org/html/rfc4287</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_xproc" xreflabel="[8]">
+      <abbrev>8</abbrev>
+      <bibliomset relation="url">
+        <title>XML Pipeline Language (XProc)</title>
+        <subtitle>W3C Recommendation</subtitle>
+        <pubdate>11 May 2010</pubdate>
+        <bibliosource><link xlink:href="http://www.w3.org/TR/xproc/">http://www.w3.org/TR/xproc/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_uritemp" xreflabel="[9]">
+      <abbrev>9</abbrev>
+      <bibliomset relation="url">
+        <title>URI Templates</title>
+        <pubdate>March 2012</pubdate>
+        <bibliosource><link xlink:href="http://tools.ietf.org/html/rfc6570">http://tools.ietf.org/html/rfc6570</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_wadl" xreflabel="[10]">
+      <abbrev>10</abbrev>
+      <bibliomset relation="url">
+        <title>Web Application Description Language (WADL)</title>
+        <subtitle>W3C Submission</subtitle>
+        <pubdate>31 August 2009</pubdate>
+        <bibliosource><link xlink:href="http://www.w3.org/Submission/wadl/">http://www.w3.org/Submission/wadl/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_trix" xreflabel="[11]">
+      <abbrev>11</abbrev>
+      <bibliomset relation="url">
+        <title>Triples in XML (TriX)</title>
+        <pubdate>13 May 2004</pubdate>
+        <bibliosource><link xlink:href="http://www.hpl.hp.com/techreports/2004/HPL-2004-56.html">http://www.hpl.hp.com/techreports/2004/HPL-2004-56.html</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_ntriples" xreflabel="[12]">
+      <abbrev>12</abbrev>
+      <bibliomset relation="url">
+        <title>N-Triples</title>
+        <subtitle>W3C Recommendation</subtitle>
+        <pubdate>25 February 2014</pubdate>
+        <bibliosource><link xlink:href="http://www.w3.org/TR/n-triples/">http://www.w3.org/TR/n-triples/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_turtle" xreflabel="[13]">
+      <abbrev>13</abbrev>
+      <bibliomset relation="url">
+        <title>Terse RDF Triple Language</title>
+        <subtitle>W3C Recommendation</subtitle>
+        <pubdate>25 February 2014</pubdate>
+        <bibliosource><link xlink:href="http://www.w3.org/TR/turtle/">http://www.w3.org/TR/turtle/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_jsonld" xreflabel="[14]">
+      <abbrev>14</abbrev>
+      <bibliomset relation="url">
+        <title>A JSON-based Serialization for Linked Data</title>
+        <subtitle>W3C Recommendation</subtitle>
+        <pubdate>16 January 2014</pubdate>
+        <bibliosource><link xlink:href="http://www.w3.org/TR/json-ld/">http://www.w3.org/TR/json-ld/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_rdfxml" xreflabel="[15]">
+      <abbrev>15</abbrev>
+      <bibliomset relation="url">
+        <title>RDF 1.1 XML Syntax</title>
+        <subtitle>W3C Recommendation</subtitle>
+        <pubdate>25 February 2014</pubdate>
+        <bibliosource><link xlink:href="http://www.w3.org/TR/rdf-syntax-grammar/">http://www.w3.org/TR/rdf-syntax-grammar/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_oxygen" xreflabel="[16]">
+      <abbrev>16</abbrev>
+      <bibliomset>
+        <productname>Oxygen XML Editor</productname> by <orgname>SyncRO Soft SRL</orgname>
+        <bibliosource><link xlink:href="http://www.oxygenxml.com/">http://www.oxygenxml.com/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_ml" xreflabel="[17]">
+      <abbrev>17</abbrev>
+      <bibliomset>
+        <productname>MarkLogic Sever</productname> by <orgname>MarkLogic</orgname>
+        <bibliosource><link xlink:href="http://www.marklogic.com/">http://www.marklogic.com/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_sawsdl" xreflabel="[18]">
+      <abbrev>18</abbrev>
+      <bibliomset relation="url">
+        <title>Semantic Annotations for WSDL and XML Schema</title>
+        <subtitle>W3C Recommendation</subtitle>
+        <pubdate>28 August 2007</pubdate>
+        <bibliosource><link xlink:href="http://www.w3.org/TR/sawsdl/">http://www.w3.org/TR/sawsdl/</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_scissor-lift" xreflabel="[19]">
+      <abbrev>19</abbrev>
+      <bibliomset relation="url">
+        <title>scissor-lift</title>
+        <author><personname>Philip Fennell</personname></author>
+        <bibliosource><link xlink:href="https://github.com/philipfennell/scissor-lift">https://github.com/philipfennell/scissor-lift</link></bibliosource>
+      </bibliomset>
+    </biblioentry>
+  </bibliography>
+</article>

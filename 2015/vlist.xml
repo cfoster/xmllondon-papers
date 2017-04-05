@@ -1,0 +1,860 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0-subset Balisage-1.3">
+    <info>
+      <title>Data-Driven Programming in XQuery</title>
+      <authorgroup>
+        <author>
+            <personname>
+                <firstname>Eric</firstname>
+                <surname>van der Vlist</surname>
+            </personname>
+            <personblurb>
+                <para>Eric is an independent consultant and trainer. His domains of expertise include Web development and XML technologies.</para>
+                <para>He is the creator and main editor of <link xlink:href="http://xmlfr.org">XMLfr.org</link>, the main site dedicated to XML technologies in French, the author of the O'Reilly animal books XML Schema and RELAX NG and has been involved in the ISO DSDL (<link xlink:href="http://dsdl.org">http://dsdl.org</link>) working group focused on XML schema languages.</para>
+                <para>He his based in Paris and you can reach him by mail (<link xlink:href="mailto:vdv@dyomedea.com">vdv@dyomedea.com</link>) or meet him during one of the many conferences where he presents his projects.</para>
+            </personblurb>
+            <affiliation>
+                <orgname>Dyomedea</orgname>
+            </affiliation>
+        </author>
+      </authorgroup>
+      <abstract>
+        <para>Data-driven development is a popular programming paradigm often implemented using reflection in object-oriented programming languages.</para>
+        <para>Even if this is less common, data-driven development can also be implemented with functional programming languages, and this paper explores the possibilities opened by higher-order functions in XQuery 3.0 to develop data-driven applications.</para>
+      </abstract>
+    </info>
+    <section>
+        <title>Problem statement</title>
+        <section>
+            <title>Definitions</title>
+            <para>
+                <blockquote>
+                    <attribution><link xlink:href="http://en.wikipedia.org/wiki/Data-driven_programming">Wikipedia</link></attribution>
+                    <para>In <link xlink:href="http://en.wikipedia.org/wiki/Computer_programming">computer programming</link>, <emphasis role="bold">data-driven programming</emphasis> is a <link xlink:href="http://en.wikipedia.org/wiki/Programming_paradigm">programming paradigm</link> in which the program statements describe the data to be matched and the processing required rather than defining a sequence of steps to be taken.<link xlink:href="http://en.wikipedia.org/wiki/Data-driven_programming#cite_note-awk-1">[1]</link> Standard examples of data-driven languages are the text-processing languages <link xlink:href="http://en.wikipedia.org/wiki/Sed">sed</link> and <link xlink:href="http://en.wikipedia.org/wiki/AWK">AWK</link>,<link xlink:href="http://en.wikipedia.org/wiki/Data-driven_programming#cite_note-awk-1">[1]</link> where the data is a sequence of lines in an <link xlink:href="http://en.wikipedia.org/wiki/Input_stream">input stream</link> – these are thus also known as
+                        line-oriented languages – and pattern matching is primarily done via <link xlink:href="http://en.wikipedia.org/wiki/Regular_expression">regular expressions</link> or line numbers.</para>
+                </blockquote>
+            </para>
+            <para>
+                <blockquote>
+                  <attribution><link xlink:href="http://c2.com/cgi/wiki?DataDrivenPrograms">c2.com</link></attribution>
+                  <para>Data Driven Programs are programs which process data files whose contents cause the program to do something different. The extreme case is an interpreter and the interpretable program files. </para>
+                </blockquote>
+            </para>
+            <para>
+                <blockquote>
+                    <attribution><link xlink:href="http://www.dataorienteddesign.com/dodmain/node3.html">Data-oriented Design</link></attribution>
+                    <para>If the ultimate result of an application is data, and all input can be represented by data, and it is recognised that all data transforms are not performed in a vacuum, then a software development methodology can be founded on these principles, the principles of understanding the data, and how to transform it given some knowledge of how a machine will do what it needs to do with data of this quantity, frequency, and it's statistical qualities. Given this basis, we can build up a set of founding statements about what makes a methodology data-oriented. </para>
+                </blockquote>
+            </para>
+        </section>
+        <section>
+            <title>Real world examples</title>
+            <para>These definitions make it clear that any XSLT transformation making good use of templates is a data-driven program and that XSLT is the best example of a programming language rooted in the data-driven programming paradigm.</para>
+            <para>Even so, I had to wait until 2003 to discover the notion of data-driven programming in "<link xlink:href="http://web.archive.org/web/20040721205645/http://conferences.oreillynet.com/presentations/os2003/granger_mccorkhill.pdf">Data-Driven Classes in Ruby</link>", a most inspiring presentation by Michael Granger and David McCorkhill at OSCON 2003. So inspiring that I followed up with my own "<link xlink:href="https://dyomedea.com/papers/2004-OSCON/xmlDataDrivenClasses.pdf">XML Driven Classes in Python</link>" presented at OSCON 2004 and then <link xlink:href="http://eric.van-der-vlist.com/blog/?s=treebind">TreeBind</link> in 2005.</para>
+            <para>The common point between these three methodologies or libraries and many others is to bridge the gap between data-driven and object-oriented programming by driving object-oriented classes and methods through data.</para>
+            <para>These approaches are very useful in a number of cases. For instance, the Python utility which is backing up all my servers and managing their archives hes, since 2006, been driven by XML configuration files processed by the library presented at OSCON 2004. Similarly, the mailing list manager handling emails sent to the XML Guild is powered by <link xlink:href="http://www.nongnu.org/treebind/">TreeBind</link> driven by the following XML document (sensitive information have been removed for obvious
+                reasons):<programlisting language="xml">&lt;?xml version="1.0"?>
+
+&lt;listManager>
+  &lt;server>localhost&lt;/server>
+  &lt;storeType>imap&lt;/storeType>
+  &lt;user>...&lt;/user>
+  &lt;password>...&lt;/password>
+  &lt;port>143&lt;/port>
+  &lt;folderManager>
+    &lt;folder>INBOX&lt;/folder>
+    &lt;messageHandler>
+      &lt;ifEither>
+        &lt;ifIsRecipient>
+          info@xmlguild.org
+        &lt;/ifIsRecipient>
+        &lt;ifIsRecipient>
+          info@thexmlguild.org
+        &lt;/ifIsRecipient>
+        &lt;ifIsRecipient>
+          info@xmlguild.info
+        &lt;/ifIsRecipient>
+        &lt;ifIsRecipient>
+          info@xml-guild.org
+        &lt;/ifIsRecipient>
+        &lt;ifIsRecipient>
+          info@xml-guild.com
+        &lt;/ifIsRecipient>
+      &lt;/ifEither>
+      &lt;sendToList>
+        &lt;subjectPrefix>
+          [the XML Guild]
+        &lt;/subjectPrefix>
+        &lt;footer>&lt;![CDATA[
+--
+The XML Guild
+    where you find established XML experts . . .
+          http://xmlguild.org/
+          info@xmlguild.org
+]]&gt;&lt;/footer>
+        &lt;recipient>vdv@dyomedea.com&lt;/recipient>
+        &lt;recipient>...&lt;/recipient>
+        &lt;recipient>
+          &lt;!-- other recipients removed -->
+        &lt;/recipient>
+        &lt;envelopeFrom>
+          info-bounce@xmlguild.org
+        &lt;/envelopeFrom>
+        &lt;header name="Precedence">
+          List
+        &lt;/header>
+        &lt;header name="List-Id">
+          &amp;lt;info.xmlguild.org&amp;gt;
+        &lt;/header>
+        &lt;header name="List-Post">
+          &amp;lt;mailto:info@xmlguild.org&amp;gt;
+        &lt;/header>
+        &lt;server>localhost&lt;/server>
+        &lt;user>...&lt;/user>
+        &lt;archive>archive&lt;/archive>
+      &lt;/sendToList>
+      &lt;moveTo>done&lt;/moveTo>
+    &lt;/messageHandler>
+    &lt;messageHandler>
+      &lt;moveTo>unparsed&lt;/moveTo>
+    &lt;/messageHandler>
+  &lt;/folderManager>
+&lt;/listManager></programlisting></para>
+        </section>
+       <section>
+           <title>More precisely</title>
+            <para>Data-driven programming is a paradigm.</para>
+            <para>Like for any paradigm, programming languages and libraries influence the easiness with which data-driven applications can be written:<itemizedlist>
+                    <listitem>
+                        <para>In Apple ][ basic you'd have to use a bunch of if/then/else statements to implement data-driven applications.</para>
+                    </listitem>
+                    <listitem>
+                        <para>In object-oriented languages it is convenient to use a data binding library to directly bound data to object and methods to write data-driven applications.</para>
+                    </listitem>
+                    <listitem>
+                        <para>In XSLT, templates are natively bound to data through patterns.</para>
+                    </listitem>
+                    <listitem>
+                        <para>For functional programming languages, the frontier between code and data is fuzzy since functions are considered as data and we can expect a very special relation to data "driveness" as we will see in the next sections.</para>
+                    </listitem>
+                </itemizedlist></para>
+       </section>
+        
+    </section>
+    <section>
+        <title>Data Driving XQuery</title>
+        <para>If XSLT is natively data-driven and object-oriented languages can be used with a twist to develop data-driven programs, what can we say about functional programming languages in general and XQuery in particular?</para><section>
+            <title>A simple example</title>
+            <para>As an example to illustrate our discussion, we will implement the <link xlink:href="http://en.wikipedia.org/wiki/Hangman_%28game%29#Example_game">example Hangman game</link> given by Wikipedia. The state of the current game will be defined by the following XML document:<programlisting language="xml">&lt;hangman status="in-progress" misses="Z">
+  &lt;word>
+    &lt;letter guessed="true">H&lt;/letter>
+    &lt;letter guessed="true">A&lt;/letter>
+    &lt;letter guessed="true">N&lt;/letter>
+    &lt;letter guessed="false">G&lt;/letter>
+    &lt;letter guessed="true">M&lt;/letter>
+    &lt;letter guessed="true">A&lt;/letter>
+    &lt;letter guessed="true">N&lt;/letter>
+  &lt;/word>
+  &lt;display>
+    &lt;head shown="true"/>
+    &lt;body shown="true"/>
+    &lt;right_arm shown="true"/>
+    &lt;left_arm shown="true"/>
+    &lt;right_leg shown="false"/>
+    &lt;left_leg shown="false"/>
+  &lt;/display>
+&lt;/hangman></programlisting></para>
+            <para>And the implementation will consist in updating the document based on a letter given as a parameter.</para>
+        </section>
+        <section>
+            <title>Python</title>
+            <para>Before jumping to XML technologies, we can have a look at a possible Python implementation using the XML data-driven classes that I presented at OSCON
+                2004:<programlisting language="python">#!/usr/bin/python
+# -*- coding: utf-8 -*-
+__author__ = 'vdv'
+
+import XmlObject
+
+
+# Class Hangman: overall logic
+class Hangman(XmlObject.XmlObjectElement):
+
+  def isInProgress(self):
+    return self.status._value() == 'in-progress'
+
+  def addGuess(self, guess):
+    isAGuess = self.word.addGuess(guess)
+    if isAGuess:
+      if self.word.areAllGuessed():
+        self.status._set('won')
+      else:
+        self.misses._set(
+          self.misses._value() + guess )
+        self.display.addFailure()
+        if self.display.areAllShown():
+          self.status._set('lost')
+
+XmlObject.XmlObjectElement_hangman = Hangman
+
+# Class Word: handle guesses
+class Word(XmlObject.XmlObjectElement):
+
+  def addGuess(self, guess):
+    result = False
+    for letter in self.letter:
+      if letter.addGuess(guess):
+        result = True
+    return result
+
+  def areAllGuessed(self):
+    for letter in self.letter:
+      if not letter.isGuessed():
+        return False
+    return True
+
+XmlObject.XmlObjectElement_word = Word
+
+# Class Letter: individual letters to be guessed
+class Letter(XmlObject.XmlObjectElement):
+
+  def addGuess(self, guess):
+    if self._value() == guess:
+      self.guessed._set('true')
+      return True
+    else:
+      return False
+
+  def isGuessed(self):
+    return self.guessed._value() == 'true'
+
+XmlObject.XmlObjectElement_letter = Letter
+
+# Class Display: displays the hangman
+class Display(XmlObject.XmlObjectElement):
+
+  def addFailure(self):
+    result = False
+    for member in self._childElements:
+      if not member.isShown():
+        member.show()
+        return
+
+  def areAllShown(self):
+    return self._childElements[-1].isShown()
+
+XmlObject.XmlObjectElement_display = Display
+
+# Class members (generic to different
+# element types): hangman members to be displayed
+class Member(XmlObject.XmlObjectElement):
+
+  def isShown(self):
+    return self.shown._value() == 'true'
+  
+  def show(self):
+    self.shown._set('true')
+
+
+XmlObject.XmlObjectElement_head = Member
+XmlObject.XmlObjectElement_body = Member
+XmlObject.XmlObjectElement_right_arm = Member
+XmlObject.XmlObjectElement_left_arm = Member
+XmlObject.XmlObjectElement_right_leg = Member
+XmlObject.XmlObjectElement_left_leg = Member
+
+# Main
+
+x = XmlObject.XmlObjectDocument()
+x._Parse('hangman.xml')
+hangman = x.hangman
+print hangman._xml.toxml()
+
+while hangman.isInProgress():
+  guess = raw_input('Enter a letter: ')
+  hangman.addGuess(guess[0].upper())
+  print hangman._xml.toxml()
+</programlisting></para>
+            <para>In this first example we have followed the principles of object orientation by defining a class for each element and never short-circuiting intermediary classes by accessing descendant properties directly.</para>
+        </section>
+        <section>
+            <title>XSLT</title>
+            <para>In XSLT on the contrary, we tend to use XPath to access the information wherever it can be found, and can implement the hangman
+                as:<programlisting language="xml"><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  extension-element-prefixes="xs" version="2.0">
+
+  <xsl:strip-space elements="*"/>
+  <xsl:output indent="yes"/>
+
+  <xsl:param name="guess"/>
+
+  <xsl:template match="@*|node()">
+    <xsl:copy>
+      <xsl:apply-templates select="@*|node()"/>
+    </xsl:copy>
+  </xsl:template>
+
+  <xsl:template match="hangman">
+    <xsl:copy>
+      <xsl:variable name="updated-content"
+                    as="element()+">
+        <xsl:apply-templates select="*"/>
+      </xsl:variable>
+      <xsl:attribute name="status">
+        <xsl:choose>
+          <xsl:when test="not($updated-content/
+            self::word/letter[@guessed='false'])">
+            won
+          </xsl:when>
+          <xsl:when test="not($updated-content/
+            self::display/*[@shown='false'])">
+            lost
+          </xsl:when>
+          <xsl:otherwise>
+            in-progress
+          </xsl:otherwise>
+        </xsl:choose>
+      </xsl:attribute>
+      <xsl:attribute name="misses">
+        <xsl:value-of select="@misses"/>
+        <xsl:if test="not(word/letter = $guess)">
+          <xsl:value-of select="$guess"/>
+        </xsl:if>
+      </xsl:attribute>
+      <xsl:copy-of select="$updated-content"/>
+    </xsl:copy>
+  </xsl:template>
+
+  <xsl:template match="letter[.=$guess]/@guessed">
+    <xsl:attribute name="guessed">
+      true
+    </xsl:attribute>
+  </xsl:template>
+
+  <xsl:template match="hangman[
+      not(word/letter = $guess)]/display/*[
+        @shown = 'false'][1]/@shown">
+    <xsl:attribute name="shown">
+      true
+    </xsl:attribute>
+  </xsl:template>
+
+</xsl:stylesheet>
+]]></programlisting></para>
+        </section>
+        <section>
+            <title>XQuery, using transform.xq</title>
+            <para>After this XSLT transformation, it is tempting to use the amazing <link xlink:href="https://github.com/jpcs/transform.xq">transform.xq</link> library presented by John Snelson at <link xlink:href="I won't go into the details ">XML Prague 2012</link>.</para>
+            <para>There are a number of ways to write a transformation with this library, and the most straightforward is to define it as a sequence of
+                rules:<programlisting language="xquery">xquery version "3.0";
+
+import module namespace tfm =
+  "http://snelson.org.uk/functions/transform" at
+  "transform.xq/transform.xq";
+
+declare namespace f =
+  "http://ns.dyomedea.com/functions/";
+
+declare variable $guess := 'G';
+
+declare function f:isAGuess(
+  $node as node(),
+  $guess as xs:string) as xs:boolean {
+    $node/ancestor-or-self::hangman/word/letter =
+      $guess
+};
+
+let $hangman :=
+  &lt;hangman status="in-progress" misses="Z">
+    &lt;word>
+      &lt;letter guessed="true">H&lt;/letter>
+      &lt;letter guessed="true">A&lt;/letter>
+      &lt;letter guessed="true">N&lt;/letter>
+      &lt;letter guessed="false">G&lt;/letter>
+      &lt;letter guessed="true">M&lt;/letter>
+      &lt;letter guessed="true">A&lt;/letter>
+      &lt;letter guessed="true">N&lt;/letter>
+    &lt;/word>
+    &lt;display>
+      &lt;head shown="true"/>
+      &lt;body shown="true"/>
+      &lt;right_arm shown="true"/>
+      &lt;left_arm shown="true"/>
+      &lt;right_leg shown="false"/>
+      &lt;left_leg shown="false"/>
+    &lt;/display>
+  &lt;/hangman>
+
+let $mode := tfm:mode((
+
+(:
+  Default rule: identity template for elements
+:)
+  tfm:rule('*', function($mode, $node) {
+    element {xs:QName(name($node))} {
+      $mode($node/(@*|node()))
+    }
+  }),
+
+(:
+  Default rule: identity template for attributes
+:)
+  tfm:rule('@*', function($mode, $node) {
+    $node
+  }),
+    
+(: Hangman root element :)
+
+  tfm:rule('hangman', function($mode, $node) {
+    let $updated-content := $mode($node/node())
+    return
+    &lt;hangman
+      status="{
+       if (not($updated-content/self::word/
+               letter[@guessed='false'])) 
+         then 'won'
+         else if (not($updated-content/
+                  self::display/*[@shown='false']))
+         then 'lost'
+         else 'in-progress'}"
+      misses = "{concat($node/@misses,
+        if (f:isAGuess($node, $guess)) then ''
+        else $guess)}"
+    > {
+      $updated-content
+    } &lt;/hangman>
+  }),
+
+  (: Guesses :)
+  tfm:rule('letter/@guessed',
+    function($mode, $node) {
+      attribute {xs:QName(name($node))} {
+        if ($node/.. = $guess)
+        then 'true'
+        else $node
+      }
+  }),
+
+
+  (: Display :)
+  tfm:rule('display/*/@shown',
+    function($mode, $node) {
+      attribute {xs:QName(name($node))} {
+        if (not(f:isAGuess($node, $guess)) and
+            not($node/../preceding-sibling::*/
+                @shown = 'false') )
+        then 'true'
+        else $node
+      }
+  }),
+
+  ()
+))
+
+return $mode($hangman, ())</programlisting>
+</para>
+            <para>I won't go into the details, let's just note that the result of <code>tfm:mode()</code> is a function that is then used to perform a transformation and that <code>tfm:rule()</code> is another function which is used to associate patterns (defined as a subset of XSLT 2.0 match patterns) and actions defined as XQuery functions.</para>
+            <note>
+                <para>transform.xq includes its own XSLT match patterns parsers to convert each pattern expressed as strings into a function performing pattern evaluation! </para>
+            </note>
+            <para>The principle of all these binding tools is to bind functions, classes or templates to specific nodes in a document. In the Python library, classes were associated to elements based on element names. In XSLT, templates are bound to nodes through their <code>@match</code> attributes. In XQuery 3.0, we need to find a trick to bind a match pattern, a function or any other property to actions defined as functions.</para>
+            <para>The transform.xq library proposes two different ways to do this association. In this first example, this is done through this <code>tfm:rule</code> function, and we'll see how that works in one of our next examples. The second way is using standard MarkLogic extension functions to perform reflection, and this binding is done using
+                annotations:<programlisting language="xquery"><![CDATA[xquery version "3.0";
+
+import module namespace tfm =
+  "http://snelson.org.uk/functions/transform" at
+  "transform.xq/transform.xq";
+
+declare namespace f =
+  "http://ns.dyomedea.com/functions/";
+
+declare variable $guess := 'G';
+
+declare function f:isAGuess(
+  $node as node(),
+  $guess as xs:string) as xs:boolean {
+  $node/ancestor-or-self::hangman/word/letter =
+    $guess
+};
+
+declare function f:copy(
+  $node as node(),
+  $content as item()*) as node()? {
+  if($node instance of element()) then
+    element {xs:QName(name($node))} { $content }
+  else if ($node instance of attribute()) then
+    attribute {xs:QName(name($node))} { $content }
+  else $node
+};
+
+declare %tfm:rule("default","*",1)
+function f:identity-elt($mode, $node){
+  f:copy($node, $mode($node/(@*|node())))
+};
+
+declare %tfm:rule("default","@*",1)
+function f:identity-att($mode, $node) {
+  $node
+};
+
+declare %tfm:rule("default","hangman",2)
+function f:hangman-elt($mode, $node) {
+  let $updated-content := $mode($node/node())
+  return
+  <hangman
+    status="{
+     if(not($updated-content/self::word/letter
+            [@guessed='false'])) 
+        then 'won'
+       else if(not($updated-content/self::display/*
+            [@shown='false']))
+        then 'lost'
+       else 'in-progress'}"
+        misses =
+          "{concat($node/@misses, if(f:isAGuess(
+             $node, $guess)) then '' else $guess)}"
+  > {
+    $updated-content
+  } </hangman>
+};
+
+declare %tfm:rule("default","letter/@guessed",2)
+function f:guessed-att($mode, $node) {
+  f:copy($node, 
+    if ($node/.. = $guess)
+      then 'true'
+      else $node
+  )
+};
+
+declare %tfm:rule("default","display/*/@shown",2)
+function f:shown-att($mode, $node) {
+  f:copy($node, 
+    if (not(f:isAGuess($node, $guess)) and
+        not($node/../preceding-sibling::*/
+            @shown = 'false') )
+      then 'true'
+      else $node
+  )
+};
+
+
+let $hangman :=
+  <hangman status="in-progress" misses="Z">
+    <word>
+      <letter guessed="true">H</letter>
+      <letter guessed="true">A</letter>
+      <letter guessed="true">N</letter>
+      <letter guessed="false">G</letter>
+      <letter guessed="true">M</letter>
+      <letter guessed="true">A</letter>
+      <letter guessed="true">N</letter>
+    </word>
+    <display>
+      <head shown="true"/>
+      <body shown="true"/>
+      <right_arm shown="true"/>
+      <left_arm shown="true"/>
+      <right_leg shown="false"/>
+      <left_leg shown="false"/>
+    </display>
+  </hangman>
+
+let $mode := tfm:named-mode('default')
+
+return $mode($hangman, ())]]></programlisting></para>
+            <para>We have also taken advantage of this second version to define a <code>f:copy()</code> function which is more or less equivalent to <code>&lt;xsl:copy></code> but otherwise it is equivalent to the previous version. </para>
+        </section>
+        <section>
+            <title>XQuery, simple recursion</title>
+            <para>Transform.xq is really well thought out, and it includes an incredible number of bells and whistles, but it's worth seeing what we can do straight away in XQuery.</para>
+            <para>Before we jump into higher-order functions we can see what we can do with good old recursion, and in fact that's not that
+                bad:<programlisting language="xquery">xquery version "3.0";
+
+declare namespace f =
+  "http://ns.dyomedea.com/functions/";
+
+declare variable $guess := 'G';
+
+declare function f:isAGuess(
+  $node as node(),
+  $guess as xs:string) as xs:boolean {
+  $node/ancestor-or-self::hangman/word/letter =
+    $guess
+};
+
+declare function f:copy(
+  $node as node(),
+  $content as item()*) as node()? {
+  if ($node instance of element()) then
+    element {xs:QName(name($node))} { $content }
+  else if ($node instance of attribute()) then
+    attribute {xs:QName(name($node))} { $content }
+  else $node
+};
+
+
+declare function f:transform(
+  $node as node()) as node()? {
+
+  if ($node/self::hangman) then 
+    let $updated-content := $node/node() ! f:transform(.)
+    return
+    &lt;hangman
+      status="{
+       if (not($updated-content/self::word/
+               letter[@guessed='false'])) 
+         then 'won'
+       else if (not($updated-content/self::display/
+                *[@shown='false']))
+         then 'lost'
+       else 'in-progress'}"
+      misses = "{concat($node/@misses,
+                 if(f:isAGuess($node, $guess)) then
+                   '' else $guess)}"
+    > {
+      $updated-content
+    } &lt;/hangman>
+  else if ($node instance of attribute(guessed)) then
+    f:copy($node, 
+     if ($node/.. = $guess)
+       then 'true'
+       else $node
+    )
+  else if ($node instance of attribute(shown)) then
+    f:copy($node, 
+     if (not(f:isAGuess($node, $guess)) and
+         not($node/../preceding-sibling::*/
+             @shown = 'false') )
+        then 'true'
+      else $node
+    )
+  else if ($node/self::*) then
+    f:copy($node, $node/(@*|node()) !
+           f:transform(.))
+  else $node
+};
+
+let $hangman :=
+  &lt;hangman status="in-progress" misses="Z">
+    &lt;word>
+      &lt;letter guessed="false">H&lt;/letter>
+      &lt;letter guessed="true">A&lt;/letter>
+      &lt;letter guessed="true">N&lt;/letter>
+      &lt;letter guessed="false">G&lt;/letter>
+      &lt;letter guessed="true">M&lt;/letter>
+      &lt;letter guessed="true">A&lt;/letter>
+      &lt;letter guessed="true">N&lt;/letter>
+    &lt;/word>
+    &lt;display>
+      &lt;head shown="true"/>
+      &lt;body shown="true"/>
+      &lt;right_arm shown="true"/>
+      &lt;left_arm shown="true"/>
+      &lt;right_leg shown="false"/>
+      &lt;left_leg shown="false"/>
+    &lt;/display>
+  &lt;/hangman>
+
+return f:transform($hangman)</programlisting></para>
+            <para>This new example is functionally equivalent to what we've done with transform.xq, and I find it surprisingly readable. </para>
+            <para>It could have been made more modular by using function calls for each alternative and we would them have been left with individual functions similar those defined in the second transform.xq implementation called from a central multi level <code>if/then/else</code> block.</para>
+        </section>
+        <section>
+            <title>XQuery using higher-order functions</title>
+            <para>The last exercise will be to implement our own simple transformation mechanism using higher-order functions.</para>
+            <para>Here again we need to associate several items in a simple structure. Maps would have been ideal but they've not made their way into XQuery 3.0. However we can use the same trick as transform.xq does and mimic a map with two fixed keys (k1 and k2):<programlisting language="xquery">xquery version "3.0";
+
+declare namespace f =
+  "http://ns.dyomedea.com/functions/";
+
+declare function f:map-hack(
+  $v1,
+  $v2) as function(*) {
+  function($k as xs:string) {
+    switch($k)
+      case 'k1' return $v1
+      case 'k2' return $v2
+      default return ()
+  }
+};
+
+let $map := f:map-hack('foo', 'bar')
+
+return ($map('k1'), $map('k2'))</programlisting></para>
+            <para>This method will be used to associate match patterns defined as a functions and actions defined as functions as well as rules.</para>
+            <para>Where transform.xq has an elaborated mechanism to derive priority from match pattern selectivity similarly to XSLT, we can adopt a simpler priority system similarly to Schematron where the rules are evaluated in the order in which they appear in a sequence and the evaluation stops after the first matching rule.</para>
+            <para>With these principles, the implementation
+                becomes:<programlisting language="xquery">xquery version "3.0";
+
+declare namespace f =
+  "http://ns.dyomedea.com/functions/";
+
+declare variable $guess := 'W';
+
+declare function f:isAGuess(
+  $node as node(),
+  $guess as xs:string) as xs:boolean {
+  $node/ancestor-or-self::hangman/word/letter =
+    $guess
+};
+
+declare function f:copy(
+  $node as node(),
+  $content as item()*) as node()? {
+  if($node instance of element()) then
+    element {xs:QName(name($node))} { $content }
+  else if($node instance of attribute()) then
+    attribute {xs:QName(name($node))} { $content }
+  else $node
+};
+
+(: borrowed from transform.xq :)
+declare function f:rule(
+  $predicate as (function(node()) as xs:boolean), 
+  $action as
+    (function(node(),
+    function(*)) as node()?)) as function(*)
+{
+  function($k as xs:string) {
+    switch($k)
+      case 'predicate' return $predicate
+      case 'action' return $action
+      default return ()
+  }
+};
+
+(: Some higher-order functions magic :)
+declare function f:transform(
+  $rules as function(*)*) as function(*) {
+  function($node as node(),
+           $transform as function(*)) as node()? {
+    if (head($rules)('predicate')($node))
+      then head($rules)('action')($node,
+                                  $transform)
+    else if (exists(tail($rules)))
+      then f:transform(tail($rules))($node,
+                                     $transform)
+      else ()
+  }
+};
+
+(: The transformation itself :)
+let $t := f:transform((
+  (: hangman element :)
+  f:rule( 
+  function($node as node()) as xs:boolean {
+    boolean($node/self::hangman)
+  }, function(
+        $node as node(),
+        $transform as function(*)) as node() {
+      let $updated-content := $node/node() !
+                   $transform(., $transform)
+      return
+      &lt;hangman
+        status="{
+         if (not($updated-content/self::word/
+                 letter[@guessed='false'])) 
+           then 'won'
+         else if (not($updated-content/
+                  self::display/*[@shown='false']))
+           then 'lost'
+         else 'in-progress'}"
+        misses = "{concat($node/@misses,
+                   if (f:isAGuess($node, $guess))
+                     then '' else $guess)}"
+      > {
+        $updated-content
+      } &lt;/hangman>
+  }), 
+    
+  (: @guessed attributes :)
+  f:rule( 
+  function($node as node()) as xs:boolean {
+    $node instance of attribute(guessed)
+  }, function($node as node(),
+              $transform as function(*)) as node()
+  {
+    f:copy($node, if ($node/.. = $guess)
+           then 'true'
+           else $node)
+  }),
+
+  (: @shown attributes :)
+  f:rule( 
+  function($node as node()) as xs:boolean {
+    $node instance of attribute(shown)
+  }, function($node as node(),
+              $transform as function(*)) as node()
+  {
+    f:copy($node, 
+      if (not(f:isAGuess($node, $guess)) and
+          not($node/../preceding-sibling::*/@shown
+            = 'false')) then
+        'true'
+      else
+        $node)
+  }),
+
+  (: Any other attribute :)
+  f:rule( 
+    function($node as node()) as xs:boolean {
+      $node instance of attribute()
+    },
+    function($node as node(),
+             $transform as function(*)) as node() {
+      f:copy($node, $node)
+    }),
+
+  (: Anything else :)
+  f:rule( 
+  function($node as node()) as xs:boolean {
+    true()
+  },
+  function($node as node(),
+           $transform as function(*)) as node() {
+    f:copy($node, $node/(@*|node()) !
+           $transform(., $transform))
+  })
+))
+
+let $hangman :=
+  &lt;hangman status="in-progress" misses="Z">
+    &lt;word>
+      &lt;letter guessed="true">H&lt;/letter>
+      &lt;letter guessed="true">A&lt;/letter>
+      &lt;letter guessed="true">N&lt;/letter>
+      &lt;letter guessed="false">G&lt;/letter>
+      &lt;letter guessed="true">M&lt;/letter>
+      &lt;letter guessed="true">A&lt;/letter>
+      &lt;letter guessed="true">N&lt;/letter>
+    &lt;/word>
+    &lt;display>
+      &lt;head shown="true"/>
+      &lt;body shown="true"/>
+      &lt;right_arm shown="true"/>
+      &lt;left_arm shown="true"/>
+      &lt;right_leg shown="true"/>
+      &lt;left_leg shown="false"/>
+    &lt;/display>
+&lt;/hangman>
+
+
+return $t($hangman, $t)</programlisting></para>
+        </section>
+        
+    </section>
+    <section>
+        <title>Conclusion</title>
+        <para>Even if, unlike XSLT, XQuery doesn't have any feature to make it natively data-driven you can easily write your own mechanisms to bind data into functions.</para>
+        <para>These mechanisms can be generic such as transform.xq but it is also easy to write you own specialized one to perform specific tasks.</para>
+    </section>
+    <section>
+        <title>Acknowledgments</title>
+        <para>Many thanks to Tony Graham, Patrick Durusau and my three anonymous reviewers for their reviews, comments, questions and suggestions and to John Snelson for his very inspiring transform.xq.</para>
+    </section>
+</article>

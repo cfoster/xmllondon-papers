@@ -1,0 +1,671 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-2" xml:lang="en" version="5.0">
+	<info xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink">
+		<title>Engineering a XML-based Content Hub for Enterprise Publishing
+		</title>
+		<authorgroup>
+			<author>
+				<personname>
+					<firstname>Elias</firstname>
+					<surname>Weingaertner</surname>
+				</personname>
+				<affiliation>
+					<orgname>Haufe Group</orgname>
+					<address>
+						<email>elias.weingaertner@haufe-lexware.com</email>
+					</address>
+				</affiliation>
+			</author>
+			<author>
+				<personname>
+					<firstname>Christoph</firstname>
+					<surname>Ludwig</surname>
+				</personname>
+				<affiliation>
+					<orgname>Haufe Group</orgname>
+					<address>
+						<email>christoph.ludwig@haufe-lexware.com</email>
+					</address>
+				</affiliation>
+			</author>
+		</authorgroup>
+
+
+		<abstract>
+			<title>Abstract</title>
+			<para>
+				Being one of the leading publishing houses in the domains of
+				tax,
+				human resources and law in Germany, delivering large amounts of
+				XML-based content to our customers is a vital part of our business
+				at
+				Haufe Group. We currently make use of several legacy and
+				proprietary
+				systems for this purpose. However, recent business needs
+				such as the
+				requirement for flexible transformation or complex
+				structural
+				queries
+				push these systems to both conceptual and technical
+				limits. Along with new business requirements derived from our
+				company's business strategy, we are currently designing a new
+				service that centrally manages our entire document corpus in XML.
+				We
+				term this service
+				"Content Hub".
+				In this paper, we sketch the
+				architecture of this
+				system, discuss
+				important software architectural
+				challenges and
+				illustrate how we are
+				implementing this system using
+				standard XML
+				technology.
+			</para>
+			<para/>
+		</abstract>
+	</info>
+
+
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-2_sec-introduction">
+		<title>Introduction</title>
+		<para>
+			Fifteen years ago, books, newspapers and magazines still were
+			the most
+			prominent media for the presentation of textual content. In
+			the year
+			of 2014, e-book readers, smartphones, tablet PCs and laptops
+			are
+			commonly observed as the major devices used for delivering
+			information in digital form. This radical shift in how we
+			access, read and retrieve content has turned the requirements and
+			processes at media houses upside down.
+		</para>
+		<para>
+			The delivery of content for business customers
+			in the domains of
+			tax and law
+			has
+			always been one of the core businesses
+			of Haufe Group.
+			Since the
+			1960s, our company has been distributing
+			loose leaf editions.
+			There is to this day a surprising demand for
+			paper-bound
+			editions.
+			Nevertheless, Haufe reacted to the rise of the WWW and entered the market with web-based content products for
+			professional customers in the late 1990s.
+		</para>
+
+
+		<para>For the purpose of publishing digital content the Haufe
+			Group has developed a both comprehensive and sophisticated
+			information ecosystem. We currently operate a set of custom-built
+			systems that cover all steps ranging from content production based on
+			SGML over content transformation to content presentation.
+		</para>
+
+		<para>
+			Even if our systems are stable, there is a core problem with our
+			current information infrastructure: Core services such as search,
+			document storage and retrieval as well as content-based authorization
+			are saturated across the entire system landscape. For example, this
+			results in the need of indexing content at different search engines,
+			in a lot of duplicated content and partially also in limitations with
+			regard to possible sales models. For this reasons, we are currently
+			rethinking the way we store, manage and retrieve content in general.
+			Speaking of the content body, we now provide around 50 millions of
+			hypertext documents to our customers; and this amount is steadily
+			increasing.
+		</para>
+
+		<para>
+			For these reasons, we are currently designing a new core service
+			that
+			centrally manages the entire document body using a NoSQL XML
+			store.
+			In
+			this paper, we first sketch the requirements of
+			this
+			system (Section
+			<xref linkend="paper-2_sec-requirements" xrefstyle="select: labelnumber"/>). In a second step, we briefly describe the future
+			architecture
+			of
+			this system (Section
+			<xref linkend="paper-2_sec-conceptual_architecture" xrefstyle="select: labelnumber"/>) and related technical challenges (Section
+			<xref linkend="paper-2_sec-techchallenges" xrefstyle="select: labelnumber"/>
+			). Possible implementation approaches are sketched in Section <xref linkend="paper-2_sec-impl" xrefstyle="select: labelnumber"/>
+			before we conclude the paper in Section
+			<xref linkend="paper-2_sec-summary" xrefstyle="select: labelnumber"/>.
+
+		</para>
+	</section>
+
+
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-2_sec-requirements">
+		<title>Requirements</title>
+	  <para>
+		The Content Hub will be a core service in Haufe's future application
+		landscape
+		and as such has to meet many stakeholders' requirements, both
+		functional
+		and non-functional.</para>
+
+		<section>
+			<title>Functional Requirements</title>
+
+			<para>The following list can be understood as the set of minimal core
+			  functionalities that need to be implemented by our content hub.</para>
+
+			<itemizedlist>
+				<listitem>
+					<para><emphasis>XML and Blob Storage:</emphasis>
+					We envision the content hub to serve as the central store for
+					all of
+					our content. While we currently rely on SGML as
+					source
+					format for all
+					of our 50 million documents, we are already
+					have a
+					working
+					infrastructure for converting these documents to
+					XML. Due to
+					the
+					higher flexibility of XML with regard to
+					transformation and
+					general
+					tooling, we have decided to establish
+					XML as the base line
+					format for
+					storing our documents in the
+					content hub.
+					Moreover, we are
+					also in the
+					need of storing a large amount of
+					complimentary content
+					(mostly
+					images, but also software artifacts
+					and audio-visual
+					content). For
+					this reason, it is vital for the
+					content hub to be
+					able to handle not
+					only XML files, but also
+					binary content.</para>
+
+				</listitem>
+
+				<listitem>
+					<para><emphasis>Flexible Search Capabilities:</emphasis>
+
+					The most prominent way how our customers access content is by
+					performing various search actions. As a matter of fact, the
+					content
+					hub has to support full-text searches across the entire
+					document
+					corpus. Naturally, this search service needs to support
+					different
+					languages and provide all features
+					common to off-the-shelf search
+					engines
+					like support for facets and indexed
+					meta-data.
+
+					Beyond these
+					common search
+					functionalities, our products
+					also offer
+					domain-specific query
+					constructs. For example, if a
+					customer enters a
+					query that matches a
+					common citation rule, the corresponding
+					document is returned
+					directly if it is available in the datastore.
+					Hence, the search component
+					of the content hub
+					must be able to check
+					if a query matches a
+					certain pattern, and if
+					yes, a specialized query
+					handler must be
+					triggered in order to
+					process the query adequately.</para>
+				</listitem>
+
+				<listitem>
+					<para><emphasis>Semantic Relationships and Inference:</emphasis>
+					Our content is highly structured and we maintain many different
+					types of relationships among our content objects. For example,
+					imagine a law document displayed by a user.
+					This law document may
+					relate to other documents like comments or news articles and even
+					to seminars
+					offered by a affiliated partner company. Documents are
+					also often
+					not stored as a single file, instead they consist of sub
+					documents,
+					and we use relations to glue these documents logically
+					together.
+
+					Hence, it is vital that we can use XML
+					technologies like
+					XPointer, XLink and semantic annotations using
+					RDF to model these
+					semantic relationships in our content.
+					Technology wise, it is vital
+					that the underlying technology will
+					allow us to traverse these
+					semantic networks efficiently. We are
+					also interested in performing
+					inference tasks in a second step.</para>
+				</listitem>
+
+
+				<listitem>
+					<para><emphasis>Staging Support:</emphasis>
+					Many of our internal processes require staging of large amounts of
+					content. One example is publishing a new content product, which may
+					consist of many thousand XML files. We here need staging support to
+					facilitate internal
+					review processes before the publication becomes
+					publicly available. The actual publication must be an atomic
+					operation. If the product's publication fails for some reason half
+					the way through, then it must be rolled back completely.</para>
+				</listitem>
+
+				<listitem>
+					<para><emphasis>Flexible Authorization Concept:</emphasis>
+					The Content Hub must restrict access to its documents based on
+					policies.
+					An obvious policy requires that a direct Haufe customer
+					may only read
+					content that is part of a product subscribed by the
+					customer.
+					This extends to search results as well; a user must only
+					see search
+					results he is allowed to retrieve.
+
+					The policies must also
+					cover end-users authenticated by key
+					account customers or external
+					partners. At the same time, Haufe is
+					not always free to grant access
+					as it sees fit, even for Haufe's own
+					applications. Some content is
+					used within license contracts that
+					impose constraints on its usage.
+					In consequence, the authorization
+					policies
+					must respect usage
+					restrictions for individual documents.</para>
+				</listitem>
+
+			</itemizedlist>
+
+		</section>
+
+		<section>
+		  <title>Non-Functional Requirements</title>
+			<para>
+			Being a core service of our information platform, the content hub
+			needs to fulfill a set of non-functional requirements commonly found
+			for network services
+			<xref linkend="paper-2_1"/>
+			. For example, the system needs to scale
+			horizontally as we expect
+			larger amounts of content to be added
+			dynamically to the system. We
+			also require the system to achieve a
+			high degree of availability.
+			Finally, we require
+			a strong degree of data consistency especially
+			between the
+			search
+			indices and the data store, as we both want to avoid
+			dead
+			content or
+			dead links in search result lists.
+
+			Another important
+			aspect is deployment flexibility. First, we require the
+			future system
+			to be easily deployable in a cloud environment. Second,
+			we aim at a
+			high degree of automation for common tasks such as
+			horizontal scaling
+			and content migration. Finally, we target the
+			implementation of
+			standardized operations interfaces in order to
+			integrate the content
+			hub with standard monitoring and logging tools.</para>
+		</section>
+	</section>
+
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" >
+		<title>Conceptual Architecture</title>
+	  
+	  <figure  xml:id="paper-2_sec-conceptual_architecture">
+	    <title>Conceptual layered architecture of the future content hub.</title>
+	    <mediaobject>
+	      <imageobject>
+	        <imagedata fileref="images/ContentHub.svg" format="svg" width="100%" align="center"/>
+	      </imageobject>
+	    </mediaobject>
+	  </figure>
+	  
+	  
+		<para>
+			Figure
+		  <xref linkend="paper-2_sec-conceptual_architecture" xrefstyle="select: labelnumber"/>
+			shows the future architecture of the content hub. The content hub
+			provides three interfaces to external systems, for example web
+			applications. These interfaces facilitate retrieving, searching and
+			navigating
+			through the document body.
+			<itemizedlist>
+				<listitem>
+					<para>The
+					<emphasis>Content Access Interface </emphasis>
+					implements a standard CMIS interface, allowing convenient access
+					for a variety of both legacy and off-the-shelf content management
+					systems. We also consider amending the Content Access Interface with interfaces secondary to CMIS if our upcoming proof-of-concept prototype should indicate this need.</para>
+				</listitem>
+				<listitem>
+					<para>A
+					<emphasis>
+						SPARQL
+						<xref linkend="paper-2_2"/>
+						-based Interface
+					</emphasis>
+					will be used for all retrieval tasks related with meta data. Recall
+					that our content is highly structured and that relations between
+					content objects play a major role. Using RDF for modeling these
+					semantic relations and employing SPARQL as query language provides
+					us with the possibility to handle our complex document graph.
+					Moreover, we expect SPARQL to be a door opener for future linked
+					data applications.</para>
+				</listitem>
+				<listitem>
+					<para>We are currently in the progress of defining a
+					<emphasis>search interface</emphasis>
+					.
+					Its task is to enable querying the document body using full-text
+					search and faceted search operations; the interface will also
+					enable one to restrict the result set based on policies. At
+					present, we also are discussing how we can include contextual
+					information such as the active product, the location of the user
+					and its language into the information passed to the system as
+					query.
+
+
+					The
+					<emphasis>search interface</emphasis>
+					will be enhanced
+					by a custom
+					<emphasis>query processor</emphasis>
+					.
+					It will support query configurative extension hooks based on the
+					domain conventions of
+					the respective products' target audiences.
+					</para>
+				</listitem>
+
+			</itemizedlist>
+			Similarly, the content hub needs to implement two interface to ingest
+			XML documents from a larger number of sources. Here we need to
+			distinguish between the ingest of single documents and bulk imports
+			that may range up to hundreds of thousands of documents at once.
+		</para>
+		<section>
+			<title>Core Components</title>
+			<para>Internally, the content hub consists of six "sandwich" layers that
+			span across the three core building blocks of the content hub, namely
+			a XML document store, a triple store and a full-text search engine
+			(denoted by the large icons in the diagram). Directly on top of these
+			layers sits a thin
+			<emphasis>Aggregation Layer</emphasis>
+			that serves as a unified facade and combines the search, retrieval
+			and triple-store related functionalities in one place. The upper two
+			layers are of higher complexity:</para>
+
+			<itemizedlist>
+				<listitem>
+					<para>The
+					<emphasis>Transformation Layer</emphasis>
+					converts the XML-based content to a set of intermediate and target formats, for
+					example XHTML, EPub or PDF.
+					Depending on the target format, the
+					transformations could be implemented by means of XSLT, XML-FO, or
+					more specific rendering mechanisms. In this regard we also want to emphasize that the content-hub
+					only performs transformations directly related to the content it stores. Further transformations required for
+					the content delivery will be performed at the content presentation services, for instance by a web content management system
+					connected to the content hub.</para>
+
+				</listitem>
+				<listitem>
+					<para>As mentioned before, restricting the access based on authorization
+					policies is vital for our business. Hence, we envision a
+					central
+					<emphasis>Authorization Layer</emphasis>
+					that is able to control content search and retrieval for every
+					request sent to the system. Within the current phase of system
+					design, XACML 3.0
+					<xref linkend="paper-2_3"/>
+					seems to be a very promising candidate for this
+					task. Regarding the need of <emphasis>authentication</emphasis>, we are currently evaluating the integration of different authentication providers, for example OAuth 2.0.</para>
+				</listitem>
+			</itemizedlist>
+			<para>
+				In an analog way, we perform both authorization operations and
+				content transformations also for incoming content in the
+				<emphasis>Ingest Authorization</emphasis>
+				and in a
+				<emphasis>Ingest Transformation Layer</emphasis>
+				. This layer also performs validations based on XML schema to reject
+				malformed content. In addition, we here also extract meta-data and potentially carry out automated RDF annotations.
+			</para>
+			<para>
+				Finally, a
+				<emphasis>Transaction Management</emphasis>
+				layer ensures the data integrity among the core building blocks.
+				This is especially important for bulk updates, for which we are in
+				the need of performing roll-backs if adding or updating operations
+				fail in between a bulk operation.
+			</para>
+		</section>
+	</section>
+
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-2_sec-impl">
+		<title>Implementation Considerations</title>
+		<para>Having sketched the overall architecture of the system, we are left
+		with three strategies how such a system can be implemented.
+		</para>
+		<orderedlist>
+			<listitem>
+				<para><emphasis>Build everything from scratch:</emphasis>
+				In the past, a lot of infrastructure-heavy systems, for instance a
+				legacy document store, have been built in-house, mostly using Java
+				and Python/Zope technology.</para>
+			</listitem>
+			<listitem>
+				<para><emphasis>Integrate an XML-Database, a triple-store and an
+					open-source search engine such as Elasticsearch:
+				</emphasis>
+						
+				While this solution is certainly viable, a core challenge is
+				maintaining data consistency among these three systems. Especially
+				implementing transactional semantics on a distributed system is
+				challenging, as this requires distributed snapshots to be taken for
+				the purpose of enabling conditional roll-backs.</para>
+			</listitem>
+
+			<listitem xml:id="paper-2_item-xml-datastore">
+				<para><emphasis>Use a enterprise NoSQL datastore with XML-capabilities:</emphasis>
+				In order to circumvent consistency issues, an alternative approach
+				is to rely on a NoSQL datastore that is able to handle large amounts
+				of XML documents.</para>
+			</listitem>
+		</orderedlist>
+
+		<para>
+			After sketching prototypes for each of the three options, we found
+			option
+			<xref linkend="paper-2_item-xml-datastore" xrefstyle="select: labelnumber"/>
+			to be the most appealing strategy. First, we can save tremendous
+			development efforts, as we do not have to implement a lot of
+			data-management functionalities. Second, we believe that
+			off-the-shelf-solutions like MarkLogic Server
+			<xref linkend="paper-2_4"/>
+			- which is our present
+			No.1 candidate for the implementation - are
+			much more stable than any
+			home-brew implementation will ever be able
+			to. We here favour such enterprise solutions over open source XML stores due to the better availability of specialized consulting services.		
+			Thirdly, certain business requirements demand the content hub to
+			execute in a cloud environment. Modern NoSQL stores such as MarkLogic
+			already are well prepared for such deployments. 	
+		</para>
+	</section>
+
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-2_sec-techchallenges">
+		<title>Further Technical Challenges</title>
+		<para>
+			There are different technical challenges that are very decisive
+			success criteria for such a system. First, we need to integrate
+			<emphasis>external systems</emphasis>
+			such as authentication providers and in-house systems for license
+			management. We are currently investigating if we can achieve this
+			using XQuery and REST calls or if we need to rely on the Java API of
+			MarkLogic to carry out these tasks.
+		</para>
+
+		<para>
+			Second, there is
+			<emphasis>performance</emphasis>
+			. As indicated earlier, we envision the content hub to serve several
+			hundreds to a couple of thousands requests a second. Hence, we need
+			to consider different strategies for operating the content hub in a
+			cluster in order to ensure availability of the service even under
+			high-load or in the case of node failure. In addition, we currently
+			develop caching strategies to be implemented at different layers in
+			the system.
+		</para>
+		<para>
+			The third crucial aspect is the
+			<emphasis>data model</emphasis>
+			used to store our content, as the data model directly influences the
+			performance of any database technology. We are currently in a
+			requirements engineering phase in order to further clarify business
+			demands; we will use the outcome to revise the first draft of our
+			data model that we have developed over the past months.
+		</para>
+	</section>
+
+	<section xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-2_sec-summary">
+		<title>Summary and Outlook</title>
+		<para>
+			We have sketched a preliminary architecture for a content hub
+			that is presently
+			designed to serve as the central repository for XML
+			and Blob
+			content
+			at Haufe
+			Group. We here envision a combination of a NoSQL XML store, on-the-fly content transformation, enterprise search capabilities and a triple store to form a more flexible backbone for digital publishing that also opens up new business opportunities.
+						
+					
+			Within the next months, we will develop
+			a
+			proof-of-concept
+			implementation to further investigate the concept.
+			We look forward to
+			discussing our present and upcoming ideas and
+			questions with the
+			audience at the conference.
+		</para>
+	</section>
+
+  <bibliography xmlns:xl="http://www.w3.org/1999/xlink" xmlns:xi="http://www.w3.org/2001/XInclude">
+		<title>References</title>
+
+			<biblioentry xml:id="paper-2_1" xreflabel="[1]">
+				<abbrev>1</abbrev>
+				<authorgroup>
+					<author>
+						<personname>
+							<firstname>Andrew</firstname>
+							<othername>S.</othername>
+							<surname>Tanenbaum</surname>
+						</personname>
+					</author>
+					<author>
+						<personname>
+							<firstname>Maarten</firstname>
+							<surname>Van Steen</surname>
+						</personname>
+					</author>
+				</authorgroup>
+				<title>Distributed Systems: Principles and Paradigms</title>
+				<edition>1st Edition</edition>
+				<publisher>
+				  <publishername>Prentice Hall,</publishername>
+				</publisher>
+				<pubdate>2001</pubdate>
+			</biblioentry>
+
+
+			<biblioentry xml:id="paper-2_2" xreflabel="[2]">
+				<abbrev>2</abbrev>
+				<author>
+					<orgname>W3C SPARQL Working Group</orgname>
+				</author>
+				<title>SPARQL 1.1 Overview</title>
+				<pubdate>March 2013</pubdate>
+				<releaseinfo>
+					Online Resource:
+				  <link xl:href="http://www.w3.org/TR/sparql11-overview/"/>
+					(accessed 03/2014))
+				</releaseinfo>
+			</biblioentry>
+
+			<biblioentry xml:id="paper-2_3" xreflabel="[3]">
+				<abbrev>3</abbrev>
+				<author>
+					<orgname>OASIS</orgname>
+				</author>
+				<title>eXtensible Access Control Markup Language (XACML) Version 3.0
+				</title>
+				<pubdate>January 2013</pubdate>
+				<releaseinfo>
+					Online Resource:
+				  <link xl:href="http://docs.oasis-open.org/xacml/3.0/xacml-3.0-core-spec-os-en.html"/>
+					(accessed 03/2014))
+				</releaseinfo>
+			</biblioentry>
+
+			<biblioentry xml:id="paper-2_4" xreflabel="[4]">
+				<abbrev>4</abbrev>
+				<author>
+					<personname>
+						<firstname>
+							Jason
+						</firstname>
+						<surname>
+							Hunter
+						</surname>
+					</personname>
+				</author>
+				<title>Inside MarkLogic Server</title>
+				<publisher>
+					<publishername>MarkLogic Corporation</publishername>
+				</publisher>
+				<pubdate> 2013</pubdate>
+			</biblioentry>
+
+  </bibliography>
+
+</article>

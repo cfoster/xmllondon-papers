@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-5" version="5.0" xml:lang="en">
+<info xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Using Abstract Content Model and Wikis to link Semantic Web, XML, HTML, JSON and CSV</title>
+    <subtitle>Using Semantic Media Wiki as a mechanism for storing format neutral content model</subtitle>
+    <author>
+      <personname>
+        <firstname>Lech</firstname>
+        <surname>Rzedzicki</surname>        
+      </personname>
+      <email>lech@kode1100.com</email>
+      <uri>http://kode1100.com</uri>
+      <personblurb>
+        <para>Lech is an experienced XML consultant and a big fan of Semantic Technologies. Lech
+          also cares about Open Data, Open Web, issues around copyright, personal data and related
+          areas and is vigorously trying to solve some problems in these areas with Technology
+          Strategy Board, the UK Innovation agency.  See Lech on
+            <uri>http://linkedin.com/in/lechrzedzicki</uri> and
+          <uri>http://twitter.com/xchaotic</uri> or at the local public house.</para>
+      </personblurb>
+    </author>
+    <keywordset>
+      <keyword>XML</keyword>
+      <keyword>HTML</keyword>
+      <keyword>RDF</keyword>
+      <keyword>JSON</keyword>
+      <keyword>CSV</keyword>
+      <keyword>SPARQL</keyword>
+      <keyword>Semantic Web</keyword>
+      <keyword>Publishing</keyword>
+      <keyword>Big Data</keyword>
+      <keyword>Linked Data</keyword>
+      <keyword>CHWDP</keyword>
+    </keywordset>
+  </info>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Introduction</title>
+    <para>2013 has been hyped as the year of Big Data <xref linkend="paper-5_big-data-big-hype"/>, 2014 is still about projects dealing with
+      deluge of data and this trend is going to continue as organisations produce and retain exponentially growing amounts of data,
+      outpacing their capability to utilise the data and gain insight from it.</para>
+    <para>One method of dealing with the data flood is modeling the data - applying rules to ensure
+      it is consistent and predictable where possible, and flexible everywhere else, providing
+      definitions, examples, alternatives and connecting related structures.</para>
+    <para>On one hand of the modeling spectrum is the traditional relational data modeling with conceptual,
+      logical and physical models and levels of normalization. Such a strict approach is definitely working
+      well in some environments, but not in publishing where requirements are in constant flux and
+      are rarely well defined.</para>
+    <para>On the other hand of the spectrum is the 'NOSQL'<footnote>
+            <para>NoSQL - In Wikipedia. <link xl:href="http://en.wikipedia.org/wiki/NoSQL"/></para>
+          </footnote> movement where data is literally dumped
+      to storage as is and any data validation and modelling is kept in the application layer
+      therefore needs software developers to maintain. At the moment NOSQL developers are a scarce
+      minority amongst established publishers and a rare and expensive resource in general.</para>
+    <para>To balance these needs and problems, at Kode1100 Ltd<footnote>
+            <para>kode1100.com - <link xl:href="http://www.kode1100.com"/></para>
+          </footnote> we have designed and developed a
+      modeling system, which to a large extent is resilient to changes in developer fashion and
+      taste and can be maintained by technically savvy and otherwise intelligent folks who do not
+      have to be full time programmers.</para>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+  <title>Background</title>
+    
+    <para>To understand better the problems Abstract Content Model is trying to solve we need to
+      learn a little bit more about developer preferences and publishing industry.</para>
+    
+    <para>I have found XML and XML validation languages like W3C (XSD) Schema, RelaxNG and
+      Schematron to be excellent, flexible and powerful tools to express the rules about the
+      data.</para>
+    <para>The fact that these technologies are international standards and have great community
+      support means that it is easier to convince large organisations like Pearson or OHIM to invest
+      time and money in such technology.</para>
+    <para>However, the developer world is  much bigger and more fragmented that it was when
+      standards like W3C Schema were formulated. </para>
+    <para>It is no longer reasonable to expect that everyone will go through the learning curve and
+      adopt XML tools and techniques in their ecosystem.</para>
+    <para>Developers prefer to use software tools, libraries and techniques that they are familiar
+      with, the ones they use anyway, everyday and they will apply the same principles to encoding
+      data. Web Developers use JSON. Excel power users prefer CSV and .NET macros. Attendees of XML
+      London hopefully still prefer XML.</para>
+    <para>Building a system that would cater to the needs of the above, existing and future groups was one of the core goals.</para>
+    <para>I will use Pearson use case to illustrate some of the concepts and techniques, but the same
+      principles can be potentially applied to storing and interacting with a  model of any
+      structured or semi-structured data, especially if it is representable as XML.</para>
+  
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Technology Choices</title>
+    <para>Being an XML consultant I had a natural bias to use XML Technologies to develop the model,
+      but as I explained in the background section one of the main goals for the Abstract Content
+      Model is the ability to serve the needs of a variety of audiences.</para>
+    <para>My years of experience have taught that me that an open, widely adopted standard is the
+      only sane choice for a long running project and fortunately the clients tend to agree.</para>
+    <para/>
+    <para>We decided that RDF is the right format for the canonical version of the model: it is
+      flexible enough to represent all the concepts but also an open standard that is adopted widely
+      enough, but we needed input and output that is easier to work with than raw RDF-XML. The
+      Semantic Web stack of technologies: RDF, SPARQL, RDFS, OWL etc  are excellent tools for
+      modeling and queries but have a pretty steep learning curve and face the problem of not being
+      adopted widely enough. Some of the contributors to content model were expected not to have a
+      background in software programming so we needed a layer of input and output that was easier to
+      work with.</para>
+    <para>Therefore we also decided to use wiki software as a way to present and even edit the
+      content model in a user friendly fashion as well as to document how the system works. Our
+      initial user testing confirmed that editing wiki pages, especially with predefined forms was
+      within capability of  the user base.</para>
+    <para>We did a review of the available software and given that ability to export to RDF was a
+      requirement,  we had one obvious choice: Semantic Media Wiki.</para>
+    <para> MediaWiki is the open source software behind Wikipedia. It is therefore maintained by
+      Wikimedia foundation and a wide community of open-source developers. </para>
+    <para>Semantic Media Wiki is a set of Extensions to Media Wiki to give it specific semantic
+      capabilities to describe linked data- forms, infoboxes, RDF Export etc. It has a smaller but
+      likewise responsive community. Semantic MediaWiki still has many unresolved bugs, very often
+      around parsing strings, escaping characters and so on, but because it is written in PHP and
+      open-source, a lot of developers can understand the code and contribute to improving the
+      software. At least hypothetically.</para>
+    <para>With that setup (and a lot of customisation) we were able to export the whole wiki as RDF.
+      It is certainly possible to just download the whole dump and parse that RDF file, but it is
+      definitely not a scalable solution. In my previous project at OHIM, the size of the RDF dump
+      exceeded 300MB in size.</para>
+    <para>We have therefore set up a Triple Store and a SPARQL endpoint. We first tried Jena and
+      have found no fault with it- we haven't done any throughout testing of SPARQL endpoints side
+      by side.</para>
+    <para>To compliment the setup and keep the stack fully Open Source, we are hosting it on Linux
+      virtual machines (currently running Ubuntu 14) and using Apache HTTP server for complimentary
+      functions.</para>
+    <para>The virtual machines are hosted at DigitalOcean and Rackspace, but because the deployment
+      process is automated, it can be moved to another cloud provider such as Amazon, if  they
+      become cheaper or more cost effective. </para>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Technical Description</title>
+    <para>The core concept of the Abstract Content Model is to abstract the canonical form of the
+      content model, so that it is separated from any implementation. This allows the content to be
+      neutral to the technology used in a actual production system that uses the model.</para>
+    <para>The content model is defined as an abstract graph of connected concepts and definitions
+      which in turn have properties that can be abstract or more specific to a
+      representation.</para>
+    <para>This maps really well to an RDF graph, but by adhering to conventions that graph can be
+      simplified to a tree and then the whole model can then also be represented using hierarchical
+      formats such as JSON or XML.</para>
+    <para>The implementation is also pretty simple (at least to an XML audience): the canonical form
+      of the model is stored as RDF-XML and there are conversion pipelines to convert to the
+      preferred representation format such as XML, JSON or CSV.</para>
+    <para>Because we have used Semantic MediaWiki as the software to interface with the content
+      model and because XML is, at least for now, the most used input and output format, we have
+      decided to optimise the content model for that.</para>
+    <para>Since XSD representation of the content model was a big requirement anyway and used
+      extensively in the initial modelling, we decided to constrain Semantic MediaWiki content model
+      to effectively mirror an XSD design pattern. I strongly recommend reading a bit more or
+      refreshing your memory on XSD Design Patterns.</para>
+    <para>Initially we agreed on Venetian blinds pattern. It mapped really well to Object-like
+      representations like JSON, it could potentially lead to being able to generate Object oriented
+      code classes straight from the content model and it allowed to reuse the types. But in the end
+      it was an abstraction on top of Semantic MediaWiki abstraction of a content model, which was
+      to complicated and it also meant that the resulting RDF representation and therefore also
+      SPARQL queries were unnecessarily complicated.</para>
+    <para>Our next and current approach is Garden of Eden and it is really simple. Every concept in
+      the abstract content model maps to single page on the Semantic MediaWiki (and therefore it has
+      it's own URI which is really useful for RDF) and is represented as a single element in XML
+      Schema and XML instances.</para>
+    <para>The choice of Schema Design Pattern is merely a convention and was based on non-wiki
+      related requirements, it may be more suitable for another similar project to adopt a different
+      pattern to suit the requirements and such is the case with OHIM TM-XML and DS-XML which use
+      Venetian Blinds patterns.</para>
+    <para>Semantic MediaWiki has implemented the concept of namespaces which is really useful to
+      separate content model pages that are processed programatically from templates, forms,
+      auxiliary pages and just plain wiki pages that just serve as navigation or documentation.
+      These namespaces, at least for now map 1:1 to namespaces in XML and RDF
+      representations.</para>
+    <para>Another layer of separation is the Semantic MediaWiki concept of categories. All pages
+      that map to XML Elements are in a Category:Elements. This makes Semantic MediaWiki Ask and
+      SPARQL queries really easy and again makes RDF, XSD and JSON clean and easy to query or
+      parse.</para>
+    <para>In addition to that setup we have developed a set of Xproc pipelines to output  to some
+      popular and useful formats. The ones we developed initially were XML Sample, XSD, JSON, raw
+      HTML, and HTML+RDFa. </para>
+    <para>The pipelines are written as a combination of SPARQL queries to grab a relevant subset of
+      RDF (in RDF-XML representation) and then an XSL stylesheet to convert from RDF-XML to target
+      format.</para>
+    <para>If the existing formats do not match the requirements, there is also a possibility for a
+      system or a developer to work directly with the RDF.</para>
+    <para>For that we have set up automation to export RDF and load it to a triple store and expose
+      a SPARQL endpoint. As discussed in the technology choices section, the triple store is Jena,
+      which in addition to raw SPARQL endpoint offers a web form queries and, optionally a Linked
+      Data API layer, to automatically offer RDF conversion to JSON, CSV and XML.</para>
+    <para/>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Content Modeling and everyday use</title>
+    <para>After installing and configuring the software, developing the required customisations we
+      were finally ready for some actual content modeling- developing a semi-formal description of
+      the content requirements in a form that can be used by both people and computers. A simple
+      example of such rule could: "any printed book must have 1 title and optionally have 1
+      subtitle". </para>
+    <section>
+      <title>Modeling in XSD and importing</title>
+      <para>Initially we had an empty content model and a lot of rules and content types to
+        describe. It turned out that a lot of these rules could be expressed as W3C Schema
+        constraints, so we started the modelling by:<orderedlist>
+          <listitem>
+            <para>Creating an XML sample- usually from an exiting product</para>
+          </listitem>
+          <listitem>
+            <para>generating XSD from that (using OxygenXML) and refining that XSD manually</para>
+          </listitem>
+          <listitem>
+            <para>Importing the XSD and XML into the wiki using a bespoke XSL script to convert
+              XML/XSD into wiki markup (for example the name of the root element would be the name
+              of the wiki page)</para>
+          </listitem>
+          <listitem>
+            <para>The import process triggers the regeneration of the RDF dump and that RDF is
+              exported to the triple store.</para>
+          </listitem>
+        </orderedlist></para>
+      <para>This process was a tradeoff as it didn't allow to model rules that can't be expressed in
+        XSD 1.0 (for example maximum character count), but it allowed us to populate the wiki
+        quickly with test data to develop and test features and even other systems and
+        applications.</para>
+      <para>To automate the process, we have developed Xproc to combine the above steps into a
+        single, configurable and executable pipeline.</para>
+      <para>The pipeline is launched from a PHP upload page, so that user can specify files using a
+        simple form rather than having to use the command line.</para>
+    </section>
+    <section>
+      <title>Modeling in the wiki</title>
+      <para>After the initial modeling, we focused to be able to do some basic modeling tasks on the
+        wiki itself- this better reflected the typical scenarios with content model. After the
+        initial development, usually only minor adjustments are needed or there is a need to develop
+        to a variant of the content model based on an existing content model. For that we developed
+        the following ways of editing the content model:<simplelist>
+          <member>Creating a new element page (mapping to an XML element) with a form</member>
+          <member>Editing an existing element/page with that same form</member>
+          <member>A working proof of concept of a full-blown XForms based XSD editor running in a
+            browser, inside the wiki. The editor has the capability of constructing arbitrary XML
+            tree using current element/page as root. Upon saving, that is transformed back into wiki
+            pages and subsequently into RDF using the same pipelines used for importing
+            XSD/XML.</member>
+        </simplelist></para>
+      <para>To sum up the modeling part, while there was a considerable amount of effort to set up
+        the software stack, the core activity of content modeling is pretty trivial and using the
+        wiki, does not even expose the user to XML or RDF per se- all the modelling activity can be
+        done using a few buttons in the wiki.</para>
+      <para>This in no way prevents the model from being factually incorrect, but it does remove the
+        technical barriers to keeping the model up to date and reduces the amount of time to respond
+        to changing business requirements.</para>
+    </section>
+    <section>
+      <title>Exporting to other formats</title>
+      <para>Other than modeling and documentation, one of the main goals for the project was to use
+        it as a canonical source from which outputs and software is generated. To enable that, every
+        element/page has the ability to export to all supported formats (XML Sample, XSD, JSON, raw
+        HTML, and HTML+RDFa).</para>
+      <para>Some examples of where it is useful: export to HTML to populate the website (just add
+        CSS), export to JSON, for JavaScript-based application (js will then use the JSON files as
+        it's data model)</para>
+    </section>
+    <section>
+      <title>Generating apps directly from the model</title>
+      <para>One of the more exciting features of the content model is the ability to generate custom
+        editing experiences based on the content type in the model.</para>
+      <para>There is sufficient amount of information in the model to be able to generate a
+        data-driven editor with the usability appropriate for a given content type.</para>
+      <para>For example at book or chapter level, we can generate a content planner, which is not very
+        good for writing whole books, but gives a very good high level overview of a book and makes it
+        easy to plan it. On the other end you have editor for individual sections where a form based
+        editor may be more appropriate.</para>
+      <para>To prove the idea in practice we have developed exactly that: a high level content planner
+        tool and a low level activity editing tool.</para>
+      <para>The activity tool is using Xforms, specifically Betterforms.</para>
+      <para>
+        <orderedlist>
+          <listitem>
+            <para>Upon launching, the editor launcher interrogates the parameter to see if an editor
+              for that element already exists.</para>
+          </listitem>
+          <listitem>
+            <para>If the editor for the element does not yet exist, the launcher will redirect to
+              editor generator.</para>
+          </listitem>
+          <listitem>
+            <para>The generator queries the SPARQL endpoint for XSD for a given element and generates
+              XForm from that.</para>
+          </listitem>
+          <listitem>
+            <para>The Xform can be tweaked manually for better UX. On subsequent run the Xform will
+              not be overwritten as per step 2.</para>
+          </listitem>
+          <listitem>
+            <para>Finally the editor launches, using XForm to specify behavior and opens the XML file
+              provided as a parameter.</para>
+          </listitem>
+          <listitem>
+            <para>The editor saves locally to existDB. eXistDB REST API is used to interface with 3rd
+              party systems and other editors.</para>
+          </listitem>
+        </orderedlist>
+      </para>
+      <para>Being able to generate a customised editing experience by dynamically querying the
+        content model is a very novel approach, but looking at the pace of change on the Internet is
+        proving very useful. </para>
+      <para>An example of that is the need to migrate from Adobe Flash based applications to HTML5.
+        Had the model been stored alongside with the Flash application, it would have to be retired
+        or done from scratch or migrated somehow (this requiring someone with knowledge of both
+        Flash and HTML5). With the Abstract Content Model approach, both the Flash and HTML5 are
+        generated from the neutral and abstract content model. Because both app models are generated
+        from the same RDF source, it is much easier to specify the migration patterns. In addition
+        the people developing the HTML5 based apps do not need to know about Flash or even XML and
+        RDF. The most likely route for a Web Developer to interface with the Abstract Content Model
+        is via HTML and JSON outputs.</para>
+      <para>Such setup is also allowing to apply the (good) practices of agile development to
+        content modeling and make the content modeling an internal part of agile software
+        development sprints. Content model can be dynamically updated and respond quickly to
+        changing requirements.</para>
+      
+    </section>
+
+  </section>
+  
+  
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Conclusion</title>
+    <para>To conclude, the software development world is one of perpetual change. We mustn't oppose
+      the change, it is inevitable and we should embrace and prepare for it.</para>
+    <para>By abstracting the content model and using Semantic MediaWiki as a mechanism to store it
+      and produce multiple, often unforeseen representations, we future proof and make more valuable
+      the work that has gone in the development of the content model, its documentation, samples and
+      systems around it.</para>
+    <para>If you are tasked with content modeling in any capacity, which in 2014 and beyond should
+      be a growingly popular, sought after and profitable activity, I strongly recommend that you
+      abstract you content modeling effort and use Semantic Media Wiki or a similar solution to be
+      able to produce multiple representations of the content model, both now and in the
+      future.</para>
+    
+    <para>Huge thanks and credits go to: <person><personname>Dr. Alex Greig Muir</personname></person> who was essential in developing this functionality on behalf of Kode1100 Ltd and team of <person><personname>Vincente Aguilar</personname></person>, <person><personname>Tomas Gradin</personname></person> and <person><personname>Albert Hervas Pi</personname></person> who developed a lot of custom functionality for the OHIM project.</para>
+      <variablelist>
+        <varlistentry>
+          <term>Dr. Alex Greig Muir</term>
+          <listitem><para>Alex was essential in developing this functionality on behalf of Kode1100 Ltd and wrote a lot
+            of the code required to make this work.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Vincente Aguilar, Tomas Gradin and Albert Hervas Pi</term>
+          <listitem><para>These brave men, along with yours truly, in spite of bureaucracy and distractingly good weather and food developed a lot of custom functionality for the OHIM project, which served as a great learning exercise for subsequent abstract content modeling projects.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>(Semantic) MediaWiki developer community</term>
+          <listitem><para>Likewise big thanks go to the broader Media Wiki and Semantic Media Wiki community for their ongoing contributions to the open source project.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>XML Community</term>
+          <listitem><para>Last but not least huge tanks go to the XML community which made all this possible. As many of you know, I have been a vigorous attendee of many XML events. I came for the technology and stayed for the community!</para></listitem>
+        </varlistentry>
+      </variablelist>
+    <!--<para>You should finish your article with references. You can easily
+        cite references from you article using <tag>citation</tag> element,
+        like <citation>RNCTUT</citation>.</para>-->
+      
+  </section>
+
+  <bibliography xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Bibliography</title>
+    <biblioentry xml:id="paper-5_big-data-big-hype" xreflabel="[1]">
+      <abbrev>1</abbrev>
+      <title>Big Data: Big Hype?</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Mark</firstname>
+            <surname>Barrenechea</surname>            
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>Forbes</publishername>
+      <biblioid class="uri">http://www.forbes.com/sites/ciocentral/2013/02/04/big-data-big-hype/</biblioid>
+    </biblioentry>
+  </bibliography>
+
+<!--
+  <section>
+    <title>Bibliography</title>
+    <annotation annotates="1"><para><uri>forbes.com</uri></para></annotation> 
+    <annotation annotates="2"><para><uri>wsj.com</uri></para></annotation>
+    <annotation annotates="3"><para><uri>noSQL</uri></para></annotation>
+    <annotation annotates="4"><para><uri>kode1100.com</uri></para></annotation>
+  </section>
+-->
+  
+
+</article>

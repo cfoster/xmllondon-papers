@@ -1,0 +1,753 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-3" version="5.0"
+  xml:lang="en">
+  <info xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <title>Using XForms to Create, Publish, and Manage Linked Open Data</title>
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Ethan</firstname>
+          <surname>Gruber</surname>
+        </personname>
+        <email>gruber@numismatics.org</email>
+        <address>
+					<link xlink:href="http://orcid.org/0000-0002-4691-9747"/>
+				</address>
+        <affiliation>
+          <jobtitle>Director of Data Science</jobtitle>
+          <orgname>American Numismatic Society</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+    <keywordset>
+      <keyword>Semantic Web</keyword>
+      <keyword>XForms</keyword>
+      <keyword>Numismatics</keyword>
+    </keywordset>
+    <abstract>
+      <para>This paper details the numismatic thesaurus, Nomisma.org, and its
+        associated front-end and back-end features. The application's
+        architecture is grounded in XML technologies and SPARQL, with XForms
+        underpinning the creation, editing, and publication of RDF. Its public
+        user interface is driven by the XML Pipeline Language in Orbeon,
+        enabling transformation of RDF/XML and SPARQL XML responses into a wide
+        array of alternative serializations, driving geographic visualizations
+        and quantitative analyses in other digital numismatic projects.</para>
+    </abstract>
+  </info>
+
+  <!-- body -->
+  <section xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xml:id="paper-3_intro">
+    <title>Introduction</title>
+    <para><link xlink:href="http://nomisma.org">Nomisma.org</link> is a
+      collaborative project to define the intellectual concepts of numismatics
+      following the principles of Linked Open Data: URIs for each concept with
+      machine-readable serializations (RDF/XML, Turtle, JSON-LD, etc.)
+      conforming to a variety of relevant ontologies (like SKOS: the Simple
+      Knowledge Organization System) <xref linkend="paper-3_SKOS"/>. What began
+      as a prototype created in 2010 by Sebastian Heath and Andrew Meadows (then
+      of New York University and the American Numismatic Society, respectively)
+      to demonstrate the potential of applying semantic web technologies to
+      numismatic research has evolved into the standard thesaurus for the
+      discipline, driven by a scientific committee of scholars and information
+      technologists, and adopted by a growing number of cultural heritage
+      institutions. These Nomisma-defined concepts, and the software
+      architecture built upon them, are the backbone for projects such as <link
+        xlink:href="http://numismatics.org/crro">Coinage of the Roman Republic
+        Online</link> (CRRO) and <link xlink:href="http://numismatics.org/ocre"
+        >Online Coins of the Roman Empire</link> (OCRE), which seek to define
+      all typologies of the Roman Republic and Empire, facilitating the
+      aggregation of coins from museum and archaeological databases that are
+      related to these typologies.</para>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xml:id="paper-3_nomisma">
+    <title>Numismatic Concepts as Linked Open Data: A Brief Introduction</title>
+    <para>Numismatics as a discipline emerged during the Medieval period and
+      gradually became more scientific over the centuries. By the late 18th
+      century, the classification methodology had evolved into system still used
+      today <xref linkend="paper-3_GRUBER"/>. Coins have historically been
+      categorized by a variety of individual attributes: the manufacture
+      process, material, monetary denomination, production place (or mint),
+      date, entities responsible for issuing the coin (whether individual rulers
+      or corporate organizations), and the iconography and inscriptions (or
+      “legend” in numismatic terminology) on the front and back (obverse and
+      reverse) of the coin. The combination of each of these individual
+      attributes comprised a coin “type,” and types were often uniquely
+      numbered, thematically organized, and published in volumes of printed
+      books. For example, Roman Republican coins have been published in numerous
+      volumes over the last century, but the standard reference work for the
+      period remains Michael Crawford's 1974 publication, Roman Republican
+      Coinage (RRC). Collections of Republican coins therefore refer to standard
+      type numbers from RRC, e. g., 244/1, a silver denarius minted in Rome in
+      134 B.C. These numbers were once printed in collection inventories or
+      cards associated with each coin, but are now inserted into bibliographic
+      fields in museum databases.</para>
+    <para>These databases, however, are authored in the native language of the
+      collection. The Roman emperor, Augustus, is the same entity as Auguste in
+      French or アウグストゥス in Japanese. In order to perform large-scale analyses of
+      related coins across many different databases, each with its own
+      terminology, the discipline needed to rethink authority control, and so
+      the Linked Open Data approach to taxonomies was adopted. Augustus could be
+      represented by a URI, <link xlink:href="http://nomisma.org/id/augustus"
+        >http://nomisma.org/id/augustus</link> (with a CURIE of nm:augustus),
+      defined as a foaf:Person in the Friend of a Friend ontology <xref
+        linkend="paper-3_FOAF"/>. This URI serves both as a unique,
+      language-agnostic identifier for the entity, but also a web page where
+      both human- and machine-readable information can be extracted. Below we
+      discuss the RDF data models that comprise the Nomisma information system,
+      organized into three broad divisions: concepts in the Nomisma.org
+      thesaurus, coin types published in OCRE, CRRO, and other projects, and the
+      model that defines physical coins.</para>
+
+    <section xml:id="paper-3_data_models">
+      <title>The Data Models</title>
+      <section xml:id="paper-3_thesaurus">
+        <title>Thesaurus</title>
+        <para>We implement a variety of data models for different types of data
+          objects, mixing and matching classes and properties from numerous
+          ontologies. The SKOS ontology was implemented for modeling the
+          intellectual concepts of numismatics, which include not only the
+          rulers responsible for issuing coinage, but each of the aforementioned
+          categories: manufacture method, material, mint, denomination, field of
+          numismatics (broad cultural areas, like Greek or Roman), and many
+          others. Many of these categories are specific to the discipline, and
+          are therefore defined by classes in a numismatic ontology (<link
+            xlink:href="http://nomisma.org/ontology#"
+            >http://nomisma.org/ontology#</link>, prefix: nmo) developed and
+          published by the Nomisma.org scientific committee.</para>
+        <para>Other more generalizable types of data objects are bound to
+          classes from other common ontologies. People and organizations carry
+          foaf:Person and foaf:Organization classes, respectively, historical
+          periods are defined by CIDOC-CRM, a conceptual reference model from
+          the cultural heritage domain <xref linkend="paper-3_CRM"/>, the W3C
+          Org ontology <xref linkend="paper-3_ORG"/> has been implemented for
+          defining the role a person plays with respect to the issuing of
+          coinage (e.g., Roman emperor, king, or magistrates of various
+          titles).</para>
+        <para>With respect to RDF properties, preferred labels and definitions
+          may be inserted in as many languages as necessary to facilitate
+          multilingual interfaces, and concepts may be linked hierarchically via
+          skos:broader. And, importantly, Nomisma uses SKOS properties like
+          exactMatch to link to identical concepts in other linked data systems
+          (such as <link xlink:href="http://www.geonames.org">Geonames</link>,
+          OCLC's <link xlink:href="http://viaf.org">Virtual International
+            Authority File</link> (VIAF), <link
+            xlink:href="https://www.wikidata.org/">Wikidata</link>, and the
+            <link xlink:href="http://vocab.getty.edu">Getty
+          vocabularies</link>), which enable the integration of coins into a
+          wider array of cultural heritage projects, such as Pelagios Commons.
+          While typical SKOS properties are implemented within instances within
+          Nomisma, properties from other ontologies are implemented
+          conditionally upon the class of object. Mints and regions may bear
+          coordinates from the W3C basic geo (WGS84) vocabulary <xref
+            linkend="paper-3_WGS84"/> or from the UK's Ordnance Survey ontology
+          in the form as geoJSON <xref linkend="paper-3_OSGEO"/>.</para>
+        <programlisting language="turtle">@prefix skos: &lt;http://www.w3.org/2004/02/skos/core#&gt; .
+@prefix geo: &lt;http://www.w3.org/2003/01/geo/wgs84_pos#&gt; .
+@prefix xsd: &lt;http://www.w3.org/2001/XMLSchema#&gt; .
+@prefix dcterms: &lt;http://purl.org/dc/terms/&gt; .
+@prefix nm: &lt;http://nomisma.org/id/&gt; .
+@prefix nmo: &lt;http://nomisma.org/ontology#&gt; .
+@prefix rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt; .
+
+nm:byblus a nmo:Mint;
+	rdf:type &lt;http://www.w3.org/2004/02/skos/core#Concept&gt;;
+	dcterms:isPartOf &lt;http://nomisma.org/id/greek_numismatics&gt;;
+	skos:prefLabel "Byblus"@en,
+		"Byblos"@fr;
+	skos:definition "The mint at the ancient site of Byblus in Phoenicia."@en;
+	skos:closeMatch &lt;http://dbpedia.org/resource/Byblos&gt;,
+		&lt;http://pleiades.stoa.org/places/668216&gt;,
+		&lt;http://www.geonames.org/273203&gt;,
+		&lt;http://collection.britishmuseum.org/id/place/x30547&gt;,
+		&lt;http://vocab.getty.edu/tgn/7016516&gt;,
+		&lt;http://www.wikidata.org/entity/Q173532&gt;;
+	geo:location &lt;http://nomisma.org/id/byblus#this&gt;;
+	skos:broader &lt;http://nomisma.org/id/phoenicia&gt;;
+	skos:altLabel "Byblos"@en.
+
+nm:byblus#this a geo:SpatialThing;
+	geo:lat "34.119501"^^xsd:decimal;
+	geo:long "35.646846"^^xsd:decimal;
+	dcterms:isPartOf &lt;http://nomisma.org/id/phoenicia#this&gt;</programlisting>
+        <para>The Org ontology has been applied to connect people with dynasties
+          and corporate entities, including their roles within these
+          organizations and dates these offices have been held. Dublin Core
+          Terms such as dcterms:isPartOf and dcterms:source have been applied
+          for hierarchical linking and bibliographic references, respectively.
+          The thesaurus models are stable, but do evolve to meet increased
+          demands by our users. At the moment, the system is deficient in
+          tracking data provenance, and we do plan to implement PROV-O soon
+            <xref linkend="paper-3_PROVO"/>.</para>
+      </section>
+      <section xml:id="paper-3_coin_types">
+        <title>Coin Types</title>
+        <para>Just as individual concepts have been defined by URIs, so too are
+          more complex coin types. RRC 244/1 is represented by <link
+            xlink:href="http://numismatics.org/crro/id/rrc-244.1"
+            >http://numismatics.org/crro/id/rrc-244.1</link>, an instance of an
+          nmo:TypeSeriesItem in the Nomisma ontology, which contains a variety
+          of properties connecting the type to individual categorical attributes
+          (concepts in the Nomisma thesaurus) and literals for the obverse and
+          reverse legends, symbols, and iconographic descriptions. Below is the
+          RDF/Turtle representing RRC 244/1:</para>
+        <programlisting language="turtle">@prefix xsd: &lt;http://www.w3.org/2001/XMLSchema#&gt; .
+@prefix nmo: &lt;http://nomisma.org/ontology#&gt; .
+@prefix dcterms: &lt;http://purl.org/dc/terms/&gt; .
+@prefix nm: &lt;http://nomisma.org/id/&gt; .
+@prefix rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt; .
+@prefix skos: &lt;http://www.w3.org/2004/02/skos/core#&gt; .
+
+&lt;http://numismatics.org/crro/id/rrc-244.1&gt;
+	rdf:type &lt;http://www.w3.org/2004/02/skos/core#Concept&gt;;
+	skos:prefLabel "RRC 244/1"@en;
+	skos:definition "RRC 244/1"@en;
+	dcterms:source nm:rrc;
+	nmo:representsObjectType nm:coin;
+	nmo:hasManufacture nm:struck&gt;;
+	nmo:hasDenomination nm:denarius;
+	nmo:hasMaterial nm:ar;
+	nmo:hasIssuer nm:c_abvri_gem_rrc;
+	nmo:hasMint nm:rome;
+	nmo:hasStartDate "-0134"^^xsd:gYear;
+	nmo:hasEndDate "-0134"^^xsd:gYear;
+	nmo:hasObverse &lt;http://numismatics.org/crro/id/rrc-244.1#obverse&gt;;
+	nmo:hasReverse &lt;http://numismatics.org/crro/id/rrc-244.1#reverse&gt;.
+
+&lt;http://numismatics.org/crro/id/rrc-244.1#obverse&gt;
+	nmo:hasLegend "GEM X (crossed)";
+	dcterms:description "Helmeted head of Roma, right. Border of dots."@en;
+	nmo:hasPortrait &lt;http://collection.britishmuseum.org/id/person-institution/60208&gt;.
+
+&lt;http://numismatics.org/crro/id/rrc-244.1#reverse&gt;
+	nmo:hasLegend "C·ABVRI";
+	dcterms:description "Mars in quadriga, right, holding spear, shield and reins in left hand and trophy in right hand . Border of dots."@en;
+	nmo:hasPortrait &lt;http://collection.britishmuseum.org/id/person-institution/59284&gt;.</programlisting>
+      </section>
+      <section xml:id="paper-3_physical_coins">
+        <title>Physical Coins</title>
+        <para>The RDF model for physical coins implements properties from
+          several ontologies, but the Nomisma ontology is the most prominent.
+          The complexity of the model is variable depending on the condition of
+          the coin ands the certainty by which it may be linked to a URI for a
+          coin type. If the type RRC 244/1, <link
+            xlink:href="http://numismatics.org/crro/id/rrc-244.1"
+            >http://numismatics.org/crro/id/rrc-244.1</link>, is an
+          nmo:TypeSeriesItem, then physical specimens that represent this
+          typology are linked with the nmo:hasTypeSeriesItem property. By
+          semantic reasoning, a physical coin of the type RRC 244/1 is a
+          denarius minted in Rome and issued by the magistrate, C. Aburius
+          Geminus, even if these URIs are not explicit within the RDF of <link
+            xlink:href="http://numismatics.org/collection/1978.64.316"
+            >http://numismatics.org/collection/1978.64.316</link>. On the other
+          hand, many archaeologically excavated coins are worn beyond certain
+          attribution. In these cases, what information that may be ascertained
+          are made explicit in the triples for a coin. The portrait may be
+          identifiable as the emperor, Vespasian, but an illegible legend
+          prevents linking to a specific coin type. This coin is still available
+          for query alongside other positively identified coins of Vespasian
+          within the Nomisma.org SPARQL endpoint.</para>
+        <para>In addition to recording the type URI or typological
+          characteristics of a coin, metrological data, like weight and
+          diameter, may also be included. These measurements are vital for
+          large-scale (both in terms of time and space) economic analyses. If
+          the coin has been photographed, foaf:thumbnail and foaf:depiction may
+          be used to link to images. Finally, geodata (whether coordinates
+          and/or a gazetteer URI) related to the find spot may be included, if
+          known. In the event that the coin was found within a hoard
+            (<code>dcterms:isPartOf ?hoard</code>), the find coordinates may be
+          extracted from the triples for the hoard via the graph <xref
+            linkend="paper-3_NMDOCS"/>.</para>
+      </section>
+    </section>
+    <section xml:id="paper-3_implementation">
+      <title>Gradual Acceptance and Implementation by the Community</title>
+      <para>A growing body of institutions are adopting Nomisma URIs as standard
+        identifiers for numismatics. The four of the five largest collections of
+        ancient coins in world (<link xlink:href="http://numismatics.org"
+          >American Numismatic Society,</link>
+        <link
+          xlink:href="http://www.bnf.fr/en/collections_and_services/numi_eng/s.coins.html"
+          >Bibliothèque nationale de France</link>, <link
+          xlink:href="http://britishmuseum.org">British Museum</link>, and <link
+          xlink:href="http://ww2.smb.museum/ikmk/">Berlin Münzkabinett</link>)
+        are in various stages of implementation, as are a handful of European
+        coin find databases (such as the UK's <link
+          xlink:href="https://finds.org.uk/">Portable Antiquities Scheme</link>
+        and the German <link xlink:href="http://afe.fundmuenzen.eu/">Antike
+          Fundmünzen Europa</link>), and smaller museums such as the <link
+          xlink:href="http://coin.lib.virginia.edu">University of
+          Virginia</link> and <link
+          xlink:href="http://digital.ucd.ie/view/ucdclm:10">University College
+          Dublin.</link> For a full list of contributors, see the Nomisma.org
+          <link xlink:href="http://nomisma.org/datasets">datasets
+        list</link>.</para>
+      <para>The landscape of digital numismatics has progressed significantly in
+        the six years since the launch of Nomisma, and we are hopeful that, over
+        the next decades, this information system will include millions of
+        coins, enabling scholars to perform large-scale economic analyses of 800
+        years of Roman coinage distributed from Scotland to India. We hope (or
+        expect) these technical methodologies will open pathways for similar
+        research questions in other fields of numismatics. The foundation for
+        these sophisticated query interfaces is a combination of XML and
+        Semantic Web technologies, bound together in a collection of XML
+        Pipelines, XSLT stylesheets, and Javascript/CSS for the public user
+        interface, all of which are open source (<application
+          xlink:href="https://github.com/nomisma/framework">on
+          Github</application>) and built on other open source server
+        applications and open web standards.</para>
+    </section>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xml:id="paper-3_architecture">
+    <title>Architecture</title>
+    <para>Nomisma.org's architecture is based on an adaptation of XRX (XForms,
+      REST, XQuery), with SPARQL substituted for XQuery. It utilizes a variety
+      of well-supported and documented open source Java-based server
+      applications. <application xlink:href="http://lucene.apache.org/solr/"
+        >Apache Solr</application> facilitates faceted browsing, search-oriented
+      web services, and a geospatial extension to the SPARQL endpoint.
+        <application
+        xlink:href="https://jena.apache.org/documentation/serving_data/">Apache
+        Fuseki</application> (part of the Jena project) is the triplestore and
+      SPARQL endpoint. <application xlink:href="http://www.orbeon.com">Orbeon
+        XForm</application>s is the core middleware that connects Solr, Fuseki,
+      and external REST services—in both the front-end with XML pipelines and
+      the back-end XForms engine. The SPARQL endpoint was deployed in production
+      in early 2013, enabling us to aggregate Roman Imperial coins from the
+      American Numismatic Society and Berlin Münzkabinett in an early version of
+      OCRE (which contributed to a successful three-year, $300,000 bid with the
+      National Endowment for the Humanities the following year). Orbeon was
+      implemented before this–in early 2012—to deal with challenges surrounding
+      the creation and maintenance of Nomisma IDs.</para>
+    <para>The architecture is modular. The greatest advantage of XForms, a W3C
+      standard, is that the author may focus solely on the MVC functionality of
+      the web form; the client-side Javascript and CSS and server-side code are
+      inherent to the XForms processor, and so migration from one platform to
+      another should, at least in theory, require little effort. Apache Fuseki
+      was chosen for its ease of deployment, but it may be swapped with any
+      SPARQL 1.1-compliant endpoint. Replacing Solr with another search index
+      would be more difficult, but any application that supports REST
+      interactions via the XForms engine is suitable.</para>
+    <section xml:id="paper-3_xforms_crud">
+      <title>XForms for CRUD operations of RDF</title>
+      <para>When Nomisma.org launched in 2010, it was published entirely in
+        Docuwiki, an open source wiki framework. The URI for the mint of Rome,
+        http://nomisma.org/id/rome, was created by hand-editing XHTML embedded
+        with RDFa properties in a single textarea element in an HTML web form.
+        This presented some problems: there was no check for well-formedness of
+        XHTML fragments, so malformed XML could break a web page, and the
+        particular XHTML document model might be inconsistent and not translate
+        into the the appropriate RDF model using the W3C's <link
+          xlink:href="https://www.w3.org/2012/pyRdfa/">RDFa 1.1
+        distiller</link>.</para>
+      <para>Ensuring data consistency was a primary concern, and so we developed
+        an XForms application to handle the editing of these XHTML+RDFa
+        fragments. By curbing direct human editing of XTHML, we eliminated
+        malformed XML problems outright. XForms bindings enabled stricter
+        validation based on XPath, for example: <itemizedlist>
+          <listitem>
+            <para>To require one English SKOS Preferred Label and
+              Definition</para>
+          </listitem>
+          <listitem>
+            <para>Restrict labels and definitions in other languages to a
+              maximum of one</para>
+          </listitem>
+          <listitem>
+            <para>Latitudes and longitudes must be decimal numbers between -180
+              and 180</para>
+          </listitem>
+          <listitem>
+            <para>A variety of conditionals that restrict certain RDF properties
+              to particular classes of data object; e. g., that geographic
+              coordinates apply only to skos:Concepts that represent regions or
+              mints</para>
+          </listitem>
+        </itemizedlist>
+      </para>
+      <para>Since linking Nomisma URIs to concepts in other systems is a vital
+        feature of Five-Star Linked Open Data, we implemented a variety of
+        simple lookup mechanisms that pass search keywords from the web form to
+        XForms submissions in order to query external APIs (for example, of the
+        Getty Vocabularies and British Museum SPARQL endpoints, Wikidata's XML
+        response, or VIAF's RSS feed). These widgets simplified the process by
+        which skos:exactMatch or skos:closeMatch URIs might be integrated into
+        Nomisma data, reducing errors in manually transcribing URIs into the web
+        form. Wikidata's REST API is especially useful, as we are able to
+        extract article titles in many languages to rapidly assemble a list of
+        skos:prefLabels (<xref linkend="paper-3_fig1"/>). These lookup
+        mechanisms are authored in the form of XBL components in Orbeon, and can
+        be (and have been) easily reimplemented in other XForms applications,
+        such as <application xlink:href="https://github.com/ewg118/xEAC"
+          >xEAC</application> and <application
+          xlink:href="https://github.com/ewg118/eaditor">EADitor</application>,
+        which are archival publishing frameworks.</para>
+      <figure xml:id="paper-3_fig1">
+        <title>Creating nm:dirham, after importing from Wikidata</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/2016-gruber-fig1.png" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>In addition to external lookups, the editing interface includes
+        internal lookup mechanisms that query Nomisma's own SPARQL endpoint or
+        Atom feed to link to broader concepts, to associate a concept with a
+        field of numismatics (e.g., to say that a denarius is part of Roman
+        numismatics; <code>nm:denarius dcterms:isPartOf
+          nm:roman_numismatics</code>), or to associate a person with a dynasty
+        or organization.</para>
+      <para>Upon clicking the 'Save' button, the data model was serialized into
+        an XML file and written to the filesystem (as opposed to an XML or NoSQL
+        database), in order that commits could be made nightly to a Github
+        repository for our data <xref linkend="paper-3_NMDATA"/>. The Github
+        backups remain an integral part of the data publication workflow
+        today.</para>
+      <para>The framework eventually grew to incorporate Solr and a SPARQL
+        endpoint. The 'Save' button then hooked into several additional XForms
+        actions and submissions. The source model (XForms instance) is
+        transformed by XSLT into an XML document conforming to Solr's ingestion
+        model, and posted into Solr's REST interface. Next, the XForms engine
+        constructs a SPARQL query to purge triples associated with the URI from
+        the endpoint, which is posted to the endpoint via the SPARQL/Update
+        protocol. Finally, the updated RDF is posted into the endpoint.</para>
+      <para>In 2014, we begin the transition of migrating from Heath and
+        Meadows' original XHTML+RDFa document model into RDF/XML that conforms
+        proper RDF ontologies, including the introduction of the formal Nomisma
+        ontology developed by Karsten Tolle, a computer scientist at the
+        University of Frankfurt. The model was separated from the view, making
+        it easier to extend the functionality of the public user interface
+        without interfering with the RDFa distillation or exports into other
+        serializations of linked data, like Turtle or JSON-LD. The APIs were
+        rewritten and made dramatically more efficient, having eliminated the
+        need to preprocess XHTML+RDFa into RDF/XML before delivering content to
+        OCRE or other projects.</para>
+      <para>The XForms editing interface was adapted to RDF/XML, which led to
+        improved consistency of the data, since our export APIs (XSLT
+        transformations of XHTML into other formats) did not always account for
+        every imaginable permutation of RDFa properties jammed into a document
+        model. Today, Nomisma.org's APIs serve out large quantities of RDF data
+        to other American Numismatic Society or partner projects for web maps,
+        multilingual interfaces, etc., as efficiently as possible.</para>
+    </section>
+    <section xml:id="paper-3_batch">
+      <title>Batch Concept Creation</title>
+      <para>Nomisma's XForms back-end functions well for managing individual
+        skos:Concepts. It is an intuitive system used primarily by academics to
+        create or update identifiers required for existing digital numismatics
+        projects. When creating new projects, however, we had a need to create
+        potentially hundreds of new identifiers for mints, rulers,
+        denominations, etc. Academics are accustomed to working in spreadsheets,
+        and the author was often tasked with writing one-off PHP scripts to read
+        spreadsheets as CSV and process data into RDF.</para>
+      <para>In summer 2015, this functionality was ported into a new XForms
+        application <xref linkend="paper-3_NMBATCH"/>. This application requires
+        a Google spreadsheet that conforms to some basic requirements, which
+        must be published to the web so that it can be made available as an Atom
+        feed through the Google Sheets API. All IDs in the spreadsheet must be
+        the same class of data object (for example, a mint or denomination).
+        Each column heading will be read from Atom in the XForms engine, and the
+        user may choose to map a column to a permitted list of RDF properties
+          (<xref linkend="paper-3_fig2"/>). There are some XPath controls on the
+        properties that are available for selection—there must be an English
+        preferred label and definition, latitude and longitude are only
+        available for mints, and other conditions described in the Github wiki.
+        If the mapping itself is valid, the user may click a button to validate
+        each row of the spreadsheet. The XForms engine ensures that latitudes
+        and longitudes are valid decimal numbers, that each row has a preferred
+        label and definition, that a URI under a skos:broader mapping does
+        conform to the appropriate RDF Class. After this phase of validation,
+        the application will display a list of validation errors, or if there
+        are none, present the user with a button to publish the data into
+        Nomisma. The publication workflow transforms each Atom entry element
+        into RDF/XML, writes and updates the file on the disk, publishes the
+        data to Solr, and creates or updates the triples in the SPARQL
+        endpoint.</para>
+      <figure xml:id="paper-3_fig2">
+        <title>Mapping spreadsheet columns to RDF properties</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/2016-gruber-fig2.png" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>The publication process includes an additional feature where any
+        SKOS matching property with a Wikipedia URL or DBpedia URI is parsed,
+        and a series of API calls are executed to extract preferred labels and
+        alternative authority URIs from Wikidata. This feature has enabled us to
+        enhance concepts that have already been published; we can execute a
+        SPARQL query of all Nomisma IDs with a DBpedia URI to download CSV,
+        upload the CSV to Google Sheets, and then re-run the spreadsheet through
+        the XForms import mechanism to pull labels and other URIs from Wikidata
+        into Nomisma. This is one reason projects like OCRE and CRRO are
+        available in Arabic.</para>
+    </section>
+    <section xml:id="paper-3_public_ui">
+      <title>Public User Interface</title>
+      <para>The front-end of Nomisma.org is delivered through Orbeon's Page Flow
+        Controller and XML Pipeline Language (XPL). URIs for concepts are
+        constructed by a pipeline that aggregates the source RDF file from the
+        filesystem with, and, depending on whether the concept is mappable, two
+        SPARQL query responses to ascertain whether there are mints or findspots
+        connected with the skos:Concept. This aggregate XML model is passed
+        through XSLT in order to generate an HTML5 web page. The URI for Julius
+        Caesar, <link xlink:href="http://nomisma.org/id/julius_caesar"
+          >http://nomisma.org/id/julius_caesar</link>, therefore includes the
+        RDF transformed into HTML5+RDFa, plus a map rendered with the Javascript
+        library, Leaflet, which shows a layer for mints that struck coins issued
+        by Casesar, a heatmap showing the geographic distribution of all
+        locations where coins of Caesar have been found, and two additional
+        layers (off by default) that show points for hoards (three or more coins
+        found in the same archaeological context) or individual coin finds.
+        These layers are generated by Nomisma APIs that interface with the
+        SPARQL endpoint, passing the XML response from the endpoint through a
+        pipeline to transform it into geoJSON. Additionally, when available, the
+        URI web page will display a list of coin types associated with the
+        skos:Concept, including thumbnails of coins from partner
+        institutions.</para>
+      <para>The <link xlink:href="http://nomisma.org/browse">browse page</link>
+        and <link xlink:href="http://nomisma.org/feed/">Atom feed</link> are
+        both generated by XPL which send request parameters to Solr's REST
+        interface, and pipe the XML response through XSLT into the appropriate
+        view (HTML or Atom). There are additional pages for the current and
+        previous versions of the formal ontology, APIs, documentation, and the
+        SPARQL endpoint. We strive to make data available in as many formats
+        through as many protocols as possible. A user may request alternative
+        serializations by appending an extension on a concept URI, e. g., <link
+          xlink:href="http://nomisma.org/id/augustus.jsonld"
+          >http://nomisma.org/id/augustus.jsonld</link>, to receive JSON-LD by
+        REST, but concept URIs, the browse page, ontology URI, and SPARQL
+        endpoint offer interactivity by Content Negotiation. Content Negotiation
+        is vital for conforming to linked data framework standards, and these
+        advanced HTTP features are possible with Orbeon's XPL.</para>
+    </section>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xml:id="paper-3_results">
+    <title>Results</title>
+    <para>According to a 2014 survey by OCLC, Nomisma.org is one of the most
+      heavily-used Linked Open Data systems in the Library, Archive, and Museum
+      sector, behind OCLC's own VIAF and Worldcat.org services (100,000+
+      requests per day), and in the same range as the British Library's British
+      National Bibliography service, at between 10,000-50,000 requests per day
+        <xref linkend="paper-3_OCLC"/>. Nomisma's load has doubled since then,
+      serving between 40,000-50,000 API calls per day (including about as many
+      SPARQL queries, though there is some overlap between API and SPARQL
+      requests), nearly all of which are from non-search robot machines that
+      facilitate dynamic mapping and multilingual interfaces in a wide variety
+      of numismatic projects. The architecture uses both SPARQL and Solr to
+      their natural advantages while minimizing SPARQL's known scalability
+      limitations. Nomisma.org has suffered approximately three minutes of
+      downtime in three years, which is remarkable considering it runs on a
+      Rackspace cloud server with only 4 GB of RAM and an annual budget of
+      little more than $1,000.</para>
+    <para>We are aware that we will likely need to upgrade our infrastructure
+      eventually, as our triplestore will grow exponentially in the coming years
+      as more institutions become involved in the numismatic linked data cloud.
+      We strive to continually build more sophisticated query and visualization
+      interfaces that, in turn, require greater server resources. Numismatics
+      has technologically evolved dramatically over the last half-decade, and
+      its march toward Big Data is inevitable, finally making it possible to
+      conduct research in ways that have been dreamed about for
+      centuries.</para>
+  </section>
+  <bibliography xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <biblioentry xml:id="paper-3_WGS84" xreflabel="[WGS84]">
+      <abbrev>WGS84</abbrev>
+      <title>W3C Semantic Web Interest Group: Basic Geo (WGS84 lat/long)
+        Vocabulary</title>
+      <editor>
+        <personname>
+          <firstname>Dan</firstname>
+          <surname>Brickley</surname>
+        </personname>
+      </editor>
+      <publisher>
+        <publishername>World Wide Web Consortium (W3C)</publishername>
+      </publisher>
+      <date>2013</date>
+      <biblioid class="uri">https://www.w3.org/2003/01/geo/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-3_FOAF" xreflabel="[FOAF]">
+      <abbrev>FOAF</abbrev>
+      <title>FOAF Vocabulary Specification 0.99</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Dan</firstname>
+            <surname>Brickley</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Libby</firstname>
+            <surname>Miller</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <date>14 January 2014</date>
+      <biblioid class="uri">http://xmlns.com/foaf/spec/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-3_CRM" xreflabel="[CRM]">
+      <abbrev>CRM</abbrev>
+      <title>Defintion of the CIDOC Conceptual Reference Model</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Nick</firstname>
+            <surname>Crofts</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Martin</firstname>
+            <surname>Doerr</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Tony</firstname>
+            <surname>Gill</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Stephen</firstname>
+            <surname>Stead</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Matthew</firstname>
+            <surname>Stiff</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <date>November 2011</date>
+      <publisher>
+        <publishername>ICOM/CIDOC Documentation Standards Group</publishername>
+      </publisher>
+      <biblioid class="uri"
+        >http://www.cidoc-crm.org/html/5.0.4/cidoc-crm.html</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-3_GRUBER" xreflabel="[GRUBER]">
+      <abbrev>GRUBER</abbrev>
+      <title>Recent Advances in Roman Numismatics</title>
+      <date>15 May 2013</date>
+      <author>
+        <personname>Ethan Gruber</personname>
+      </author>
+      <publisher>
+        <publishername>University of Virginia</publishername>
+      </publisher>
+      <biblioid class="doi">10.5281/zenodo.45328</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-3_NMDOCS" xreflabel="[NMDOCS]">
+      <abbrev>NMDOCS</abbrev>
+      <title>How to Contribute Data</title>
+      <author>
+        <personname>Ethan Gruber</personname>
+      </author>
+      <biblioid class="uri"
+        >http://nomisma.org/documentation/contribute</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-3_NMBATCH" xreflabel="[NMBATCH]">
+      <abbrev>NMBATCH</abbrev>
+      <title>Import/Update IDs</title>
+      <author>
+        <personname>Ethan Gruber</personname>
+      </author>
+      <date>28 July 2015</date>
+      <biblioid class="uri"
+        >https://github.com/nomisma/framework/wiki/Import-Update-IDs</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-3_PROVO" xreflabel="[PROVO]">
+      <abbrev>PROVO</abbrev>
+      <title>PROV-O: The PROV Ontology</title>
+      <authorgroup>
+        <author>
+          <personname>Timothy Lebo</personname>
+        </author>
+        <author>
+          <personname>Satya Sahoo</personname>
+        </author>
+        <author>
+          <personname>Deborah McGuinness</personname>
+        </author>
+      </authorgroup>
+      <date>30 April 2013</date>
+      <publisher>
+        <publishername>World Wide Web Consortium (W3C)</publishername>
+      </publisher>
+      <biblioid class="uri">https://www.w3.org/TR/prov-o/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-3_SKOS" xreflabel="[SKOS]">
+      <abbrev>SKOS</abbrev>
+      <title>SKOS Simple Knowledge Organization System</title>
+      <authorgroup>
+        <author>
+          <personname>Alistair Miles</personname>
+        </author>
+        <author>
+          <personname>Sean Bechhofer</personname>
+        </author>
+      </authorgroup>
+      <date>18 August 2009</date>
+      <publisher>
+        <publishername>World Wide Web Consortium (W3C)</publishername>
+      </publisher>
+      <biblioid class="uri">https://www.w3.org/2004/02/skos/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-3_NMDATA" xreflabel="[NMDATA]">
+      <abbrev>NMDATA</abbrev>
+      <title>Nomisma Data</title>
+      <org>
+        <orgname>Nomisma.org</orgname>
+      </org>
+      <date>2012</date>
+      <biblioid class="uri">https://github.com/nomisma/data</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-3_OSGEO" xreflabel="[OSGEO]">
+      <abbrev>OSGEO</abbrev>
+      <title>Geometry Ontology</title>
+      <subtitle>Ordnance Survey</subtitle>
+      <biblioid class="uri"
+        >http://data.ordnancesurvey.co.uk/ontology/geometry/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-3_ORG" xreflabel="[ORG]">
+      <abbrev>ORG</abbrev>
+      <title>The Organization Ontology</title>
+      <author>
+        <personname>Dave Reynolds</personname>
+      </author>
+      <date>16 January 2014</date>
+      <publisher>
+        <publishername>World Wide Web Consortium (W3C)</publishername>
+      </publisher>
+      <biblioid class="uri">https://www.w3.org/TR/vocab-org/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-3_OCLC" xreflabel="[OCLC]">
+      <abbrev>OCLC</abbrev>
+      <title>Linked Data Survey results 1 – Who’s doing it (Updated)</title>
+      <author>
+        <personname>
+          <firstname>Karen</firstname>
+          <surname>Smith-Yoshimuri</surname>
+        </personname>
+      </author>
+      <date>4 September 2014</date>
+      <publisher>
+        <publishername>OCLC</publishername>
+      </publisher>
+      <biblioid class="uri">http://hangingtogether.org/?p=4137</biblioid>
+    </biblioentry>
+  </bibliography>
+</article>

@@ -1,0 +1,954 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook"
+  xmlns:xl="http://www.w3.org/1999/xlink"
+  version="5.0" xml:lang="en">
+  <info>
+    <title>XML Processing with Scala and yaidom</title>
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Chris</firstname>
+          <surname>de Vreeze</surname>
+        </personname>
+        <email>chris.de.vreeze@caiway.net</email>
+        <affiliation>
+          <orgname>EBPI</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+    <keywordset>
+      <keyword>Scala</keyword>
+      <keyword>XML</keyword>
+      <keyword>yaidom</keyword>
+    </keywordset>
+    <abstract>
+      <para>
+Yaidom is a uniform XML query API, written in the Scala programming language and leveraging its Collections API.
+Moreover, yaidom provides several specific-purpose DOM-like tree implementations offering this XML query API.
+      </para>
+      <para>
+In this paper the yaidom library is introduced, using examples from XBRL (eXtensible Business Reporting Language).
+      </para>
+    </abstract>
+  </info>
+
+  <section>
+    <title>Introduction</title>
+    <para>
+This article introduces the <emphasis>yaidom</emphasis> XML query library<footnote><para><link xl:href="https://github.com/dvreeze/yaidom"/></para></footnote>, using examples in the domain of
+XBRL (eXtensible Business Reporting Language)<footnote><para><link xl:href="https://www.xbrl.org"/></para></footnote>.
+    </para>
+    <para>
+It is assumed that the reader has some experience with XML processing in Java (e.g. JAXP) or another OO programming language (such as Scala or C#).
+    </para>
+    <para>
+XSLT, XQuery and XPath are standard XML transformation/query languages, yet in this article yaidom (with Scala) is introduced as an <emphasis>alternative</emphasis> approach to in-memory
+XML querying/transformation, leveraging the Scala programming language. Still, yaidom can also be used together with standard languages such as XQuery, for example when using an
+XML database.
+    </para>
+    <para>
+As shown in the table of contents, after introducing Scala, Scala Collections and yaidom, a brief introduction to XBRL follows. XBRL is an XML-based business reporting standard. Business reports in XBRL
+format are called <emphasis>XBRL instances</emphasis>. XBRL instances must obey many requirements, in order for them to be considered valid. After the brief XBRL introduction, the remainder of this paper
+shows how many of these rules can be expressed using yaidom and Scala. It will be shown that using Scala and yaidom instead of standard XML query and transformation languages actually makes
+expressing these rules relatively easy.
+    </para>
+    <para>
+There are several other papers about XML processing in Scala, mostly about Scala's own standard XML libary. For example,
+<xref linkend="scala-xml"/> contains many well-chosen examples that show how to process XML in Scala. Moreover, it first introduces Scala,
+assuming some familiarity with XQuery on the part of the reader. To get an appreciation of XML processing using Scala
+in general, and of XML processing using Scala and yaidom in particular, it makes sense to read both papers, starting
+with <xref linkend="scala-xml"/>. 
+    </para>
+  </section>
+  <section>
+    <title>Brief introduction to Scala and Scala Collections</title>
+    <para>
+The Scala programming language is the most popular alternative to the Java language on the Java virtual machine. It is <emphasis>object-oriented</emphasis> (more so than Java) and also
+<emphasis>functional</emphasis>, in that functions are first-class objects. It is <emphasis>statically typed</emphasis>, but it feels like a dynamically typed language, because of features like type inference.
+    </para>
+    <para>
+Scala is a <emphasis>safe</emphasis> and <emphasis>expressive</emphasis> language, typically leading to good productivity and low bug counts in skilled disciplined teams. Its rich
+<emphasis>Collections API</emphasis>, its strong support for <emphasis>immutable</emphasis> data structures, and its focus on <emphasis>expressions</emphasis> rather than statements enables programmers to
+work at a higher level of abstraction in Scala than in Java.
+    </para>
+    <para>
+The Collections API of a programming language (which in the case of Scala and Java is a part of the standard library of the language, not of the core language) often says a lot about the
+expressive power of that language. Below follows some Scala code that manipulates collections, to illustrate Scala's expressiveness.
+    </para>
+    <para>
+Consider a book store and some queries about books (using sample data from the Stanford University online course <emphasis>Introduction to Databases</emphasis>). The Scala code is as follows:
+      <programlisting language="scala"><![CDATA[
+case class Author(
+  firstName: String, lastName: String)
+
+case class Book(
+  isbn: String,
+  title: String,
+  authors: List[Author],
+  price: Int)
+
+val someBooks = List(
+  Book(
+    "ISBN-0-13-713526-2",
+    "A First Course in Database Systems",
+    List(
+      Author("Jeffrey", "Ullman"),
+      Author("Jennifer", "Widom")),
+    85),
+  Book(
+    "ISBN-0-13-815504-6",
+    "Database Systems: The Complete Book",
+    List(
+      Author("Hector", "Garcia-Molina"),
+      Author("Jeffrey", "Ullman"),
+      Author("Jennifer", "Widom")),
+    100),
+  Book(
+    "ISBN-0-11-222222-3",
+    "Hector and Jeff's Database Hints",
+    List(
+      Author("Jeffrey", "Ullman"),
+      Author("Hector", "Garcia-Molina")),
+    50),
+  Book(
+    "ISBN-9-88-777777-6",
+    "Jennifer's Economical Database Hints",
+    List(Author("Jennifer", "Widom")),
+    25)
+)
+]]></programlisting>
+
+      <programlisting language="scala"><![CDATA[
+// Return all books that cost no more than 50
+// dollars (i.e., the last 2 books)
+
+val cheapBooks =
+  someBooks.filter(book => book.price <= 50)
+
+// Return all books having Jeffrey Ullman as an
+// author (i.e., the first 3 books)
+
+def hasAuthor(book: Book, authorLastName: String):
+  Boolean = {
+
+  book.authors.exists(
+    author => author.lastName == authorLastName)
+}
+
+val booksByUllman =
+  someBooks.filter(book =>
+    hasAuthor(book, "Ullman"))
+
+// Return all book authors, without duplicates
+
+val allAuthors =
+  someBooks.flatMap(book => book.authors).distinct
+
+// Return all titles of books having Jeffrey
+// Ullman as an author
+
+val bookTitlesByUllman =
+  someBooks.filter(bk => hasAuthor(bk, "Ullman")).
+    map(bk => bk.title)
+]]></programlisting>
+    </para>
+    <para>
+Note how the queries in prose naturally map to their counterparts in Scala code, using a small vocabulary of <emphasis>higher-order functions</emphasis> such as <code>map</code>,
+<code>flatMap</code> and <code>filter</code>. The code shows the <emphasis>"what"</emphasis> more than the <emphasis>"how"</emphasis>. In that respect, the Scala code is more like XQuery than Java
+(especially than Java before version 8). In a sense, <emphasis>the Scala core language along with its Collections API</emphasis> form a <emphasis>universal query (and transformation) language</emphasis>.
+Of course, Scala is a lot more than that, but for the purposes of this article this is a fitting description.
+    </para>
+  </section>
+  <section>
+    <title>Brief introduction to yaidom</title>
+    <para>
+The <emphasis>yaidom</emphasis> library can be used for querying and transforming XML in Scala. It interoperates very well with the Scala Collections API.
+    </para>
+    <para>
+It was mentioned above that Scala and its Collections API can be used as a universal query and transformation language. The yaidom library offers an <emphasis>XML element query API</emphasis>
+that turns elements into Scala collections of elements. So yaidom can be said to turn a universal query and transformation language into an <emphasis>XML querying and transformation
+language</emphasis>. In other words, <emphasis>Scala + its Collections API + yaidom</emphasis> can be used as an "XML querying/transformation stack". Below it will become clear that yaidom can
+plug in different "XML backends", thus making the "XML stack" very powerful.
+    </para>
+    <para>
+Using the bookstore example above, some simple yaidom XML queries are shown below. The XML is as follows:
+      <programlisting language="xml"><![CDATA[
+// The book store XML
+
+<Bookstore>
+  <Book ISBN="ISBN-0-13-713526-2"
+        Price="85" Edition="3rd">
+    <Title>A First Course in Database Systems
+    </Title>
+    <Authors>
+      <Author>
+        <First_Name>Jeffrey</First_Name>
+        <Last_Name>Ullman</Last_Name>
+      </Author>
+      <Author>
+        <First_Name>Jennifer</First_Name>
+        <Last_Name>Widom</Last_Name>
+      </Author>
+    </Authors>
+  </Book>
+  <Book ISBN="ISBN-0-13-815504-6" Price="100">
+    <Title>Database Systems: The Complete Book
+    </Title>
+    <Authors>
+      <Author>
+        <First_Name>Hector</First_Name>
+        <Last_Name>Garcia-Molina
+        </Last_Name>
+      </Author>
+      <Author>
+        <First_Name>Jeffrey</First_Name>
+        <Last_Name>Ullman</Last_Name>
+      </Author>
+      <Author>
+        <First_Name>Jennifer</First_Name>
+        <Last_Name>Widom</Last_Name>
+      </Author>
+    </Authors>
+    <Remark>
+Buy this book bundled with "A First Course"
+    </Remark>
+  </Book>
+  <Book ISBN="ISBN-0-11-222222-3" Price="50">
+    <Title>Hector and Jeff's Database Hints
+    </Title>
+    <Authors>
+      <Author>
+        <First_Name>Jeffrey</First_Name>
+        <Last_Name>Ullman</Last_Name>
+      </Author>
+      <Author>
+        <First_Name>Hector</First_Name>
+        <Last_Name>Garcia-Molina
+        </Last_Name>
+      </Author>
+    </Authors>
+    <Remark>
+An indispensable companion to your textbook
+    </Remark>
+  </Book>
+  <Book ISBN="ISBN-9-88-777777-6" Price="25">
+    <Title>
+    Jennifer's Economical Database Hints
+    </Title>
+    <Authors>
+      <Author>
+        <First_Name>Jennifer</First_Name>
+        <Last_Name>Widom</Last_Name>
+      </Author>
+    </Authors>
+  </Book>
+</Bookstore>
+]]></programlisting>
+    </para>
+    <para>
+Below follow the yaidom XML queries corresponding to the (non-XML) queries above. Written rather verbosely, they are as follows:
+      <programlisting language="scala"><![CDATA[
+// Assume a root element called bookstore.
+
+val someBooks =
+  bookstore.filterChildElems(bk =>
+    bk.localName == "Book")
+
+// Return all books that cost no more than 50
+// dollars (i.e., the last 2 books)
+
+val cheapBooks =
+  someBooks.filter(book =>
+    book.attribute(EName("Price")).toInt <= 50)
+
+// Return all books having Jeffrey Ullman as an
+// author (i.e., the first 3 books)
+
+def hasAuthor(
+  book: simple.Elem, authorLastName: String):
+    Boolean = {
+
+  require(book.localName == "Book")
+
+  book.findElem(e =>
+    e.localName == "Author" &&
+      e.getChildElem(che =>
+        che.localName == "Last_Name").text ==
+          authorLastName).isDefined
+}
+
+val booksByUllman =
+  someBooks.filter(bk => hasAuthor(bk, "Ullman"))
+
+// Return all book author elements (with
+// duplicates, this time)
+
+val allAuthors =
+  someBooks.flatMap(
+    book => book.filterElems(e =>
+      e.localName == "Author"))
+
+// Return all titles of books having Jeffrey Ullman
+// as an author
+
+val bookTitlesByUllman =
+  someBooks.filter(book =>
+    hasAuthor(book, "Ullman")).
+      map(book => book.getChildElem(e =>
+        e.localName == "Title").text)
+]]></programlisting>
+    </para>
+    <para>
+Above, the <code>EName</code> type stands for "expanded name". It corresponds to Java's <code>javax.lang.namespace.QName</code>, except that it does not retain the prefix, if any.
+    </para>
+    <para>
+For clarity, these XML queries were written more verbosely than needed. Even when writing these queries in a less verbose way than has been done above, there would still be some verbosity
+related to XML handling. This is intentional: yaidom is a <emphasis>precise</emphasis> XML query API. For example, yaidom does not abstract away the distinction between elements and attributes, or between
+names with a namespace and those without any namespace. Despite the syntax dedicated by yaidom to XML node manipulation, the yaidom query examples are not <emphasis>that</emphasis> much more verbose than the
+non-XML query examples presented earlier. Compared to ad-hoc XML querying in Java (using JAXP), however, ad-hoc XML querying in Scala using yaidom is <emphasis>much</emphasis> less verbose. Even when invoking
+XPath queries (returning node sets) from Java code, the processing of the resulting node sets would add "syntactic clutter" that the use of Scala with yaidom could have prevented.
+    </para>
+    <para>
+Why use yaidom and not Scala's own XML library? As will become apparent in this article, yaidom has very precise support for
+<emphasis>XML namespaces</emphasis>, more so than Scala XML. Using the yaidom API it is always clear if queries are namespace-aware. If it is intentional to query
+for elements that have specific local names, regardless of the namespace, then yaidom forces the user to be explicit about that. Precise namespace
+support in yaidom even goes as far as the ability to express a simple <emphasis>theory</emphasis> of XML namespaces (relating namespace declarations, in-scope namespaces,
+"qualified names" and "expanded names") in yaidom code itself, outside of any particular XML tree!
+    </para>
+    <para>
+There are more reasons why yaidom may be preferable to Scala's own XML library. For example, yaidom has a precise <emphasis>uniform XML query API</emphasis> that is offered by
+<emphasis>multiple "XML backend"</emphasis> implementations. Not only does yaidom offer own native DOM-like tree ("XML backend") implementations with different strengths and weaknesses, but
+it is also possible to wrap existing XML library tree implementations (DOM, JDOM, XOM, Saxon etc.) in yaidom, offering the same yaidom query API.
+For example, yaidom wrappers around Saxon-EE <code>NodeInfo</code> trees offer the best of Saxon and the <emphasis>Scala-yaidom</emphasis> combination: on the one hand the completeness and
+schema-type-awareness of Saxon-EE, and on the other hand a "Scala Collections API querying experience", using yaidom as the natural bridge between Saxon "nodes" and Scala collections processing.
+Unlike yaidom, the Scala XML library does not offer multiple tree implementations backing the same query API.
+    </para>
+    <para>
+This extensibility of yaidom goes even further than specific "XML backends". It is even possible to extend yaidom
+for custom "XML dialects" (or "vocabularies"). This will be explained and shown later in this paper. Arguably this could be
+the best reason to prefer yaidom to Scala's own XML library.
+    </para>
+    <para>
+Why not just use <emphasis>standards</emphasis> such as XSLT or XQuery? XBRL processing is a good example where yaidom shines, as will become clear below. After all, XBRL is a lot more than "just" XML,
+so XBRL processing is a lot more than "just" XML processing. Performing most or all of this processing in Scala using yaidom offers the following advantages:
+    <itemizedlist>
+      <listitem><para>No Scala syntax is spent on <emphasis>processing sequences</emphasis> (or node sets) resulting from XPath/XQuery evaluation</para></listitem>
+      <listitem><para>In a programming language (such as Scala) it is quite natural and easy to store <emphasis>intermediate results</emphasis> in variables (unlike XPath)</para></listitem>
+      <listitem><para>As a rich (functional) <emphasis>OO</emphasis> programming language, Scala has a lot of <emphasis>expressive power</emphasis>, which makes it easy to build layered models on top of
+        DOM-like element trees (as will be shown below)</para></listitem>
+      <listitem><para>Yaidom leverages the <emphasis>Scala Collections API</emphasis>, which enables the user to achieve a lot using only a small vocabulary</para></listitem>
+      <listitem><para>There is a large <emphasis>ecosystem</emphasis> around Scala (and Java), offering many high quality libraries.</para></listitem>
+      <listitem><para>Yaidom offers (and enables) element implementations optimized for fast querying (although no benchmarks are provided in this paper)</para></listitem><listitem><para>
+        For programmers on the JVM, Scala and yaidom have more familiar <emphasis>semantics</emphasis> than XPath and the XQuery and XPath Data Model (XDM):</para>
+        <itemizedlist>
+          <listitem><para>In XDM there is no difference between an item (node or atomic value) and a singleton sequence containing that item</para></listitem>
+          <listitem><para>Sequences in XDM cannot be nested, so are always flattened</para></listitem>
+          <listitem><para>In Scala (as in Java), "equality" is expected to be an equivalence relation (unlike the general comparison "equality" operator in XPath,
+            which is not transitive)</para></listitem>
+        </itemizedlist>
+      </listitem>
+    </itemizedlist>
+Surely yaidom can be used with XQuery when using an XML(-enabled) database, where XQuery joins and filters database XML data into "raw result sets", which are further processed using yaidom
+queries. Still, it makes sense to keep the number of boundaries between XQuery and yaidom/Scala relatively low, for each such boundary has some (syntactic and semantic) costs.
+In summary, the more some XML processing task can benefit from the use of Scala, the more attractive the use of yaidom becomes.
+    </para>
+  </section>
+  <section>
+    <title>Brief introduction to the XBRL examples</title>
+    <para>
+So far, this article has introduced Scala and yaidom, using only trivial examples. In the remainder of this article, yaidom examples in the domain of <emphasis>XBRL</emphasis> are used. First, this section
+gives a very brief introduction to XBRL.
+    </para>
+    <para>
+XBRL (eXtensible Business Reporting Language) is a standard for business reporting. Many (but not all) XBRL reports are financial statements. XBRL reports ("XBRL instances") are
+XML documents, following a specified structure.
+    </para>
+    <para>
+Suppose we want to report that for a given organization ("CIK") the average number of employees in 2003 was 220, and that the corresponding numbers for 2004 and 2005 were 240 and 250, respectively.
+More precisely, <emphasis>concept</emphasis> <code>gaap:AverageNumberEmployees</code> (described by the so-called US-GAAP XBRL <emphasis>taxonomy</emphasis>) has the <emphasis>value</emphasis> <code>220</code>
+in the given <emphasis>context</emphasis> (organization "CIK", year 2003). Then we can report the 3 <emphasis>facts</emphasis> above in XBRL format as follows:
+      <programlisting language="xml"><![CDATA[
+<xbrl xmlns="http://www.xbrl.org/2003/instance"
+      xmlns:gaap="http://xasb.org/gaap">
+
+   <context id="D-2003">
+      <entity>
+         <identifier
+           scheme="http://www.sec.gov/CIK">
+         1234567890
+         </identifier>
+      </entity>
+      <period>
+         <startDate>2003-01-01</startDate>
+         <endDate>2003-12-31</endDate>
+      </period>
+   </context>
+
+   <context id="D-2004">
+      <entity>
+         <identifier
+           scheme="http://www.sec.gov/CIK">
+           1234567890
+         </identifier>
+      </entity>
+      <period>
+         <startDate>2004-01-01</startDate>
+         <endDate>2004-12-31</endDate>
+      </period>
+   </context>
+
+   <context id="D-2005">
+      <entity>
+         <identifier
+           scheme="http://www.sec.gov/CIK">
+           1234567890
+         </identifier>
+      </entity>
+      <period>
+         <startDate>2005-01-01</startDate>
+         <endDate>2005-12-31</endDate>
+      </period>
+   </context>
+
+   <unit id="U-Pure">
+     <measure>pure</measure>
+   </unit>
+
+  <gaap:AverageNumberEmployees
+    contextRef="D-2003"
+    unitRef="U-Pure"
+    decimals="INF">220
+  </gaap:AverageNumberEmployees>
+  <gaap:AverageNumberEmployees
+    contextRef="D-2004"
+    unitRef="U-Pure"
+    decimals="INF">240
+  </gaap:AverageNumberEmployees>
+  <gaap:AverageNumberEmployees
+    contextRef="D-2005"
+    unitRef="U-Pure"
+    decimals="INF">250
+  </gaap:AverageNumberEmployees>
+
+</xbrl>
+]]></programlisting>
+    </para>
+    <para>
+This example comes from a non-trivial sample XBRL instance written by Charles Hoffman, also known as "the father of XBRL".
+    </para>
+    <para>
+There are many requirements that have to be met in order for an XBRL instance to be valid. The XBRL Core specification (as well
+as other XBRL specifications) describes many of these requirements. There are also many common best practices that have been
+formalized as complementary rules. For example, the International FRIS Standard places additional constraints on XBRL instances. <xref linkend="fris"/>
+    </para>
+    <para>
+Most of the remainder of this article will show how many of those FRIS rules can be written naturally as Scala expressions using yaidom. Yaidom is in no way married to XBRL,
+but XBRL validations are good XML processing examples where Scala and yaidom really shine.
+    </para>
+  </section>
+  <section>
+    <title>Simple yaidom query examples</title>
+    <para>
+The XBRL snippet above is part of this sample instance<footnote><para><link xl:href="http://www.xbrlsite.com/examples/comprehensiveexample/2008-04-18/sample-Instance-Proof.xml"/></para></footnote>.
+In this section, some simple yaidom XML queries are performed on the XBRL instance.
+    </para>
+    <para>
+Before showing these queries on this XBRL instance, it should be noted that knowing only 3 yaidom query API methods to some extent means knowing them all. These 3 methods are
+<code>filterChildElems</code>, <code>filterElems</code> and <code>filterElemsOrSelf</code>. They all filter elements, based on the passed element predicate function. The difference
+is that they filter <emphasis>child</emphasis> elements, <emphasis>descendant</emphasis> elements, and <emphasis>descendant-or-self</emphasis> elements, respectively. The word "descendant" is left out from the
+method names.
+    </para>
+    <para>
+It should also be noted that methods <code>filterChildElems</code> and <code>filterElemsOrSelf</code> have shorthands <code>\</code> and <code>\\</code>, respectively.
+Method <code>attributeOption</code> has shorthand <code>\@</code>. Moreover, some element predicate functions have names, such as <code>withLocalName</code> and
+<code>withEName</code>.
+    </para>
+    <para>
+Some yaidom queries on the sample XBRL instance are as follows:
+      <programlisting language="scala"><![CDATA[
+// Let's first parse the XBRL instance document
+
+val docParser = DocumentParserUsingSax.newInstance
+
+val doc = docParser.parse(sampleXbrlInstanceFile)
+
+// Check all gaap:AverageNumberEmployees facts
+// have unit U-Pure.
+
+val xmlNs = "http://www.w3.org/XML/1998/namespace"
+val xbrliNs = "http://www.xbrl.org/2003/instance"
+val gaapNs = "http://xasb.org/gaap"
+
+val avgNumEmployeesFacts =
+  doc.documentElement.filterChildElems(
+    withEName(gaapNs, "AverageNumberEmployees"))
+
+println(avgNumEmployeesFacts.size) // prints 7
+
+val onlyUPure =
+  avgNumEmployeesFacts.forall(fact =>
+    fact.attributeOption(EName("unitRef")) ==
+      Some("U-Pure"))
+println(onlyUPure) // prints true
+
+// Check the unit itself, minding the default
+// namespace
+
+val uPureUnit =
+  doc.documentElement.getChildElem(e =>
+    e.resolvedName == EName(xbrliNs, "unit") &&
+    (e \@ EName("id")) == Some("U-Pure"))
+
+println(
+  uPureUnit.getChildElem(
+    withEName(xbrliNs, "measure")).text)
+// prints "pure"
+
+// Now we get the measure element text, as QName,
+// resolving it to an EName (expanded name)
+println(
+  uPureUnit.getChildElem(
+    withEName(xbrliNs, "measure")).
+      textAsResolvedQName)
+// prints EName(xbrliNs, "pure")
+
+// Knowing the units are the same, the
+// gaap:AverageNumberEmployees facts are
+// uniquely identified by contexts.
+
+val avgNumEmployeesFactsByContext:
+  Map[String, simple.Elem] =
+  avgNumEmployeesFacts.groupBy(_.attribute(
+    EName("contextRef"))).
+      mapValues(_.head)
+
+println(avgNumEmployeesFactsByContext.keySet)
+// prints the set:
+// "D-2003", "D-2004", "D-2005", "D-2007-BS1",
+// "D-2007-BS2", "D-2006", "D-2007"
+
+println(
+  avgNumEmployeesFactsByContext("D-2003").text)
+// prints 220
+]]></programlisting>
+    </para>
+    <para>
+The uniform query API of yaidom consists of several query API traits. They are like LEGO blocks, that can easily be combined.
+Yaidom (native and wrapper) element tree implementations all mix in some or most of these query API traits. The example queries
+above are not bound to any particular element implementation, but use a common query API trait, namely
+<code>ScopedElemApi</code>, which is itself a combination of query API traits. This trait offers
+methods like <code>filterElemsOrSelf</code>, <code>filterChildElems</code> (from trait <code>ElemApi</code>),
+as well as methods to get text content, qualified names, expanded names, attributes etc. In other words,
+it offers a query API abstraction that is valid for almost all element implementations.
+    </para>
+    <para>
+The query API traits themselves are not visible in normal yaidom client code. They are relevant for creators of
+custom yaidom element implementations, for example wrappers around elements offered by existing XML libraries.
+Yaidom users that do not extend yaidom may still want to know which query API traits are offered by some XML tree
+implementation, of course.
+    </para>
+    <para>
+Sometimes we want to use methods that are only offered by specific element implementations, and not by any query API traits.
+The default native yaidom element implementation is <code>simple.Elem</code>. It knows about
+elements and text content (as per the mixed-in <code>ScopedElemApi</code> trait), but it also
+knows about comments, processing instructions and CDATA sections (if passed by the XML parser). For example:
+      <programlisting language="scala"><![CDATA[
+println(doc.comments.map(_.text.trim).mkString)
+// prints
+// "Created by Charles Hoffman, CPA, 2008-03-27"
+
+val contexts =
+  doc.documentElement.filterChildElems(
+    withEName(xbrliNs, "context"))
+
+println(contexts forall (e =>
+  !e.commentChildren.isEmpty))
+// prints true: all contexts have comments
+
+// Being lazy, and ignoring the namespace here
+val facts =
+  doc.documentElement.filterChildElems(
+    withLocalName(
+      "ManagementDiscussionAndAnalysisTextBlock"))
+
+println(
+  facts.flatMap(e => e.textChildren.filter(
+    _.isCData)).size >= 1)
+// prints true
+]]></programlisting>
+    </para>
+  </section>
+  <section>
+    <title>Namespace examples</title>
+    <para>
+Yaidom has very precise namespace support. Like the article <xref linkend="understanding-namespaces"/>,
+yaidom distinguishes qualified names from expanded names, and namespace declarations from in-scope namespaces. Their yaidom counterparts are immutable
+classes <code>QName</code>, <code>EName</code>, <code>Declarations</code> and <code>Scope</code>. Having these 4 distinct concepts, their
+relationships can be expressed very precisely, even in yaidom code, and even outside of the context of any particular XML tree!
+    </para>
+    <para>
+In the example XBRL instance above, all namespace declarations are in the root element, and therefore all descendant-or-self elements have the
+same in-scope namespaces. In code:
+      <programlisting language="scala"><![CDATA[
+val rootScope = doc.documentElement.scope
+
+val sameScopeEverywhere =
+  doc.documentElement.findAllElemsOrSelf.forall(
+    e => e.scope == rootScope)
+
+println(sameScopeEverywhere) // prints true
+]]></programlisting>
+    </para>
+    <para>
+Let's consider the first FRIS rule taken from <xref linkend="fris"/>, expressed in yaidom.
+Rule 2.1.5 states that some commonly used namespaces should use their "preferred" namespace prefixes in XBRL instances. The rule can be expressed in yaidom as follows:
+      <programlisting language="scala"><![CDATA[
+val standardScope = Scope.from(
+  "xbrli" -> "http://www.xbrl.org/2003/instance",
+  "xlink" -> "http://www.w3.org/1999/xlink",
+  "link" -> "http://www.xbrl.org/2003/linkbase",
+  "xsi" ->
+    "http://www.w3.org/2001/XMLSchema-instance",
+  "iso4217" -> "http://www.xbrl.org/2003/iso4217")
+
+val standardPrefixes = standardScope.keySet
+val standardNamespaceUris =
+  standardScope.inverse.keySet
+
+// Naive implementation: expects only namespace
+// declarations in root element
+
+def usesExpectedNamespacePrefixes(
+  xbrlInstance: simple.Elem): Boolean = {
+
+  val rootScope = xbrlInstance.scope
+  require(
+    xbrlInstance.findAllElemsOrSelf.forall(
+      e => e.scope == rootScope))
+
+  val subscope =
+    xbrlInstance.scope.withoutDefaultNamespace
+      filter {
+        case (pref, ns) =>
+          standardPrefixes.contains(pref) ||
+            standardNamespaceUris.contains(ns)
+  }
+  subscope.subScopeOf(standardScope)
+}
+]]></programlisting>
+    </para>
+    <para>
+Above, there is no useful error reporting, but that is easy to add, because the implementation is entirely in the rich Scala programming language.
+In prose, method <code>usesExpectedNamespacePrefixes</code> checks that if some of the 5 namespace prefixes above are used, that they all map to the expected namespace URIs.
+The method also checks the other side: if some of the namespace URIs are in-scope, then the corresponding namespace prefixes are the expected ones, with the exception that
+they may be the default namespace.
+    </para>
+    <para>
+The example above illustrates yaidom's precise support for namespaces in the uniform query API, and therefore offered by diverse element tree implementations.
+Yet the namespace support goes further than that. As article <xref linkend="understanding-namespaces"/> makes clear,
+namespaces are not only used in element and attribute names, but can also be used in text content and attribute values.
+    </para>
+    <para>
+FRIS rule 2.1.7 must take namespaces in text content and attribute values into account, because it states that XBRL instances should not have any unused namespace declarations.
+Yet how do we detect the use of namespaces in text content or attribute values? We know this from the XML schema(s) describing XBRL instances. For example, the <code>xbrli:measure</code>
+element has type <code>xs:QName</code>. So the text content of an <code>xbrli:measure</code> should be interpreted as an "expanded name". The namespace of that expanded name is therefore
+one of the namespaces used in the XBRL instance.
+    </para>
+    <para>
+Yaidom makes it possible to code a <code>DocumentENameExtractor</code> strategy, holding information about ENames and therefore namespaces occurring in text content or attribute values.
+So, looking at the XML schema(s), we can easily code such a strategy ourselves (yaidom itself has no XML Schema awareness). Then, using method <code>NamespaceUtils.findAllNamespaces</code>,
+all namespaces used in the XBRL instance can be found.
+    </para>
+    <para>
+Method <code>NamespaceUtils.findAllNamespaces</code> does not work on the default "simple" elements, however, because "simple" elements do not know their ancestry. To that extent, yaidom
+offers so-called "indexed" elements, that do know their ancestry. Like "simple" elements, "indexed" elements are immutable, because they are just wrappers around a root as "simple" element along
+with an "index" into that element tree. The "indexed" and "simple" elements also share most of the query API, in particular the <code>ScopedElemApi</code> query API trait.
+    </para>
+    <para>
+Let's now implement FRIS rule 2.1.7, but only for the sample XBRL instance:
+      <programlisting language="scala"><![CDATA[
+val xbrliDocumentENameExtractor:
+  DocumentENameExtractor = {
+  // Not complete, but suffices for this example!
+
+  new DocumentENameExtractor {
+
+    def findElemTextENameExtractor(
+      elem: indexed.Elem):
+        Option[TextENameExtractor] =
+      
+      elem.resolvedName match {
+        case EName(Some(xbrliNs), "measure")
+          if elem.path.containsName(
+            EName(xbrliNs, "unit")) =>
+       
+          Some(SimpleTextENameExtractor)
+        case EName(
+          Some(xbrldiNs), "explicitMember") =>
+          Some(SimpleTextENameExtractor)
+        case _ => None
+    }
+
+    def findAttributeValueENameExtractor(
+      elem: indexed.Elem, attrEName: EName):
+        Option[TextENameExtractor] =
+      
+      elem.resolvedName match {
+        case EName(
+          Some(xbrldiNs), "explicitMember")
+          if attrEName == EName("dimension") =>
+          
+          Some(SimpleTextENameExtractor)
+        case _ => None
+    }
+  }
+}
+
+val indexedDoc = indexed.Document(doc)
+
+val namespaceUrisDeclared =
+  indexedDoc.documentElement.scope.inverse.keySet
+
+import NamespaceUtils._
+
+// Check that the used namespaces are almost
+// exactly those declared in the root element
+// (approximately rule 2.1.7)
+
+val companyNs = "http://www.example.com/company"
+
+val usedNamespaces =
+  findAllNamespaces(
+    indexedDoc.documentElement,
+    xbrliDocumentENameExtractor).diff(Set(xmlNs))
+
+// The "company namespace" is an unused namespace
+// in our sample XBRL instance
+require(usedNamespaces == namespaceUrisDeclared.
+  diff(Set(companyNs)))
+]]></programlisting>
+    </para>
+    <para>
+Although yaidom itself has no XML Schema awareness, yaidom can still be useful in a context where schema-awareness is needed. For example, Saxon-EE NodeInfo objects can
+be wrapped as yaidom trees, thus getting the best of Scala Collections processing and Saxon-EE XML and XML Schema support.
+    </para>
+    <para>
+Let's now remove the unused namespaces (the "company" namespace in this example), and compare the result with the original XBRL instance. Yet how do we compare
+two XML trees (as "simple" elements) for equality? In order to do so, note that namespace prefixes are irrelevant to equality comparisons, but namespace URIs do count.
+(Be careful with prefixes in text content and attribute values!) Yaidom offers an XML element implementation in which namespace prefixes do not occur. These elements are
+called "resolved" elements. They share much of the same query API with "simple" and "indexed" elements, but not all of it. After all, "resolved" elements do not know
+about namespace prefixes, so they do not know about qualified names. Therefore they do not mix in the <code>ScopedElemApi</code> trait, but they do mix in traits like
+<code>ElemApi</code> and <code>HasTextApi</code>, that is, all traits extended by <code>ScopedElemApi</code> that do not know about qualified names. Hence, "resolved"
+elements still have much of the yaidom query API in common with "simple" and "indexed" elements.
+    </para>
+    <para>
+The following code strips unused namespaces, and shows that the result is the same, when comparing the trees as "resolved" elements.
+      <programlisting language="scala"><![CDATA[
+val editedRootElem =
+  stripUnusedNamespaces(
+    indexedDoc.documentElement, xbrliDocumentENameExtractor)
+
+val areEqual =
+  resolved.Elem(indexedDoc.document.documentElement) ==
+    resolved.Elem(editedRootElem)
+
+println(areEqual) // prints true
+]]></programlisting>
+    </para>
+  </section>
+  <section>
+    <title>Extending yaidom for custom XML dialects</title>
+    <para>
+Above, all XBRL instance processing was coded as normal XML processing, mostly using yaidom "simple" and "indexed" elements. That's not very convenient. It would
+be nice if we could talk about contexts, units, facts etc., instead of just XML elements that happen to be contexts, units, facts, etc. In general, it would be nice if yaidom
+would make it easy to support custom XML dialects. That is indeed the case. We already knew that yaidom is <emphasis>extensible</emphasis>, in that new element implementations offering the same
+yaidom query API can easily be added. Yet, what's more, yaidom also facilitates a "yaidom querying experience" for <emphasis>custom XML dialects</emphasis>, such as XBRL instances (or DocBook files,
+or Maven POM files, or any other XML dialect described by schemas).
+    </para>
+    <para>
+To that end, yaidom offers the <code>SubtypeAwareElemApi</code> query API trait. Whereas the <code>ElemApi</code> trait offers querying for child/descendant/descendant-or-self
+elements, trait <code>SubtypeAwareElemApi</code> extends this to class hierarchies (for XML dialects), offering querying for child/descendant/descendant-or-self elements of specific
+sub-types of the root class of the class hierarchy.
+    </para>
+    <para>
+In this XBRL instance class hierarchy<footnote><para><link xl:href="http://dvreeze.github.io/code-snippets/xbrl-instances.html"/></para></footnote> we can see this action. Each part of an XBRL
+instance is of type <code>XbrliElem</code> or a sub-type. Common sub-types are those for contexts, units, item facts, tuple facts, and, of course, XBRL instances themselves.
+Super-type <code>XbrliElem</code> mixes in traits <code>ScopedElemApi</code> and <code>SubtypeAwareElemApi</code>. Trait <code>ScopedElemApi</code> offers the most common
+yaidom element query API, as we know, and trait <code>SubtypeAwareElemApi</code> makes it easy to query for elements of specific types, with little boilerplate. The latter is used
+internally in the code of the <code>XbrliElem</code> class hierarchy, but can also be used in client code, if need be.
+    </para>
+    <para>
+For the remaining FRIS validations in this article, we will use the <code>XbrliElem</code> class hierarchy.
+    </para>
+    <para>
+Consider FRIS rule 2.1.10. It states that there is a specific expected order of the child elements of the root element. One way to code that is as follows:
+      <programlisting language="scala"><![CDATA[
+// Assume xbrlInstance variable of type XbrlInstance
+
+val remainingChildElems =
+  xbrlInstance.findAllChildElems dropWhile {
+    case e: SchemaRef => true
+    case e => false
+  } dropWhile {
+    case e: LinkbaseRef => true
+    case e => false
+  } dropWhile {
+    case e: RoleRef => true
+    case e => false
+  } dropWhile {
+    case e: ArcroleRef => true
+    case e => false
+  } dropWhile {
+    case e: XbrliContext => true
+    case e => false
+  } dropWhile {
+    case e: XbrliUnit => true
+    case e => false
+  } dropWhile {
+    case e: Fact => true
+    case e => false
+  } dropWhile {
+    case e: FootnoteLink => true
+    case e => false
+  }
+
+require(remainingChildElems.isEmpty)
+]]></programlisting>
+    </para>
+    <para>
+Now consider FRIS rule 2.4.2 stating that all contexts must be used. It is also checked that all context references indeed refer to existing contexts.
+Note in this case how friendly the XBRL instance model is compared to raw XML elements:
+      <programlisting language="scala"><![CDATA[
+val contextIds =
+  xbrlInstance.allContextsById.keySet
+
+val usedContextIds = xbrlInstance.findAllItems.
+  map(_.contextRef).toSet
+
+require(usedContextIds.subsetOf(contextIds))
+
+// Oops, some contexts are not used, namely
+//I-2004, D-2007-LI-ALL and I-2003
+println(contextIds.diff(usedContextIds))
+]]></programlisting>
+    </para>
+    <para>
+The next rule is more complex. FRIS rule 2.4.1 states that S-equal contexts should not occur. S-equality ("structural equality") is defined in the
+Core XBRL specification. A good implementation of S-equality requires type information. Therefore Saxon-EE backed yaidom wrappers would be a good choice.
+A very naive approximation is given below:
+      <programlisting language="scala"><![CDATA[
+def transformContextForSEqualityComparison(
+  context: XbrliContext): resolved.Elem = {
+  
+  // Ignoring "normalization" of dates and
+  // QNames, as well as dimension order etc.
+  val elem = context.indexedElem.elem.copy(
+    attributes = Vector())
+  resolved.Elem(elem).
+    coalesceAndNormalizeAllText.
+      removeAllInterElementWhitespace
+}
+]]></programlisting>
+    </para>
+    <para>
+Then rule 2.4.1 applied to our XBRL instance is as follows:
+      <programlisting language="scala"><![CDATA[
+val contextsBySEqualityGroup =
+  xbrlInstance.allContexts.groupBy(e =>
+    transformContextForSEqualityComparison(e))
+
+require(contextsBySEqualityGroup.size ==
+  xbrlInstance.allContexts.size)
+]]></programlisting>
+    </para>
+    <para>
+As we can see, the more complex the rules, the more we profit from the fact that all code is Scala code, and that there is no needed effort in bridging
+between Scala and XSLT, for example. The Scala language, its Collections API, and yaidom form a powerful combination.
+    </para>
+    <para>
+Finally, consider FRIS rule 2.8.3, stating that concepts are either top-level or nested in tuples, but not both. Using the XBRL instance model, the code is simple:
+      <programlisting language="scala"><![CDATA[
+val topLevelConceptNames =
+  xbrlInstance.allTopLevelFactsByEName.keySet
+
+val nestedConceptNames =
+  xbrlInstance.allTopLevelTuples.
+    flatMap(_.findAllFacts).
+      map(_.resolvedName).toSet
+
+require(topLevelConceptNames.intersect(
+  nestedConceptNames).isEmpty)
+]]></programlisting>
+    </para>
+  </section>
+  <section>
+    <title>Conclusion</title>
+    <para>
+In this article, the <emphasis>yaidom Scala XML query library</emphasis> was introduced. We used examples from XBRL. It turned out that Scala, its Collections API, and the yaidom library form a powerful precise
+XML processing "stack". This "stack" is even more powerful when using custom mature yaidom "backends" as Saxon-EE. It also turned out that yaidom makes it easy to support custom XML dialects (such as
+XBRL instances), offering more type-safety and leading to less boilerplate. The <emphasis>extensibility</emphasis> of yaidom (in more than 1 way) is one of its strengths, along with its precise
+<emphasis>namespace support</emphasis> and <emphasis>uniform precise element query API</emphasis> (offered by numerous <emphasis>XML "backends"</emphasis>).
+    </para>
+    <para>
+The FRIS rule examples show that a programming language like Scala is a natural fit for implementing those rules. Had we used XSLT or XQuery instead, how would we easily have found unused
+namespaces, for example? Moreover, how would we have supported custom XML dialects in the same way that yaidom facilitates such support?
+    </para>
+    <para>
+The examples only used XBRL instances. These instances are described by XBRL taxonomies. Such taxonomies have to obey many rules as well. Taxonomies typically span many files, and their validation
+is usually much more complex than instance validation. The advantages of using a "Scala yaidom XML stack" would even be greater than for XBRL instances.
+    </para>
+    <para>
+As a concluding remark, yaidom is used in production code developed at EBPI<footnote><para>EBPI
+  <link xl:href="http://www.ebpi.nl">http://www.ebpi.nl</link>
+</para></footnote>.
+Its usage in several projects has certainly helped it mature. I want to thank my colleagues Jan-Paul van der Velden,
+Andrea Desole, Johan Walters and Nicholas Evans for their valuable feedback on earlier versions of yaidom.
+    </para>
+  </section>
+
+  <bibliography>
+    <biblioentry xml:id="scala-xml" xreflabel="[1]">
+      <abbrev>1</abbrev>
+      <title>XML Processing in Scala</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Dino</firstname>
+            <surname>Fancellu</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>William</firstname>
+            <surname>Narmontas</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>XML London 2014</publishername>
+      <biblioid class="doi">10.14337/XMLLondon14.Narmontas01</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="fris" xreflabel="[2]">
+      <abbrev>2</abbrev>
+      <title>Financial Reporting Instance Standards 1.0</title>
+      <publishername>XBRL Consortium</publishername>
+      <biblioid class="uri">http://www.xbrl.org/technical/guidance/FRIS-PWD-2004-11-14.htm</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="understanding-namespaces" xreflabel="[3]">
+      <abbrev>3</abbrev>
+      <title>Understanding Namespaces</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Evan</firstname>
+            <surname>Lenz</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <biblioid class="uri">http://www.lenzconsulting.com/namespaces/</biblioid>
+    </biblioentry>
+  </bibliography>
+</article>

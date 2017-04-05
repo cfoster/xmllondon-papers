@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-17" version="5.0">
+  <info xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>From trees to graphs: creating Linked Data from XML</title>
+    <author>
+      <personname><firstname>Catherine</firstname><surname>Dolbear</surname></personname>
+      <affiliation>
+        <org>
+          <orgname>Oxford University Press</orgname>
+        </org>
+      </affiliation>
+      <email>cathy.dolbear@oup.com</email>
+    </author>
+    <author>
+      <personname><firstname>Shaun</firstname><surname>McDonald</surname></personname>
+      <affiliation>
+        <org>
+          <orgname>Oxford University Press</orgname>
+        </org>
+      </affiliation>
+      <email>shaun.mcdonald@oup.com</email>
+    </author>
+    <abstract>
+      <para> This paper describes the use case at Oxford University Press of
+        migrating XML content to Linked Data, the business drivers we have
+        identified so far and some of the issues that have arisen around
+        modelling RDF from an XML base. We also discuss the advantages and
+        limitations of schema.org markup relative to our much richer XML
+        metadata, and describe our experimental system architecture combining
+        stores for both XML documents and RDF triples. </para>
+    </abstract>
+  </info>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Introduction: What We Need</title>
+    <para>Oxford University Press publishes a wide range of academic content in
+      its online products, such as Oxford Scholarship Online, Oxford Art Online,
+      the Dictionary of National Biography, Oxford Medicine Online, Oxford Law
+      Online, Oxford Scholarly Editions Online and Oxford Islamic Studies Online
+      to name just a few. The content includes journals, chaptered books,
+      reference content, legal case studies and original literary texts (ranging
+      from Shakespeare to the Bible and translations of the Qur’an) across many
+      different disciplines. </para>
+    <para>Since our products are largely subscription based, there are varying
+      levels of freely discoverable content on our product sites, so our
+      "Discoverability Programme" has been working to release metadata and
+      content to a wide array of users and to search engines. A major way of
+      doing this is the <link xlink:href="http://oxfordindex.oup.com">Oxford
+        Index</link> site, a publicly available website described as our
+      "Discoverability Gateway". Each document (book chapter, journal article,
+      original text or entry in a reference work) in each of our online products
+      is given its own "index card" page on the Oxford Index. We describe the
+      Oxford Index to new users as a "digital card catalogue", to use a library
+      metaphor. This is stored "under the hood" as an XML file of all the
+      document’s metadata. We have already found that the exposure of titles,
+      authors, abstracts or short snippets of text from the online document to
+      the "open" web has increased the volume of our content that’s indexed by
+      Google and others.</para>
+    <para>As well as Search Engine Optimisation (SEO), another major business
+      driver is the need to improve user journeys within and between our various
+      online products. For example, we want to be able to suggest to a user
+      looking at a reference entry on medical ethics from the Oxford Textbook of
+      Medicine that they might also be interested in a recent journal article on
+      the same subject; or to suggest to someone reading one of John Donne’s
+      poems on Oxford Scholarly Editions Online that they might be interested in
+      a monograph chapter also about John Donne. While some of these links may
+      be generated dynamically (automatically generated recommendations of the
+      sort: "people who read what you’re reading also looked at this other
+      page") or driven by an underlying search query based on metadata elements,
+      other links can be more definitively stated (such as citations,
+      relationships between people, authorship etc.) and may have already been
+      manually edited. We call this latter category "static" links and have been
+      storing these links as independent XML documents in our metadata database
+      which we call the "metadata hub". We have also grouped index cards about
+      the same topic or person together into what we call an "Overview",
+      providing another way of navigating around a topic. Index cards are linked
+      to their overviews using the "hasPrimaryTopic" link. As the number of
+      links have increased, it has become more apparent that a graph model would
+      be better suited to storing the links, and so our thoughts have turned to
+      RDF. </para>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Metadata Hub and OxMetaML: Where We're At</title>
+    <para>Developing a single XML schema for all this metadata was no easy task,
+      because the entire body of content as data originates from many different
+      sources, including Mark Logic databases, FileMaker databases, SQL Server
+      stores and even spreadsheets, using a number of different DTDs or none at
+      all, and each having been developed to its particular product lifecycle by
+      its particular product team.</para>
+    <para>We analysed each data set identifying gaps and gathering product
+      metadata where available. Initial findings across larger sets helped
+      identify a core set of bibliographic fields to serve as a requisite
+      benchmark. Further findings uncovered where data was unavailable, lacked
+      standardization or sufficient workflows to facilitate an additional
+      "metadata" delivery stream.</para>
+    <para>Change requests were filtered into two categories: those with little
+      to no adverse impact to the product’s business, and those requiring more
+      significant changes. All non-impactful changes were implemented – adding
+      identifiers, streamlining repositories, and authoring scripts to automate
+      upstream extraction. The analysis results were updated, the core set of
+      fields were extended, and a draft schema model was created.</para>
+    <para>At the time, we had planned to implement the existing <link
+        xlink:href="http://purl.org/dc/terms/">Dublin Core</link> model. There
+      were a few factors serving as major constraints. Oxford University Press
+      uses third party developers to build and maintain its product websites.
+      There are advantages to such a business model, however, we realized we
+      would no longer have complete control over data changes. Further, cost
+      efficiencies gained by code reuse when new sites are launched are only
+      realized if changes to existing data models are kept to a minimum.
+      Finally, when new models are introduced, in such conditions, they tend to
+      conflate with constructs solely intended to support site functionality.
+      Thus, while RDF/XML was the intent, business needs for site development
+      required a model much more XML intensive. This coupled with the inherent
+      challenge of filtering variant data from myriad product silos into one,
+      meant that our current model uses an internal abstraction layer comprised
+      of OxMetaML - an XML schema suite of Dublin Core nested within proprietary
+      constructs, nested within simple RDF constructs, stored in a file store,
+      the Metadata Hub. </para>
+    <para>The Metadata Hub (Hub) is our XML file store loaded via a
+      Pre-Ingestion Layer (PIL), where a collection of automated, proprietary
+      pipelines transform the various source data into OxMetaML metadata
+      records. One of the advantages of OxMetaML is that it establishes a single
+      vocabulary for all links that had previously existed in disparate silos.
+      Each link is defined as an XML-serialized triple with a named predicate.
+      Because many of the links are embedded in the record from which they link,
+      each link is encoded as an RDF resource with no specific identifier. That
+      is, as a blank node, which makes further linking or querying difficult
+      from an RDF perspective. It is, however, efficient as XML, and for post
+      XML processing. </para>
+    <para>One of the post processing use cases calls for dynamically creating
+      static links. To do this, we index the data with a full text search
+      server, based on a Java search engine library extended with XML, among
+      other things. It is a powerful search engine, allowing us to pinpoint
+      potential relationships between the subject of a query (a single piece of
+      content) and the entire corpus. It is also normally quite fast. There are
+      trade offs, however, when dealing with XML.</para>
+    <para>The search engine uses an inverted, terms based index, where each term
+      points to a list of documents that contain it. For text documents, even
+      for HTML where markup is less strict, it is potent. The repetitive nature
+      of bibliographic metadata in highly structured XML, however, inherently
+      increases the time it takes to complete searches, especially when
+      documents number in the millions. An author name like Shakespeare could
+      appear in hundreds of thousands of documents. Therefore, great care must
+      go into the search engine server's configuration.</para>
+    <para>One aspect controlled by configuration is segmenting, where the index
+      is segmented into distinct disk locations for greater efficiency. Segment
+      sizes are controllable via the configuration file. From a file system
+      standpoint, this is highly efficient. Basically, writing a 5 Gig file (or
+      a collection of files amounting to it) to a single disk space makes quick
+      access nearly impossible. With highly structured, repetitve XML, it
+      becomes problematic as it essentially requires multi-value fields.</para>
+    <para>"Multi-value field" is the term used for XML elements that repeat per
+      document. For instance, and not insignificantly, keywords or index terms,
+      which are very relevant to a document's relational position within a
+      corpus, would be captured as multi-value fields. If the use case requires
+      that these fields be stored as well, the search will only return the last
+      value indexed for each one. In order to retrieve all relevant values from
+      a document, all values for a multi-value field must be concatenated into a
+      single, preferably separate, field, and the engine must know to return
+      that field. Further, consideration must be given to which fields can be
+      queried, and which returned between the multi-value field and its
+      corresponding concatenated field.</para>
+    <para>The increase in query time is negligible by comparison to
+      configuration and load, which itself may contribute to increased query
+      time. Neither the schema or configuration file, the heart of the index,
+      can be modified on the fly. There's no tweaking the index as each
+      configuration change requires reindexing all the documents. In addition,
+      while it is possible to use near realtime search (NRT), it can only be
+      accomplished via what are known as soft commits, where index changes
+      (updates) are only made visible to search, as opposed to hard commits that
+      ensure the changes have been saved properly. Obviously, NRT is
+      accomplished via a combination of soft and hard commits. However, if your
+      use case requires that each query be followed up by document retrieval in
+      a matter of seconds, you are left with the choice of either forgoing NRT,
+      or performing some impressive, architectural alchemy.</para>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>An RDF Graph Model: Where We're Going</title>
+    <para>Although our current metadata is stored in the XML filestore
+      serialised as RDF/XML, we still have some way to go to represent the
+      knowledge that it contains as an RDF graph. This has come about for two
+      reasons. Firstly, because of the very different mindsets required for XML,
+      thinking in terms of documents and elements, trees and sequential order;
+      versus RDF where our building blocks are vertices and arcs. Where
+      documents are important, XML is a far better choice; where relationships
+      between things are important, RDF has the advantage. One common tip is
+      "XML for content, RDF for metadata" and this is where we are now heading.
+      Since our metadata still includes abstract texts, which can run to several
+      paragraphs, we do not expect to completely ditch the XML for RDF triples,
+      but as more of the concepts encoded in the XML metadata, such as authors,
+      become linked in their own right, and more importantly, are given their
+      own identifiers, potentially through initiatives such as the author
+      identification scheme <link xlink:href="http://orcid.org/">ORCID</link> ,
+      we expect to migrate more information to the graph model. </para>
+    <para>The second reason we are still at the development stage for our RDF
+      model is because we really have two different types of metadata, and are
+      working towards demarcating them more clearly. The first type is that
+      better known in the publishing world - bibliographical information about
+      the author, title, ISBN of the book or journal to which the document
+      belongs and other such related metadata. In this case, since our primary
+      output for the bibliographical information is in HTML form on the Oxford
+      Index website, we have chosen to retain the data as XML, which is easily
+      parsed into HTML, and only store the static links between documents, such
+      as "references" links, as RDF.</para>
+    <para>The second type of metadata is information concerning what the
+      document is about, often called contextual or semantic metadata. For
+      example, we currently tag each document with the academic subject to which
+      it belongs, and some documents, the Oxford Index Overviews, may also be
+      tagged with information about whether the Overview is about a Person,
+      Event or other type of entity. There is significant scope for expansion
+      here, to provide more detail about the content of the document. Semantic
+      publishing workflows usually do this by linking documents to an ontology,
+      stored as RDF or OWL-DL, which contains background knowledge about the
+      domain. For example, in the domain of American Revolutionary history, we
+      could store the facts: John Adams and Samuel Adams were cousins,
+      contemporaries of George Washington. John Adams succeeded George
+      Washington as President, and was the father of President John Quincy
+      Adams. Some of this information is available as Linked Data in DBpedia,
+      and we could augment it with additional information as we expand our
+      ontology. Therefore, if we identify documents as being about John Adams,
+      George Washington and John Quincy Adams, say, based on named entity
+      recognition techniques we can then use the ontology links to generate
+      links between the documents directly. Additionally, the ontology provides
+      information about the link type "father of", "successor of" etc. that can
+      help the user know how the two documents are related to each other, thus
+      further improving the user journey.</para>
+    <para>We are storing the document-to-document links that are considered part
+      of the bibliographic metadata as RDF triples. However, we also need to
+      record information about the links themselves, for example, whether they
+      have been approved by a curator, the accuracy of the link if it has been
+      automatically generated, the date of creation etc. There are several ways
+      of storing a fourth piece of information in RDF. The recommended option
+      for Linked Data is to use named graphs, or "quads". This assigns a name
+      (URI) to each separate graph (or group of triples), and hence allows
+      additional information to be attached to that graph URI. Although this is
+      supported in SPARQL, the RDF query language, unless we were to put each
+      triple in a separate graph, this approach would not fulfil our needs,
+      since we need to assign descriptive information to each triple, not just
+      each group of triples. </para>
+    <para> The alternative option is to assign a URI to each triple and treat it
+      as a resource in itself, so that further statements can be made about the
+      triple. This is known as reification. For example the triple about Barack
+      Obama:
+      <programlisting>
+&lt;http://metadata.oup.com/10.1093/oi/authority.20110803100243337&gt; &lt;http://metadata.oup.com/has_occupation&gt; "President of the United States"
+</programlisting>
+      could be reified to:
+      <programlisting>
+&lt;http://metadata.oup.com/Statements/12345&gt; rdf:subject &lt;http://metadata.oup.com/10.1093/oi/authority.20110803100243337&gt;.
+&lt;http://metadata.oup.com/Statements/12345&gt; rdf:predicate &lt;http://metadata.oup.com/has_occupation&gt;.
+&lt;http://metadata.oup.com/Statements/12345&gt; rdf:object "President of the United States".
+</programlisting>
+      Then additional triples can be added about the Statement:
+      <programlisting>
+&lt;http://metadata.oup.com/Statements/12345&gt; oup:is_valid_from "20 January 2009".
+</programlisting>
+      This approach is usually not recommended for linked data because it
+      increases the number of triples, and requires a large number of query
+      joins in order to return the RDF statements’ metadata. However, because we
+      are not directly publishing our document links, but simply storing them
+      for insertion into XML which is later transformed into HTML, reification
+      is still an option for us. </para>
+    <para> We have adopted a modified form of this reification model, whereby
+      each type of link is considered an RDFS class, and we create instances of
+      that class which are objects of the oup:has_link predicate, and subjects
+      of the oup:has_target predicate:
+      <programlisting>
+&lt;http://metadata.oup.com/10.1093/oi/authority.20110803100243337&gt; oup:has_link &lt;http://metadata.oup.com/links/12345&gt;.
+&lt;http://metadata.oup.com/links/12345&gt; rdf:type &lt;http://metadata.oup.com/isPrimaryTopicOfLink&gt;.
+&lt;http://metadata.oup.com/links/12345&gt; oup:has_target &lt;http://metadata.oup.com/10.1093/acref/9780195167795.013.0922&gt;.
+&lt;http://metadata.oup.com/links/12345&gt; oup:matchStatus "approved".
+</programlisting>
+      Much has been said about the drawbacks of the RDF/XML syntax for
+      serialising RDF. Unlike XML, RDF is fundamentally defined as a data model,
+      not a syntax. Although there are best practices for using RDF/XML <xref
+        linkend="paper-17_Dodds2012"/>, in our opinion, it is better to use one
+      of the alternative serialisations of RDF, such as Turtle <xref
+        linkend="paper-17_W3C2013"/> , to encode triples, and steer clear of
+      RDF/XML completely. Not only is RDF/XML verbose, and permissive of
+      syntactic variation to describe the same knowledge, it actually makes it
+      harder on XML experts to focus on modelling issues. The questions that
+      need to be answered in the design of an RDF Schema are what concepts are
+      we trying to encode, and what types of links should we have between them?
+      Issues of element order, and whether to use rdf:about or rdf:Description
+      are orthogonal to knowledge modelling and don’t need to be addressed if
+      the Turtle syntax is used. </para>
+    <para> Initially, we are encoding the links between our XML documents as
+      triples, using a number of common vocabularies such as <link
+        xlink:href="http://xmlns.com/foaf/0.1/">Friend of a Friend/</link> and
+      continuing to use the Dublin Core terms we already had in the XML. We have
+      also explored the use of <link xlink:href="http://purl.org/ontology/bibo/"
+        >bibo</link> and <link xlink:href="http://prismstandard.org"
+        >PRISM</link> bibliographic vocabularies. We are testing whether to
+      store inverse triples explicitly, or to rely on inference or SPARQL
+      CONSTRUCT queries to generate the inverse at the output, as we deliver
+      data to our front end websites. Storage of links in both "directions" for
+      example, statements that a chapter "is part of" a book, and the book "has
+      part" that chapter is obviously more costly in terms of storage, but
+      improves delivery performance. Since we have to recombine the triples back
+      into the XML document for presentation on the front end, generating the
+      inverse triple using an inference engine is unlikely to be the most
+      efficient method to acquire the information about the links, and requires
+      the use of OWL, rather than the less complex RDFS.</para>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Semantic Publishing Experiences: Where Others Are</title>
+    <para>A number of solutions to the kind of problems we’re facing have been
+      discussed in the XML and RDF communities: the various configurations of
+      system architecture "beast" combining an RDF triple store with an XML
+      database were discussed at XML Prague 2013 <xref
+        linkend="paper-17_Greer2013"/>. Greer’s "Consumer" model pulls in the
+      RDF triples via an XQuery application to combine them with XML from a
+      MarkLogic database, and another option he mentions is to tag a node set
+      with a URI identifier, which corresponds to an RDF resource in a triple
+      store. This then explicitly links the XML documents to the RDF triples,
+      and is something we are implementing through the use of DOIs (Digital
+      Object Identifiers) used both to identify the XML document and, expressed
+      as URIs, to identify the subject and object of a triple expressing a
+      relationship between two XML documents. </para>
+    <para>The BBC have combined the use of XML databases and RDF triple stores
+      for their dynamic semantic publishing for BBC Sport, the 2012 Olympics and
+      now BBC News sites <xref linkend="paper-17_Rayfield2012"/>. Their
+      journalists tag assets (such as video clips) according to an ontology, and
+      this metadata is captured in the <link
+        xlink:href="http://www.ontotext.com/owlim">OWLIM triple store</link>,
+      then combined with external sports statistics and content assets encoded
+      in XML stored in a MarkLogic database. Content can be aggregated using a
+      combination of SPARQL for domain querying and XQuery for asset selection.
+      The content transaction manager combines SPARQL and XQuery so that queries
+      for sports statistics related to a particular concept, like "The league
+      table for the English Premiership" can be carried out across the triple
+      store and MarkLogic database. Another example of combining XML with RDF is
+      at Nature Publishing Group <xref linkend="paper-17_Hammond2013"/>, where
+      they use XMP <xref linkend="paper-17_Adobe"/>, a vocabulary using a subset
+      of RDF that can be embedded in XML documents, to bridge between their XML
+      data store and their triple store. While their XML content is distributed
+      across the organisation in a number of different silos, the triple store
+      enables them to query the integrated picture of all their data. </para>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>RDFa and schema.org</title>
+    <para>While semantic markup does not increase search rankings directly, it
+      has been shown to improve click through rates significantly, as search
+      results are more eye-catching and it's clearer to the user that the
+      retrieved document is a relevant answer to their query. For example, when
+        <link
+        xlink:href="http://www.readwriteweb.com/archives/how_best_buy_is_using_the_semantic_web.php"
+        >Best Buy</link> added RDFa to their product pages, traffic to their
+      site increased by 30%, and <link
+        xlink:href="http://notes.3kbo.com/goodrelations-business-value"
+        >Yahoo!</link> has reported a 15% increase in click through rate for
+      enriched links. We are still evaluating a number of options for embedding
+      structured metadata in our discoverability pages. Although RDFa allows for
+      richer descriptions, and can provide our full metadata "under the hood",
+      the advantage of schema.org markup is that it is fully supported by the
+      major search engines. As an example, we can add some simple markup to the
+      Overview on Barack Obama on the Oxford Index like so:
+      <programlisting language="xml">&lt;div vocab="http://schema.org/" typeof="Person" about="http://oxfordindex.oup.com/view/10.1093/oi/authority.20110803100243337"&gt;
+  &lt;span property="name"&gt;Barack Obama&lt;/span&gt; &lt;p/&gt;
+  &lt;span property="jobTitle"&gt;American Democratic statesman&lt;/span&gt; &lt;p/&gt;
+  born &lt;span property="birthDate"&gt;4 August 1961&lt;/span&gt; &lt;p/&gt;
+&lt;/div&gt;</programlisting>
+      This does however require a mapping of our XML elements such as
+      "occupation" to schema.org vocabulary terms like "jobTitle", which can
+      introduce semantic mismatch. (Is "American Democratic statesman" really a
+      job title?). Other schema.org CreativeWork schemas, such as Book and
+      Article may map more closely on to our XML, but overall, the drawback of
+      schema.org is that only very simple markup can be used, so it does not
+      provide a full alternative to an API on our metadata or full linked data
+      publication. </para>
+  </section>
+  <section xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Conclusion</title>
+    <para>We are still in the early days of our journey from XML to Linked Data,
+      and a number of issues remain to be resolved. Firstly, we need to
+      re-assess our business case to identify the most effective output.
+      Secondly, we need to identify what proportion of our information should be
+      stored as triples, versus as XML: our strategy to date is to migrate
+      slowly, as more resources are assigned a URI and more links created
+      between those URIs, we can store the new triples in the triple store. It
+      is also a modelling issue of how much of the data is persistent - the more
+      data changes, the better it is to leave it as well-indexed XML that can
+      easily be searched, such that new links can be dynamically created, rather
+      than stored statically as RDF. Thirdly, we need to decide whether to
+      publish the triples as RDFa embedded markup, or go the whole hog and
+      publish Linked Data, though again these may be two stages on a longer
+      journey. And finally, we have yet to prove that a combination of an XML
+      store for documents and triple store for links is really the best
+      architectural solution for our needs.</para>
+  </section>
+
+  <bibliography xmlns:xlink="http://www.w3.org/1999/xlink"
+    xml:id="paper-17_References">
+
+    <biblioentry xml:id="paper-17_Rayfield2012" xreflabel="[Rayfield2012]">
+      <abbrev>Rayfield2012</abbrev>
+      <author>
+        <personname>Jem Rayfield</personname>
+      </author>
+      <title role="article">Sport Refresh: Dynamic Semantic Publishing</title>
+      <pubdate>17 April 2012</pubdate>
+      <biblioid class="uri">http://www.bbc.co.uk/blogs/bbcinternet/2012/04/sports_dynamic_semantic.html</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-17_Greer2013" xreflabel="[Greer2013]">
+      <abbrev>Greer2013</abbrev>
+      <author>
+        <personname>Charles Greer</personname>
+      </author>
+      <title role="article">XML and RDF Architectural Beastiary</title>
+      <edition>Proceedings of the XML Prague 2013 Conference</edition>
+      <pubdate>February 2013</pubdate>
+      <pagenums>189-205</pagenums>
+      <biblioid class="uri">http://archive.xmlprague.cz/2013/files/xmlprague-2013-proceedings.pdf#page=201</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-17_Hammond2013" xreflabel="[Hammond2013]">
+      <abbrev>Hammond2013</abbrev>
+      <author>
+        <personname>Tony Hammond</personname>
+      </author>
+      <title role="presentation">Techniques used in RDF Data Publishing at
+        Nature Publishing Group</title>
+      <pubdate>March 2013</pubdate>
+      <biblioid class="uri">http://www.slideshare.net/tonyh/semweb-meetupmarch2013</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-17_Adobe" xreflabel="[Adobe]">
+      <abbrev>Adobe</abbrev>
+      <author>
+        <orgname>Adobe</orgname>
+      </author>
+      <title>Extensible Metadata Platform</title>
+      <biblioid class="uri">http://www.adobe.com/products/xmp/</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-17_W3C2013" xreflabel="[W3C2013]">
+      <abbrev>W3C2013</abbrev>
+      <author>
+        <orgname>World Wide Web Consortium</orgname>
+      </author>
+      <title>Turtle Terse RDF Triple Language</title>
+      <subtitle>W3C Candidate Recommendation</subtitle>
+      <pubdate>19 February 2013</pubdate>
+      <biblioid class="uri">http://www.w3.org/TR/turtle/</biblioid>
+    </biblioentry>
+
+    <biblioentry xml:id="paper-17_Dodds2012" xreflabel="[Dodds2012]">
+      <abbrev>Dodds2012</abbrev>
+      <author>
+        <personname>Leigh Dodds</personname>
+      </author>
+      <title role="article">Principled Use of RDF/XML</title>
+      <pubdate>12 June 2012</pubdate>
+      <biblioid class="uri">http://blog.ldodds.com/2012/06/12/principled-use-of-rdfxml/</biblioid>
+    </biblioentry>
+
+  </bibliography>
+</article>

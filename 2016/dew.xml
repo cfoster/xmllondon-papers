@@ -1,0 +1,1070 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-4" xml:lang="en-GB" version="5.0">
+  <info xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Dynamic Translation of Modular XML Documentation Using Linked Data</title>
+    <titleabbrev>XML London 2016</titleabbrev>
+    <author>
+      <personname>
+        <firstname>Simon</firstname>
+        <surname>Dew</surname>
+      </personname>
+      <email>simonjabadaw@gmail.com</email>
+      <affiliation>
+        <orgname>STANLEY Black and Decker Innovations Limited</orgname>
+      </affiliation>
+    </author>
+    <!-- <pubdate>5 May 2016</pubdate> -->
+    <keywordset>
+      <keyword>XML</keyword>
+      <keyword>Translation</keyword>
+      <keyword>DocBook</keyword>
+      <keyword>SVG</keyword>
+      <keyword>ITS</keyword>
+      <keyword>XLIFF</keyword>
+      <keyword>Linked Data</keyword>
+    </keywordset>
+    <abstract>
+      <title>Abstract</title>
+      <para>STANLEY Black and Decker Innovations had a requirement to produce and
+      maintain DocBook-based documentation, which is translated into up to 10 languages.
+      Documents are built by transclusion from several source files, some of which may be
+      stored remotely. Each document may contain SVG illustrations which also needed
+      translation.</para>
+      <para>We selected XLIFF as a translation file format. To keep maintenance effort to
+      a minimum, we needed tools that enabled dynamic translations, i.e. translations
+      made at publication time without skeleton files. We also needed tools that could
+      find the correct translations for each translatable element after all the source
+      files (including remote source files) had been transcluded into a single
+      document.</para>
+      <para>This article describes the solutions we developed. These included markup
+      (mostly ITS 2.0) in the source documentation, linked data (using RDF/XML) to
+      identify the translation resources, and a set of XSLT stylesheets to handle the
+      transformations.</para>
+    </abstract>
+  </info>
+  <section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-4_intro">
+    <title>Introduction</title>
+    <para>XML-based documentation often requires translation and localisation. The QRT
+    team at STANLEY Black and Decker Innovations had a requirement to produce and
+    maintain modular documentation in up to 10 languages. Any translated document might
+    be published in up to 4 different brandings, for a number of different varieties of a
+    product, in several different output formats, e.g. PDF, CHM, web help; and each
+    document might contain illustrations which also needed translation. This article
+    describes the solutions we developed to minimise the effort and cost required to do
+    this.</para>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-4_background">
+    <title>Background</title>
+    <section xml:id="paper-4_background_format">
+      <title>Translation File Format</title>
+      <para>We required an open source format to store translations. We considered two
+      main standards: the <firstterm>GNU gettext</firstterm> standard and the
+      <firstterm>XLIFF</firstterm> file format.</para>
+      <para>The GNU gettext standard is an internationalisation and localisation system,
+      released by the GNU project and based on earlier work by Sun Micrososystems
+      <biblioref linkend="paper-4_gettext"/>. It uses text files known as Portable Objects to
+      hold translation strings. Commonly used for user interfaces in UNIX-like operating
+      systems.</para>
+      <para>XLIFF (XML Localisation Interchange File Format) is a data exchange
+      standard for localisation, originally designed for passing localisation data
+      between translation tools <biblioref linkend="paper-4_xliff"/>. It’s an XML-based file
+      format, standardised by OASIS (the Organization for the Advancement of Structured
+      Information Standards) in 2002.</para>
+      <para>We chose the XLIFF file format because:</para>
+      <orderedlist>
+        <listitem>
+          <para>Commercial translation houses can use XLIFF comfortably with their
+          proprietary translation tools;</para>
+        </listitem>
+        <listitem>
+          <para>XLIFF being XML-based can be transformed using XSLT <biblioref linkend="paper-4_xslt10"/>, and it made sense to use this with our DocBook XML
+          documentation <biblioref linkend="paper-4_docbook"/> and SVG images <biblioref linkend="paper-4_svg"/>.</para>
+        </listitem>
+      </orderedlist>
+    </section>
+    <section xml:id="paper-4_background_static">
+      <title>Traditional XLIFF Workflow</title>
+      <para>The traditional XLIFF workflow demands that the source document is converted
+      into a <firstterm>skeleton file</firstterm> which contains the structure of the
+      document, and an XLIFF file which contains the translation units themselves, as
+      shown in <xref linkend="paper-4_static_translate"/>.</para>
+      <figure xml:id="paper-4_static_translate">
+        <title>Translation with skeleton file</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/2016_static_translate.svg" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <blockquote>
+        <attribution><biblioref linkend="paper-4_ibm"/></attribution>
+        <para>Filters store the non-translatable portions in special files called
+        skeletons.</para>
+      </blockquote>
+      <para>The XLIFF file is sent to the translators. After translation, the translated
+      XLIFF files are combined with the skeleton file to create translated documents in
+      each of the target languages, as shown in <xref linkend="paper-4_static_merge"/>.</para>
+      <figure xml:id="paper-4_static_merge">
+        <title>Merge with skeleton file</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/2016_static_merge.svg" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>The translated documents are then processed to create the desired
+      output formats, as shown in <xref linkend="paper-4_static_publish"/>.</para>
+      <figure xml:id="paper-4_static_publish">
+        <title>Publishing translated documents</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/2016_static_publish.svg" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <blockquote>
+        <attribution><biblioref linkend="paper-4_ibm"/></attribution>
+        <para>The translated XLIFF must now be merged with the skeleton file to produce a
+        translated document in the desired output format.</para>
+      </blockquote>
+      <para>This means, however, that the skeleton file and the translated
+      documents become resources which must themselves be maintained:</para>
+      <blockquote>
+        <attribution><biblioref linkend="paper-4_tektronix"/></attribution>
+        <para>Translated file is checked into XML repository</para>
+      </blockquote>
+      <para>Maintaining skeleton files and a large number of translated files can become
+      a problem, especially when authors have to produce several different versions of
+      the documentation, e.g. for different brandings or product variants.</para>
+    </section>
+    <section xml:id="paper-4_background_dynamic">
+      <title>Dynamic Translations</title>
+      <para>One solution to the problem of maintenance of translated documentation is to
+      use <firstterm>dynamic translations</firstterm>. The translation strings are
+      extracted from the source file, but no skeleton file is produced, as shown in
+      <xref linkend="paper-4_dynamic_translate"/>.</para>
+      <figure xml:id="paper-4_dynamic_translate">
+        <title>Translation without skeleton file</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/2016_dynamic_translate.svg" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>At publication time, the build tool takes the structure of the source
+      document and replaces the source text with the corresponding translated text,
+      including any inline markup, as shown in <xref linkend="paper-4_dynamic_publish"/>.</para>
+      <figure xml:id="paper-4_dynamic_publish">
+        <title>Publishing translated documents dynamically</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/2016_dynamic_publish.svg" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>The advantage of fully dynamic translation is that elements can be moved
+      around or deleted in the source document and these structural changes are reflected
+      automatically in the translated publications, without the need to regenerate the
+      skeleton file or update intermediate translated source files.</para>
+      <para>Dynamic translation is used with some GNU gettext workflows. For example,
+      authors who write documentation in the Mallard XML format <biblioref linkend="paper-4_mallard"/> can use this approach to publish documentation to yelp, the
+      GNOME help viewer <biblioref linkend="paper-4_yelp"/>. Authors can place translated PO
+      files into a specific subdirectory and add instructions to a configuration file so
+      the build process can translate the document into that language:</para>
+      <blockquote>
+        <attribution><biblioref linkend="paper-4_yelp"/></attribution>
+        <para>This integrates the British English language translation with the yelp.m4
+        build process, so that the translations from the PO file are used to create
+        translated Mallard pages during the make process. As with the basic integration,
+        the translated pages are validated during make check and installed in the install
+        directory during make install.</para>
+      </blockquote>
+    </section>
+    <section xml:id="paper-4_background_problem">
+      <title>Problem</title>
+      <para>However, we faced two problems before we could adopt this approach:</para>
+      <orderedlist>
+        <listitem>
+          <para>We weren’t aware of any solution that would enable dynamic translation
+          using XLIFF files.</para>
+        </listitem>
+        <listitem>
+          <para>A further problem arises with modular documentation, i.e. documents that
+          are built at publication time from several source files, all transcluded into
+          the main assembly document. Some of these source files may be stored remotely.
+          The publication process thus needs to know where to find the correct
+          translation for every translatable element in the main document after all the
+          document source files have been transcluded into a single document. See
+          <xref linkend="paper-4_modular_problem"/>.</para>
+        </listitem>
+      </orderedlist>
+      <figure xml:id="paper-4_modular_problem">
+        <title>Problem with translating modular documentation</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/2016_modular_problem.svg" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+    </section>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-4_design">
+    <title>Design</title>
+    <para>We designed a solution based around linked data to identify the translation
+    files for each document, document part or image; markup in the source documentation
+    to identify the correct translation for each translatable element; and a set of tools
+    to handle the translation process. See <xref linkend="paper-4_modular_solution"/>.</para>
+    <figure xml:id="paper-4_modular_solution" pgwide="1">
+      <title>Dynamic translation using linked data</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/2016_modular_solution.svg" width="100%"/>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    <section xml:id="paper-4_design_links">
+      <title>Design: Linked Data</title>
+      <para>Each source document can use linked data to identify the XLIFF files that
+      contain translations of the elements within the document. We wanted linked data to
+      reuse established vocabularies wherever possible.</para>
+      <para>If necessary, specific parts of a document (e.g. document chunks which have
+      been transcluded from a remote location) can use linked data to identify the
+      XLIFF files that contain translations of the elements within that part.</para>
+      <para>Linked translation data takes the form of RDF/XML statement(s) <biblioref linkend="paper-4_rdfxml"/>. We chose RDF/XML because of the flexibility that the markup
+      offers, and in the hope that we may find further ways to analyse our translations
+      using linked data tools in future, e.g. to analyse translation coverage.</para>
+    </section>
+    <section xml:id="paper-4_design_markup">
+      <title>Design: Markup</title>
+      <para>Each translatable element must contains markup that identifies the
+      corresponding translation unit in the XLIFF file.</para>
+    </section>
+    <section xml:id="paper-4_design_tools">
+      <title>Design: Tools</title>
+      <para>Translation will take place as part of the document build process, after
+      transcluding the document modules into a single document, and before transforming
+      the document into its publication format. The solution must therefore include an
+      automatic translation tool which can be used as part of the document publication
+      build process.</para>
+      <para>For each translatable element in the document, the automatic translation tool
+      must find the correct XLIFF file for the correct language, and replace the inline
+      content of the element with the translated content from the XLIFF file.</para>
+      <para>The solution must include tools to prepare the source documentation for
+      translation, i.e. by adding translation markup automatically; and to extract the
+      translatable strings to an XLIFF file so that it can be sent to translators.</para>
+      <para>The solution must also include tools for the management of XLIFF files: for
+      example, comparing the source file to the translation file when the source file has
+      changed; merging completed translations into the existing translation files; and
+      purging duplicate translation units from existing translation files.</para>
+    </section>
+    <section xml:id="paper-4_design_prior">
+      <title>Related Work</title>
+      <para>As stated previously, we were aware of gettext for handling dynamic
+      translations. However, gettext is not aimed at XLIFF files, and does not address
+      the issue of translating modular documentation.</para>
+      <para>We were also aware of the ITS Tool <footnote>
+        <simpara>
+          <link xl:href="http://itstool.org"/>
+        </simpara>
+      </footnote> package for maintaining translation files. This package provided useful
+      inspiration, particularly the use of ITS (Internationalisation Tag Set) rules files
+      to identify translatable elements <biblioref linkend="paper-4_its"/>. However, this package
+      is also aimed at gettext Portable Objects rather than XLIFF files, and does not
+      address the issue of translating modular documentation.</para>
+      <para>The Okapi Framework <footnote>
+        <simpara>
+          <link xl:href="http://okapi.opentag.com"/>
+        </simpara>
+      </footnote> is a suite of tools for managing XLIFF files, particularly useful for
+      extracting XLIFF translatable units from a wide variety of file formats. It does
+      not handle dynamic translation, or provide any solution to the issue of translating
+      modular documentation.</para>
+    </section>
+    <section xml:id="paper-4_design_mapping">
+      <title>Design Decision: Mapping Elements to Translation Units</title>
+      <para>When converting from the source documentation to XLIFF, the preparation tools
+      need to be able to determine what a translatable element is, and how the
+      translatable elements map to XLIFF translation units.</para>
+      <para>One approach would be to convert all elements containing text nodes into
+      translation units. However this might lead to highly segmented text, which would
+      create difficulties for translators.</para>
+      <para>To aid translators, and to keep the implementation simple, we decided to
+      define a reasonable set of elements for each supported file type as
+      <quote>block</quote> elements. Each block element maps to a single translation
+      unit. So for example, in DocBook XML, a <tag class="element">para</tag> or a <tag class="element">title</tag> tag would be a block element. Child elements of block
+      element are <quote>inline</quote> elements, contained within the XLIFF translation
+      unit.</para>
+      <para>The ITS 2.0 standard provides the Elements Within Text data category, which
+      can be used to determine which elements in a file are block elements and which are
+      inline. We decided to define a standard ITS rules file for the file formats we use.
+      The XLIFF preparation tools must use this ITS rules file to map the elements in the
+      source document to translation units in an XLIFF file. The XLIFF preparation tools
+      must be able to use different ITS rules files if necessary.</para>
+    </section>
+    <section xml:id="paper-4_design_inline">
+      <title>Design Decision: Inline Markup</title>
+      <para>Elements from foreign namespaces are not permitted within translated text
+      in an XLIFF file. XLIFF supports two strategies for marking up inline elements.
+      These may be called <quote>raw</quote> (escaped) markup and <quote>cooked</quote>
+      (transformed) markup.</para>
+      <para>With raw markup, inline XML elements in the source document are marked up in
+      the XLIFF file as escaped text. Escaped start and end tags can be surrounded by
+      XLIFF <tag class="element">bpt</tag> and <tag class="element">ept</tag> tags;
+      escaped standalone tags can be surrounded by XLIFF <tag class="element">ph</tag>
+      tags. The escaped markup has to be unescaped when inserting text into the
+      translated document.</para>
+      <para>With cooked markup, inline XML elements in the source document are
+      transformed into XLIFF elements. Inline elements with content can be transformed
+      into XLIFF <tag class="element">g</tag> elements; inline elements with no content
+      can be transformed into XLIFF <tag class="element">x</tag> elements. Since we want
+      to do without a skeleton file, the XLIFF maintenance tools would have to store the
+      <tag class="element">g</tag> and <tag class="element">x</tag> elements with enough
+      information to be able to transform them losslessly back into the original inline
+      elements, with the original namespace, local name and attributes. We decided that
+      when using cooked markup, we would use the <tag class="attribute">ctype</tag>
+      attribute to record the original namespace and local name of inline elements. XLIFF
+      permits attributes from foreign namespaces.</para>
+      <para>We prefer using raw inline tags in our XLIFF files in-house. When using an
+      XLIFF-capable editor such as Virtaal <footnote>
+        <simpara>
+          <link xl:href="http://virtaal.translatehouse.org"/>
+        </simpara>
+      </footnote>, we found it useful to see the full content of any inline markup. We
+      decided to use raw (escaped) inline markup as the primary format for XLIFF files.
+      However our translation houses preferred to work with cooked (transformed) inline
+      markup. We decided that our maintenance tools must therefore be able to round-trip
+      XLIFF files, i.e. convert an XLIFF file from one format to the other, preserving
+      the structure of the inline elements.</para>
+    </section>
+    <section xml:id="paper-4_design_nesting">
+      <title>Design Decision: Nested Block Elements</title>
+      <para>Our primary documentation format, DocBook XML, allows nested block elements.
+      For example, a DocBook <tag class="element">para</tag> element can contain a <tag class="element">footnote</tag> element, which in turn can contain another <tag class="element">para</tag> element. This could be handled by XLIFF, e.g. by
+      representing the inner block element as an inline element, and using the <tag class="attribute">xid</tag> attribute to refer to another translation unit. We
+      decided however, for the sake of simplicity, not to implement this at first. We
+      decided to enforce a local writing convention that authors could not nest <tag class="element">para</tag> elements. If necessary, we would use a <tag class="element">simpara</tag> element within a <tag class="element">para</tag>
+      element. The XLIFF preparation tool must regard <tag class="element">simpara</tag>
+      as an inline element.</para>
+      <para>Similarly, we decided to enforce a local writing convention that no
+      attributes could contain translatable text.</para>
+    </section>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-4_solution">
+    <title>Solution</title>
+    <para>We implemented this design as part of a broader document localisation and
+    publication project, which was known within STANLEY Black and Decker Innovations as
+    <firstterm>PACBook</firstterm>.</para>
+    <para>PACBook is released under version 3.0 of the GNU Lesser General Public License
+    <biblioref linkend="paper-4_lgpl"/>. It is available from the PACBook repository on GitHub at
+    <link xl:href="https://github.com/STANLEYSecurity/PACBook"/>.</para>
+    <para>The parts of PACBook which implement dynamic translation for XML documents
+    using linked data are described here. Full documentation for the entire project is
+    available from the PACBook repository on GitHub.</para>
+    <section xml:id="paper-4_solution_rdf">
+      <title>Implementation: Linked Data</title>
+      <para>To be able to translate an XML document using this solution, authors must add
+      a <firstterm>translation statement</firstterm> to the metadata section of the XML
+      document. So, for a DocBook 5.0 document, you would add it to the <tag class="element">info</tag> element at the start of the document. For an SVG image,
+      you would add it to the <tag class="element">metadata</tag> element at the start of
+      the image.</para>
+      <para>We use terms from the Bibliographic Ontology (BIBO) to identify the document,
+      document part or image that needs translation. <biblioref linkend="paper-4_bibo"/></para>
+      <para>We use terms from the VIVO Integrated Semantic Framework vocabulary to
+      specify the location of the XLIFF files which contain the translations for this
+      document, document part or image. <biblioref linkend="paper-4_vivo"/></para>
+      <section xml:id="paper-4_solution_rdf_document">
+        <title>Linked Data for a Document</title>
+        <para>A typical translation statement for a DocBook XML document is shown in
+        <xref linkend="paper-4_eg_solution_rdf"/>.</para>
+        <example xml:id="paper-4_eg_solution_rdf">
+          <title>Translation statement for a DocBook document</title>
+          <programlisting language="xml">
+&lt;rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:bibo="http://purl.org/ontology/bibo/"
+         xmlns:vivo="http://vivoweb.org/ontology/core#"
+  &lt;bibo:Document rdf:about=""&gt;
+    &lt;vivo:hasTranslation xml:base="http://DBK/Topics/512_Series/xlate/"&gt;
+      &lt;rdf:Alt&gt;
+        &lt;rdf:li xml:lang="de" rdf:resource="ac_de.xliff"/&gt;
+        &lt;rdf:li xml:lang="es" rdf:resource="ac_es.xliff"/&gt;
+        &lt;rdf:li xml:lang="fr" rdf:resource="ac_fr.xliff"/&gt;
+        &lt;rdf:li xml:lang="nb" rdf:resource="ac_nb.xliff"/&gt;
+        &lt;rdf:li xml:lang="nl" rdf:resource="ac_nl.xliff"/&gt;
+        &lt;rdf:li xml:lang="sv" rdf:resource="ac_sv.xliff"/&gt;
+        &lt;rdf:li xml:lang="zh" rdf:resource="ac_zh.xliff"/&gt;
+      &lt;/rdf:Alt&gt;
+    &lt;/vivo:hasTranslation&gt;
+    &lt;!-- Other RDF properties ... --&gt;
+  &lt;/bibo:Document&gt;
+&lt;/rdf:RDF&gt;
+</programlisting>
+        </example>
+        <itemizedlist>
+          <listitem>
+            <para>The <tag class="element">bibo:Document</tag> property declares that
+            this file is a document and that it is the subject of this statement.</para>
+          </listitem>
+          <listitem>
+            <para>The <tag class="element">vivo:hasTranslation</tag> property declares
+            that this document has translations associated with it. The optional <tag class="attribute">xml:base</tag> attribute can be used to indicate where all
+            the translations are.</para>
+          </listitem>
+          <listitem>
+            <para>The translation resources are indicated by the <tag class="element">rdf:li</tag> elements. For each translation, the <tag class="attribute">xml:lang</tag> attribute represents the language; the <tag class="attribute">rdf:resource</tag> attribute shows the URI of the XLIFF
+            file which contains the translation in that language. The <tag class="attribute">rdf:resource</tag> attribute may contain an absolute or
+            relative URI; if relative, it is combined with the <tag class="attribute">xml:base</tag> attribute of the <tag class="element">vivo:hasTranslation</tag> property to define the full
+            URI.</para>
+          </listitem>
+          <listitem>
+            <para>Note that you need to declare the <tag class="namespace">rdf</tag>,
+            <tag class="namespace">bibo</tag> and <tag class="namespace">vivo</tag>
+            namespaces. The namespace URIs are shown in <xref linkend="paper-4_eg_solution_rdf"/>.</para>
+          </listitem>
+        </itemizedlist>
+        <para>The DocBook 5.0 schema allows foreign namespaces within the <tag class="element">info</tag> element, so there is no need to extend the DocBook 5.0
+        schema to add the translation statement.</para>
+      </section>
+      <section xml:id="paper-4_solution_rdf_img">
+        <title>Linked Data for an Image</title>
+        <para>You would use <tag class="element">bibo:Image</tag> instead of <tag class="element">bibo:Document</tag> in a translation statement that applies to an
+        SVG file.</para>
+        <para>SVG files allow elements in foreign namespaces anywhere, so similarly there
+        is no need to extend the SVG schema to add the translation statement.</para>
+      </section>
+      <section xml:id="paper-4_solution_rdf_part">
+        <title>Linked Data for Document Parts</title>
+        <para>You can also specify a translation statement for part of a file. The
+        easiest way to do this is to add it to the metadata section for that part. So, in
+        a DocBook file, you would add a translation statement that only applies to a
+        particular chapter to the <tag class="element">info</tag> element at the start of
+        the chapter. This would override any translation statement at the start of the
+        book. If the chapter is transcluded from a different location, its translation
+        statement can be transcluded along with it.</para>
+        <para>You would use <tag class="element">bibo:DocumentPart</tag> instead of <tag class="element">bibo:Document</tag> in a translation statement that only applies
+        to part of a document.</para>
+      </section>
+    </section>
+    <section xml:id="paper-4_solution_markup">
+      <title>Implementation: Markup</title>
+      <para>In the source documents, authors mark up translatable elements using an
+      attribute from the XLIFF namespace, namely <tag class="attribute">xlf:id</tag>. The
+      <tag class="attribute">xlf:id</tag> attribute corresponds to the ID of a single,
+      unique translation unit in an XLIFF file. There’s no requirement that the value of
+      <tag class="attribute">xlf:id</tag> should be unique in the source document.</para>
+      <para>We also allow all the local attributes from the ITS namespace in the source
+      documents. ITS local attributes are used as specified by the ITS 2.0
+      recommendation, e.g. to mark up localisation notes and terminology, or to indicate
+      whether a translatable element should be translated.</para>
+      <note>
+        <para>Why do we use <tag class="attribute">xlf:id</tag>? The ITS 2.0
+        recommendation stipulates that:</para>
+        <blockquote>
+          <attribution><biblioref linkend="paper-4_its"/></attribution>
+          <para>The recommended way to specify a unique identifier is to use <tag class="attribute">xml:id</tag> or <tag class="attribute">id</tag> in
+          HTML.</para>
+        </blockquote>
+        <para>However, after transclusion, the same translatable element may appear more
+        than once in the document. Obviously two elements cannot have the same <tag class="attribute">xml:id</tag>.</para>
+        <para>Further, if the <tag class="attribute">xml:id</tag> of an element were
+        changed or fixed up after transclusion, it would be more difficult to use the
+        <tag class="attribute">xml:id</tag> to find the correct translation unit for that
+        element.</para>
+      </note>
+      <para>Typical markup of translatable elements in a DocBook XML document is shown in
+      <xref linkend="paper-4_eg_solution_markup"/>.</para>
+      <example xml:id="paper-4_eg_solution_markup">
+        <title>Markup of translatable elements</title>
+        <programlisting language="xml">
+&lt;important xmlns="http://docbook.org/ns/docbook"
+  xmlns:its="http://www.w3.org/2005/11/its"
+  xmlns:xlf="urn:oasis:names:tc:xliff:document:1.2"
+  version="5.0-variant PACBook"
+  its:version="2.0"&gt;
+  &lt;title its:translate="no"/&gt;
+  &lt;itemizedlist&gt;
+    &lt;listitem&gt;
+      &lt;para xlf:id="u00182"&gt;Risk of explosion if
+      battery is replaced by an incorrect type.
+      Use only 12V sealed lead acid battery.&lt;/para&gt;
+    &lt;/listitem&gt;
+    &lt;listitem&gt;
+      &lt;para xlf:id="u00183"&gt;Dispose of used
+      batteries in accordance with local and
+      national regulations.&lt;/para&gt;
+    &lt;/listitem&gt;
+  &lt;/itemizedlist&gt;
+&lt;/important&gt;
+        </programlisting>
+      </example>
+      <para>Note that you need to declare the <tag class="namespace">its</tag> and <tag class="namespace">xliff</tag> namespaces. The namespace URIs are shown in <xref linkend="paper-4_eg_solution_markup"/>.</para>
+      <para>Note also that documents which use the ITS 2.0 local attributes must have an
+      <tag class="attribute">its:version</tag> attribute set to <tag class="attvalue">2.0</tag>.</para>
+      <para>We’ve created a custom extension to the DocBook 5.0 schema which adds these
+      attributes. The custom extension is implemented in a Relax NG schema called
+      <filename>pacbook.rng</filename> <biblioref linkend="paper-4_rng"/>. This is available at
+      the PACBook repository on GitHub. Documents using this extended schema must have a
+      <tag class="attribute">version</tag> attribute set to <tag class="attvalue">5.0-variant PACBook</tag>.</para>
+      <para>SVG files allow attributes in different namespaces, so there is no need to
+      create a custom schema to allow these attributes in SVG files.</para>
+    </section>
+    <section xml:id="paper-4_solution_xslt">
+      <title>Implementation: Tools</title>
+      <para>We implemented the translation tools using XSLT stylesheets. These XSLT
+      stylesheets are available from the PACBook repository on GitHub. The stylesheets
+      can be divided into three groups:</para>
+      <orderedlist>
+        <listitem>
+          <para>Stylesheets which enable authors to prepare a document for
+          translation.</para>
+        </listitem>
+        <listitem>
+          <para>Stylesheets which translate the source document as part of the build
+          process.</para>
+        </listitem>
+        <listitem>
+          <para>Stylesheets for the management of XLIFF files.</para>
+        </listitem>
+      </orderedlist>
+      <para>A full description of each XSLT stylesheet is beyond the scope of this
+      article. A brief overview of each stylesheet is given here. Full documentation on
+      each of them can be found in the PACBook repository on GitHub.</para>
+      <section xml:id="paper-4_solution_xslt_prepare">
+        <title>Preparation Stylesheets</title>
+        <orderedlist numeration="arabic">
+          <listitem>
+            <formalpara>
+              <title>XlateMarkup.xsl</title>
+              <para>Adds <tag class="attribute">xlf:id</tag> attributes to a file. This
+              stylesheet uses an ITS rules file to identify the translatable elements.
+              The location of the ITS rules file is specified by stylesheet parameter.
+              Each <tag class="attribute">xlf:id</tag> attribute is given a unique
+              consecutive numerical value. The latest numerical value is stored in an XML
+              file whose location is also specified by stylesheet parameter.</para>
+            </formalpara>
+          </listitem>
+          <listitem>
+            <formalpara>
+              <title>XlateExtract.xsl</title>
+              <para>Extracts all translatable elements to an XLIFF file. The XLIFF file
+              can then be sent to translators.</para>
+            </formalpara>
+          </listitem>
+          <listitem>
+            <formalpara>
+              <title>XlateDiff.xsl</title>
+              <para>Compares a source document to existing XLIFF file and creates a new
+              XLIFF file containing only the new and changed translation units. This is
+              useful when a source document has changed.</para>
+            </formalpara>
+          </listitem>
+          <listitem>
+            <formalpara>
+              <title>XlateMerge.xsl</title>
+              <para>Merges complete translations from a translated XLIFF file into an
+              existing XLIFF file. This is useful when a XLIFF file comes back from the
+              translators.</para>
+            </formalpara>
+          </listitem>
+        </orderedlist>
+      </section>
+      <section xml:id="paper-4_solution_xslt_build">
+        <title>Build Stylesheets</title>
+        <orderedlist numeration="arabic">
+          <listitem>
+            <formalpara>
+              <title>XlateConvert.xsl</title>
+              <para>Translates the document to a single language, specified by stylesheet
+              parameter. This stylesheet uses the linked translation data in the document
+              to work out which XLIFF file to use when translating each element.</para>
+            </formalpara>
+          </listitem>
+          <listitem>
+            <formalpara>
+              <title>XlateCombine.xsl</title>
+              <para>Creates inline multilingual translations. Similar to
+              <filename>XlateConvert.xsl</filename>; however, this stylesheet translates
+              the document to each of the languages specified by the stylesheet parameter
+              and combines each translation inline.</para>
+            </formalpara>
+          </listitem>
+          <listitem>
+            <formalpara>
+              <title>XlateID.xsl</title>
+              <para>Fixes up <tag class="attribute">xml:id</tag> attributes in
+              multilingual translations. It simply adds the current language code to the
+              end of all <tag class="attribute">xml:id</tag> and link attributes. This is
+              useful if you use a two-step build process to create multilingual
+              translations, first translating the source document into several languages
+              and then combining the translations into a larger document.</para>
+            </formalpara>
+          </listitem>
+        </orderedlist>
+      </section>
+      <section xml:id="paper-4_solution_xslt_management">
+        <title>XLIFF Management Stylesheets</title>
+        <orderedlist numeration="arabic">
+          <listitem>
+            <formalpara>
+              <title>XliffDupe.xsl</title>
+              <para>Removes duplicate translation units from an XLIFF file. Duplicate
+              translation units can occur in an XLIFF file that has been extracted from a
+              source document with repeated identical translatable elements, e.g.
+              translatable elements that have been transcluded into more than one
+              location. This stylesheet performs a deterministic deduplication; if more
+              than one translation unit has the same ID, the first is kept and the rest
+              are discarded.</para>
+            </formalpara>
+          </listitem>
+          <listitem>
+            <formalpara>
+              <title>XliffPurge.xsl</title>
+              <para>Removes completed translation units from an XLIFF file. This is
+              useful when an XLIFF file has been partially translated, e.g. by an
+              in-house translation memory, and you want to remove the translated strings
+              before sending the XLIFF file for translation.</para>
+            </formalpara>
+          </listitem>
+          <listitem>
+            <formalpara>
+              <title>XliffRaw.xsl</title>
+              <para>Escapes inline markup in an XLIFF file — preferred by some
+              translation houses.</para>
+            </formalpara>
+          </listitem>
+          <listitem>
+            <formalpara>
+              <title>XliffTemp.xsl + XliffTag.xsl</title>
+              <para>Unescapes inline markup in an XLIFF file — if required.</para>
+            </formalpara>
+          </listitem>
+          <listitem>
+            <formalpara>
+              <title>Xliff2CSV.xsl</title>
+              <para>Exports an XLIFF file to CSV.</para>
+            </formalpara>
+          </listitem>
+          <listitem>
+            <formalpara>
+              <title>XL2Xliff.xsl</title>
+              <para>Imports from a Microsoft Excel 2003 XML file to XLIFF.</para>
+            </formalpara>
+          </listitem>
+        </orderedlist>
+      </section>
+    </section>
+    <section xml:id="paper-4_solution_build">
+      <title>Solution: Build Process</title>
+      <para>We use Apache Ant <footnote>
+        <simpara>
+          <link xl:href="http://ant.apache.org"/>
+        </simpara>
+      </footnote> build scripts to automate the transclusion, profiling, translation and
+      publication process.</para>
+      <para>We maintained a library of build scripts to handle the build process. Each
+      major documentation project then had its own master build script, that called on
+      the build scripts library to publish the required outputs for each document in the
+      required languages.</para>
+      <para>These build scripts have not been released as part of the PACBook project.
+      A full description of the build scripts is outside the scope of this article.
+      However, in most cases the build process carried out the following steps, as
+      illustrated in <xref linkend="paper-4_build_process"/>.</para>
+      <figure xml:id="paper-4_build_process">
+        <title>Build process</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/2016_build_process.svg" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <orderedlist>
+        <listitem>
+          <para>Transclude document modules into the assembly document.</para>
+        </listitem>
+        <listitem>
+          <para>If required, translate the complete document to a single specified
+          language.</para>
+        </listitem>
+        <listitem>
+          <para>Validate the translated document.</para>
+        </listitem>
+        <listitem>
+          <para>Perform conditional profiling.</para>
+        </listitem>
+        <listitem>
+          <para>Perform any final steps and convert to the output format.</para>
+        </listitem>
+      </orderedlist>
+      <note>
+        <para>It’s necessary to validate the document after translation, as translated
+        elements include inline markup. Any errors in the inline markup will be copied
+        into the translated document.</para>
+      </note>
+      <para>We also use separate build scripts to handle the translation and conversion
+      of images. These are called from the master build script for a particular
+      documentation project.</para>
+      <para>Within the image build scripts, we use the Apache Batik SVG Rasterizer
+      <footnote>
+        <simpara>
+          <link xl:href="http://xmlgraphics.apache.org/batik/tools/rasterizer.html"/>
+        </simpara>
+      </footnote> to convert translated SVG files into the formats required for
+      publication, e.g. PNG.</para>
+      <para>There’s no intrinsic reason why the build process has to be written in Apache
+      Ant. Since each step involves an XML document, and the output of each step becomes
+      the input of the next step, the ideal solution is probably an XProc pipeline
+      <biblioref linkend="paper-4_xproc"/>.</para>
+    </section>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-4_conclusion">
+    <title>Conclusion</title>
+    <para>This article outlined a solution that STANLEY Black and Decker Innovations
+    developed to enable dynamic translation of XML documentation using XLIFF files,
+    and to find the correct translations for each translatable element when the XML
+    documentation consists of modular document source files that are transcluded into a
+    single document.</para>
+    <section xml:id="paper-4_conclusion_benefits">
+      <title>Benefits</title>
+      <para>The solution outlined in this article was used successfully within STANLEY
+      Black and Decker Innovations over several years to handle document translation and
+      to manage XLIFF files. However, as an in-house project, the XSLT stylesheets have
+      not had the benefit of scrutiny from outside users.</para>
+      <para>The solution gives a great deal of freedom to authors to create their own
+      strategy for associating XLIFF files with source documents. You could use single
+      monolithic XLIFF files for all translations across all projects, or separate XLIFF
+      files for every topic, or anything in between. Like any solution which allows
+      linking or transclusion, it’s best for each author to find the right balance
+      between content reuse and maintainability.</para>
+      <para>The XLIFF files that were produced by this solution could be passed directly
+      on to our translation house. More importantly, completed translations could be
+      dropped into our documentation source control with very little intervention. This
+      vastly minimised author effort, translation errors and the number of files to
+      maintain. Translation costs were also reduced as common content and its associated
+      translations could be shared more easily between several documents.</para>
+    </section>
+    <section xml:id="paper-4_conclusion_issues">
+      <title>Issues</title>
+      <para>The translation stylesheets currently find the correct XLIFF file for each
+      translatable element by searching up through the XML element hierarchy to find the
+      nearest ancestor element that contains a translation statement. We’d also like
+      to be able to associate translation statements with a particular part of the
+      document by using the <tag class="attribute">rdf:about</tag> attribute to refer to
+      an element’s <tag class="attribute">xml:id</tag> attribute. This is not yet
+      implemented.</para>
+      <para>The markup was originally designed for DocBook XML and SVG. Some work would
+      be required to adapt it for different documentation standards, such as HTML
+      <biblioref linkend="paper-4_html"/>. The markup could easily be adapted to work with
+      HTML 5, perhaps using <tag class="attribute">data</tag> attributes. We haven't
+      investigated how the linked translation data could be adapted to work with
+      HTML 5.</para>
+      <para>The stylesheets were written in XSLT 1.0 and EXSLT <biblioref linkend="paper-4_exslt"/>. This is because at first we performed the transformations using
+      xsltproc <footnote>
+        <simpara>
+          <link xl:href="http://xmlsoft.org/XSLT/xsltproc2.html"/>
+        </simpara>
+      </footnote>, which doesn’t support later versions of XSLT. We later migrated to
+      Saxon <footnote>
+        <simpara>
+          <link xl:href="http://www.saxonica.com"/>
+        </simpara>
+      </footnote> to perform XSLT transformations, so it should be possible to migrate
+      the stylesheets to XSLT 2.0 or XLST 3.0, which may make some of the XSLT code
+      simpler.</para>
+      <para>The solution as described is designed to work with large scale, context-free
+      transclusion, i.e. transcluding chapters or sections, which are then translated
+      after transclusion. Small-scale, parametrised transclusion, i.e. transcluding words
+      or phrases, raises an entirely different set of linguistic problems, which this
+      article does not attempt to address. However, the PACBook project includes further
+      markup and stylesheets which attempt to solve the linguistic problems associated
+      with parametrised transclusion. For more information, see the PACBook repository on
+      GitHub.</para>
+    </section>
+    <section xml:id="paper-4_conclusion_future">
+      <title>Future Development</title>
+      <para>To finish on a personal note: Stanley Black and Decker Innovations was wound
+      down at the end of July 2015, although I’ve continued to do documentation work
+      with Stanley Black and Decker. I’ve cloned the PACBook GitHub repository
+      at <link xl:href="https://github.com/janiveer/PACBook"/>, so that
+      development on the project can continue. I’d be very interested to make contact
+      with people who are working in similar areas and would be interested in
+      collaboration. If anyone would like to contribute, please contact the
+      author.</para>
+    </section>
+  </section>
+  <bibliography xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>References</title>
+    <biblioentry xml:id="paper-4_xliff">
+      <abbrev>XLIFF</abbrev>
+      <title>XLIFF Version 1.2</title>
+      <biblioid class="uri">http://docs.oasis-open.org/xliff/v1.2/os/xliff-core.html</biblioid>
+      <authorgroup>
+        <author>
+          <orgname>OASIS XML Localisation Interchange File Format (XLIFF) Technical
+          Committee</orgname>
+        </author>
+      </authorgroup>
+      <publishername>OASIS Standard</publishername>
+      <pubdate>1 February 2008</pubdate>
+      <bibliomisc>Accessed 2016-03-04</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_gettext">
+      <abbrev>gettext</abbrev>
+      <title>GNU gettext 0.19.7</title>
+      <biblioid class="uri">https://www.gnu.org/software/gettext/manual/index.html</biblioid>
+      <publishername>Free Software Foundation</publishername>
+      <pubdate>28 December 2015</pubdate>
+      <bibliomisc>Accessed 2016-04-26</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_docbook">
+      <abbrev>DocBook</abbrev>
+      <title>The DocBook Schema Version 5.0</title>
+      <biblioid class="uri">http://docs.oasis-open.org/docbook/specs/docbook-5.0-spec-os.html</biblioid>
+      <authorgroup>
+        <author>
+          <orgname>DocBook Technical Committee</orgname>
+        </author>
+      </authorgroup>
+      <publishername>OASIS Standard</publishername>
+      <pubdate>1 November 2009</pubdate>
+      <bibliomisc>Accessed 2014-03-09</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_rng">
+      <abbrev>RELAX NG</abbrev>
+      <title>RELAX NG Specification</title>
+      <biblioid class="uri">https://www.oasis-open.org/committees/relax-ng/spec-20011203.html</biblioid>
+      <authorgroup>
+        <editor>
+          <personname>James Clark</personname>
+        </editor>
+        <editor>
+          <personname>Murata Makoto</personname>
+        </editor>
+      </authorgroup>
+      <publishername>OASIS Committee Specification</publishername>
+      <pubdate>3 December 2001</pubdate>
+      <bibliomisc>Accessed 2016-05-03</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_mallard">
+      <abbrev>Mallard</abbrev>
+      <title>Mallard 1.0</title>
+      <biblioid class="uri">http://projectmallard.org/1.0/index</biblioid>
+      <authorgroup>
+        <author>
+          <personname>Shaun McCance</personname>
+        </author>
+        <author>
+          <personname>Jim Campbell</personname>
+        </author>
+      </authorgroup>
+      <publishername>Project Mallard</publishername>
+      <pubdate>23 July 2013</pubdate>
+      <bibliomisc>Accessed 2014-03-09</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_svg">
+      <abbrev>SVG</abbrev>
+      <title>Scalable Vector Graphics (SVG) 1.1 (Second Edition)</title>
+      <biblioid class="uri">https://www.w3.org/TR/SVG/</biblioid>
+      <authorgroup>
+        <editor>
+          <personname>Erik Dahlström, et al</personname>
+        </editor>
+      </authorgroup>
+      <publishername>W3C Recommendation</publishername>
+      <pubdate>16 August 2011</pubdate>
+      <bibliomisc>Accessed 2016-03-5</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_ibm">
+      <abbrev>IBM</abbrev>
+      <title>XML in localisation: Use XLIFF to translate documents</title>
+      <biblioid class="uri">http://www.ibm.com/developerworks/library/x-localis2</biblioid>
+      <authorgroup>
+        <author>
+          <personname>Rodolfo Raya</personname>
+        </author>
+      </authorgroup>
+      <publishername>IBM developerWorks</publishername>
+      <pubdate>22 October 2004</pubdate>
+      <bibliomisc>Accessed 2016-02-06</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_tektronix">
+      <abbrev>Tektronix</abbrev>
+      <title>Improving Localization Process at Tektronix Using XML and XLIFF: A Case
+      Study</title>
+      <biblioid class="uri">http://www.moravia.com/files/download/Improving_Localization_Process_at_Tektronix_Using_XML_and_XLIFF.pdf</biblioid>
+      <authorgroup>
+        <author>
+          <personname>Anette Hauswirth</personname>
+          <affiliation>
+            <orgname>Moravia Worldwide</orgname>
+          </affiliation>
+        </author>
+        <author>
+          <personname>Bryan Schnabel</personname>
+          <affiliation>
+            <orgname>Tektronix</orgname>
+          </affiliation>
+        </author>
+      </authorgroup>
+      <pubdate>11 January 2008</pubdate>
+      <bibliomisc>Accessed 2016-02-06</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_yelp">
+      <abbrev>Yelp</abbrev>
+      <title>Introduction to Mallard: Build System Integration</title>
+      <biblioid class="uri">http://en.flossmanuals.net/introduction-to-mallard/build-system-integration</biblioid>
+      <publishername>FLOSS Manuals</publishername>
+      <bibliomisc>Accessed 2016-02-06</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_xproc">
+      <abbrev>XProc</abbrev>
+      <title>XProc: An XML Pipeline Language</title>
+      <biblioid class="uri">http://www.w3.org/TR/xproc</biblioid>
+      <authorgroup>
+        <editor>
+          <personname>Norman Walsh</personname>
+        </editor>
+        <editor>
+          <personname>Alex Milowski</personname>
+        </editor>
+        <editor>
+          <personname>Henry S. Thompson</personname>
+        </editor>
+      </authorgroup>
+      <publishername>W3C Recommendation</publishername>
+      <pubdate>11 May 2010</pubdate>
+      <bibliomisc>Accessed 2014-03-09</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_xslt10">
+      <abbrev>XSLT</abbrev>
+      <title>XSL Transformations (XSLT) Version 1.0</title>
+      <biblioid class="uri">http://www.w3.org/TR/xslt</biblioid>
+      <authorgroup>
+        <editor>
+          <personname>James Clark</personname>
+        </editor>
+      </authorgroup>
+      <publishername>W3C Recommendation</publishername>
+      <pubdate>16 November 1999</pubdate>
+      <bibliomisc>Accessed 2014-03-09</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_exslt">
+      <abbrev>EXSLT</abbrev>
+      <title>EXSLT</title>
+      <biblioid class="uri">http://exslt.org</biblioid>
+      <authorgroup>
+        <author>
+          <personname>Jeni Tennison</personname>
+        </author>
+        <author>
+          <personname>Uche Ogbuji</personname>
+        </author>
+        <author>
+          <personname>Jim Fuller</personname>
+        </author>
+        <author>
+          <personname>Dave Pawson, et al</personname>
+        </author>
+      </authorgroup>
+      <pubdate>14 October 2003</pubdate>
+      <bibliomisc>Accessed 2016-05-03</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_its">
+      <abbrev>ITS</abbrev>
+      <title>Internationalization Tag Set (ITS) Version 2.0</title>
+      <biblioid class="uri">https://www.w3.org/TR/its20</biblioid>
+      <authorgroup>
+        <editor>
+          <personname>David Filip, et al</personname>
+        </editor>
+      </authorgroup>
+      <publishername>W3C Recommendation</publishername>
+      <pubdate>29 October 2013</pubdate>
+      <bibliomisc>Accessed 2016-03-04</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_bibo">
+      <abbrev>BIBO</abbrev>
+      <title>Bibliographic Ontology Specification Revision 1.3</title>
+      <biblioid class="uri">http://bibliontology.com</biblioid>
+      <authorgroup>
+        <author>
+          <personname>Bruce D’Arcus</personname>
+        </author>
+        <author>
+          <personname>Frédérick Giasson</personname>
+        </author>
+      </authorgroup>
+      <publishername>Structured Dynamics</publishername>
+      <pubdate>4 November 2009</pubdate>
+      <bibliomisc>Accessed 2016-03-05</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_vivo">
+      <abbrev>VIVO</abbrev>
+      <title>VIVO-ISF Ontology version 1.6</title>
+      <biblioid class="uri">http://vivoweb.org</biblioid>
+      <publishername>Open Research Information Framework</publishername>
+      <pubdate>13 December 2013</pubdate>
+      <bibliomisc>Accessed 2016-03-05</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_rdfxml">
+      <abbrev>RDF/XML</abbrev>
+      <title>RDF 1.1 XML Syntax</title>
+      <biblioid class="uri">http://www.w3.org/TR/rdf-syntax-grammar</biblioid>
+      <authorgroup>
+        <editor>
+          <personname>Fabien Gandon</personname>
+        </editor>
+        <editor>
+          <personname>Guus Schreiber</personname>
+        </editor>
+      </authorgroup>
+      <publishername>W3C Recommendation</publishername>
+      <pubdate>25 February 2014</pubdate>
+      <bibliomisc>Accessed 2016-03-05</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_html">
+      <abbrev>HTML</abbrev>
+      <title>HTML5</title>
+      <biblioid class="uri">http://www.w3.org/TR/html</biblioid>
+      <authorgroup>
+        <editor>
+          <personname>Ian Hickson</personname>
+        </editor>
+        <editor>
+          <personname>Robin Berjon</personname>
+        </editor>
+        <editor>
+          <personname>Steve Faulkner</personname>
+        </editor>
+        <editor>
+          <personname>Travis Leithead</personname>
+        </editor>
+        <editor>
+          <personname>Erika Doyle Navara</personname>
+        </editor>
+        <editor>
+          <personname>Edward O’Connor</personname>
+        </editor>
+        <editor>
+          <personname>Silvia Pfeiffer</personname>
+        </editor>
+      </authorgroup>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <pubdate>28 October 2014</pubdate>
+      <bibliomisc>Accessed 2016-03-05</bibliomisc>
+    </biblioentry>
+    <biblioentry xml:id="paper-4_lgpl">
+      <abbrev>LGPL</abbrev>
+      <title>GNU Lesser General Public License Version 3</title>
+      <biblioid class="uri">http://www.gnu.org/licenses/lgpl.html</biblioid>
+      <publishername>Free Software Foundation, Inc.</publishername>
+      <pubdate>29 June 2007</pubdate>
+      <bibliomisc>Accessed 2016-03-05</bibliomisc>
+    </biblioentry>
+  </bibliography>
+  <acknowledgements xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Acknowledgements</title>
+    <para>Faenza icons by Matthieu James <footnote>
+      <simpara>
+        <link xl:href="https://launchpad.net/~tiheum"/>
+      </simpara>
+    </footnote>.</para>
+  </acknowledgements>
+</article>

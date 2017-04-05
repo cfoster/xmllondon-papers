@@ -1,0 +1,1160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-12" version="5.0"
+  xml:lang="en">
+  <info xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Small Data in the large with Oppidum</title>
+    <authorgroup>
+      <author>
+        <personname>Stéphane Sire</personname>
+        <email>s.sire@oppidoc.fr</email>
+        <affiliation>
+          <orgname>Oppidoc</orgname>
+          <address>5 impasse des Frênes F-31600 Muret</address>
+        </affiliation>
+      </author>
+      <author>
+        <personname>Christine Vanoirbeek</personname>
+        <email>christine.vanoirbeek@epfl.ch</email>
+        <affiliation>
+          <orgname>EPFL</orgname>
+          <address>IC/GR-VA CH-1015 Lausanne</address>
+        </affiliation>
+      </author>
+    </authorgroup>
+    <keywordset>
+      <keyword>XML</keyword>
+      <keyword>web development</keyword>
+      <keyword>framework</keyword>
+      <keyword>XQuery</keyword>
+      <keyword>XSLT</keyword>
+      <keyword>RESTful approach</keyword>
+      <keyword>Oppidum</keyword>
+    </keywordset>
+    <abstract>
+      <para>The paper addresses the topic of frameworks intended to speed up the
+        development of web applications using the XML stack (XQuery, XSLT and
+        native XML databases). These frameworks must offer the ability to
+        produce exploitable XML content by web users - without technical skills
+        – and must be simple enough to lower the barrier entry cost for
+        developers. This is particularly true for a low-budget class of
+        applications that we call Small Data applications. This article presents
+        Oppidum, a lightweight open source framework to build web applications
+        relying on a RESTful approach, sustained by intuitive authoring
+        facilities to populate an XML database. This is illustrated with a
+        simple application created for editing this article on the web.</para>
+    </abstract>
+  </info>
+  <section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-12_Section-1">
+    <title>Introduction</title>
+    <para>There are still millions of individually operated web applications
+      that contain only a few "megabytes" of data. These are not Big Data
+      applications although their addition still constitutes a remarkable part
+      of the web. As a matter of fact, it currently exists an amazing number of
+      web applications that run small to medium size corporate web sites or aim
+      at integrating the work of associations in various domains.</para>
+    <para>This category of applications is often based on a PHP/MySQL stack to
+      deal with factual data and requires aside use of an office suite (Word,
+      Excel, etc.) to deal with document-oriented information. Functionalities
+      range from publishing news, blogs, agenda, and catalogue of members to
+      provision of a set of services such as registration, on-line shopping or
+      more specific processes.</para>
+    <para>We call this class of applications Small Data application.
+      Characteristics of those applications are the following ones : mostly
+      publication oriented, asymmetrical (few contributors and few to many
+      readers), evolutive (frequent updates) and extensible (through modules,
+      e.g. image galleries, shopping cart, registration, e-book generation,
+      etc.).</para>
+    <para>Because semi-structured data models procure the possibility to
+      encompass both data and document-oriented representation of information
+        <xref linkend="paper-12_1"/>, there are many reasons why such
+      applications would benefit from an XML technology stack. For instance, to
+      build custom schema aware search engines for better information retrieval,
+      for single-source and cross-media publishing, or most importantly for data
+      portability.</para>
+    <para>There is always the alternative to build Small Data applications on a
+      hosting platform with an embedded site authoring tool (e.g. Weebly or
+      Google site). However it does not easily support extensibility and data
+      reuse.</para>
+    <para>For other Small Data applications, teams of developers are using
+      classical (aka non-XML) long standing technologies (aka relational
+      databases). This is most probably because there are now dozens of popular
+      server-side frameworks to lower the barrier entry cost for developers,
+      when not totally commodifying development to customizing a set of
+      configuration files in the so-called Content Management Systems
+      (CMS).</para>
+    <para>We believe there are two reasons preventing the adoption of XML
+      technologies for Small Data applications. The first one is the lack of
+      adequate browser's based-editing facilities. Most of the CMS use
+      rich-text-editors and HTML forms. Thus they miss the capability to really
+      structure the input space. The second one is the complexity of building
+      XML applications : teams developing Small Data applications work under
+      small budget constraints (usually a few thousands Euro/Dollar per project)
+      and they can't afford a long learning curve and/or development
+      cycle.</para>
+    <para>To some point XForms could have solved the first issue. However it has
+      been designed for form-based data and is less powerful for handling
+      document-oriented semi-structured data (see for instance these developer's
+      question on Stack Overflow <xref linkend="paper-12_3"/>
+      <xref linkend="paper-12_4"/>).</para>
+    <para>The blossoming of many XML development environments based on XQuery
+      (BaseX, eXist-DB, Marklogik, Sausalito) could solve the second issue.
+      However each one comes with its own extensions and conventions to build
+      applications, often still at very low abstraction level compared to over
+      MVC frameworks available for other platforms (e.g. Ruby on Rails).</para>
+    <para>Despite these obstacles we have started to develop Small Data
+      applications with XML during the last three years. We have solved the
+      first issue by developing a Javascript library for XML authoring in the
+      browser called AXEL <xref linkend="paper-12_13"/>. It uses the concept of
+      template to allow developers to create customized editing user interfaces
+      guaranteeing the validity of data <xref linkend="paper-12_6"/>. We resolve
+      the second issue by providing a lightweight framework called Oppidum that
+      is described in this paper.</para>
+    <para>Oppidum is an open source XML-oriented framework written in XQuery /
+      XSLT. It is designed to create custom Content Management Solutions (CMS)
+      involving lightweight XML authoring chains. It is currently available as a
+      Github repository to be deployed inside an eXist-DB host
+      environment.</para>
+    <para>The paper is organized as follows. The first section describes the
+      architecture of Oppidum and its two-steps execution model. The second
+      section presents the way it manages some common web application design
+      patterns. The third section presents some example applications done with
+      it. Finally the fourth section discusses some design choices of Oppidum
+      compared with over XML technologies.</para>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-12_Section-2">
+    <title>Oppidum architecture</title>
+    <section xml:id="paper-12_Section-2.1">
+      <title>Application model</title>
+      <para>Oppidum provides developers with a simple application model that
+        allows them to rapidly and efficiently deploy a RESTful application; it
+        relies on a few fundamental principles:</para>
+      <itemizedlist>
+        <listitem>
+          <para>the application must be entirely defined in terms of
+              <emphasis>actions</emphasis> on
+            <emphasis>resources</emphasis>;</para>
+        </listitem>
+        <listitem>
+          <para>each action is defined declaratively in a mapping file as a
+            sequential pipeline composed of three steps :</para>
+        </listitem>
+        <listitem>
+          <itemizedlist>
+            <listitem>
+              <para>the first step, called the <emphasis>model</emphasis>, is
+                always an XQuery script;</para>
+            </listitem>
+            <listitem>
+              <para>the second step, called the <emphasis>view</emphasis>, is
+                always an XSLT transformation;</para>
+            </listitem>
+            <listitem>
+              <para>the third step, called the <emphasis>epilogue</emphasis>, is
+                always an XQuery script that must be called
+                  <computeroutput>epilogue.xql</computeroutput>;</para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+        <listitem>
+          <para>a pipeline may have only the first step, the first and second
+            steps, the first and third steps, or the three steps.</para>
+        </listitem>
+      </itemizedlist>
+      <para>It is always possible to extend a pipeline by invoking one or more
+        XSLT transformations from XQuery in the first and the third
+        steps.</para>
+      <figure xml:id="paper-12_Fig-1">
+        <title>The application mapping defines a pipeline for each resource /
+          action</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/2.png" align="center" scalefit="1"
+              width="14cm"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>The application mapping describes the mapping of the URL space with
+        the pipeline definitions.</para>
+      <para>An action is either an HTTP verb (e.g. GET, POST, PUT, DELETE) or a
+        custom name. In the first case the HTTP request corresponding to the
+        action is the request using the same verb. In the second case the
+        corresponding HTTP request is any request with a request URI path ending
+        by the action name.</para>
+      <para>In application mapping terms the <computeroutput>GET
+          articles/xml-london</computeroutput> HTTP request is matched as
+        calling the <computeroutput>GET</computeroutput> action on the
+        xml-london resource. The <xref linkend="paper-12_Fig-2"/> shows an
+        example of a pipeline that implements the rendering of the resource as
+        an HTML page : the 1st step calls a
+          <computeroutput>models/read.xql</computeroutput> script that returns
+        the raw XML data of the article. It could also perform side effects such
+        as checking user's access right or updating access logs. The 2nd step
+        calls an XSLT transformation
+          <computeroutput>views/article2html.xsl</computeroutput> that generates
+        an HTML representation. Finally the 3rd step is an
+          <computeroutput>epilogue.xql</computeroutput> script. It inserts the
+        HTML representation of the article into an application page template
+        with extra decorations such as a navigation menu and/or some buttons to
+        edit or publish the article.</para>
+      <figure xml:id="paper-12_Fig-2">
+        <title>Example of a pipeline to view this article using Oppidum</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/11.png" align="center" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>The previous example is equivalent to a RESTful operation to get a
+        representation for a resource <xref linkend="paper-12_2"/>. It is also
+        possible to consider extended RESTful operations by considering the
+        resource as a controller and to define custom verbs. In that case the
+        verb must be appended to the end of the resource-as-a-controller URL.
+        For instance, the <computeroutput>GET
+          articles/xml-london/publish</computeroutput> request could be matched
+        as calling a custom publish action onto the xml-london resource.
+        Currently custom actions cannot be targeted at a specific HTTP verb,
+        this is a limitation. As a consequence it is up to the developer to
+        enforce specific semantics for different HTTP verbs if required.</para>
+    </section>
+    <section xml:id="paper-12_Section-2.2">
+      <title>Execution model</title>
+      <para>Oppidum execution model is a two steps process. The first step takes
+        the client's HTTP request and the application mapping as inputs. It
+        analyses the request against the mapping and generates a pipeline to
+        execute in the host environment. The second step executes the pipeline
+        and returns its output into the HTTP response.</para>
+      <figure xml:id="paper-12_Fig-3">
+        <title>The execution model</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/3.png" align="center" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>In the eXist-DB host environment, the first step is invoked in a
+          <computeroutput>controller.xql</computeroutput> script file. That
+        scripts calls an Oppidum <computeroutput>gen:process</computeroutput>
+        method that returns an XML structure specifying a pipeline to be
+        executed by the URLRewriter servlet filter of eXist-DB. The second step
+        is entirely left to that filter, that executes the pipeline.</para>
+      <para>The <computeroutput>gen:process</computeroutput> method executes a
+        sequential algorithm with three steps : the first step produces an XML
+        structure that we call the command, the second step transforms the
+        command into an internal abstract pipeline definition, finally the third
+        step generates the executable pipeline for the host environment.</para>
+      <para>The command is persisted into the current request as an attribute.
+        Thus it is available for introspection to the XQuery and XSLT scripts
+        composing the pipeline. This is useful to write more generic scripts
+        that can access data copied into the command from the target resource or
+        the target action mapping entry.</para>
+    </section>
+    <section xml:id="paper-12_Section-2.3">
+      <title>Conventions</title>
+      <para>Oppidum uses a few conventions, although it is very often possible
+        to bypass them writing more code.</para>
+      <para>As per eXist-DB there is only one way to invoke Oppidum: it is to
+        create a <computeroutput>controller.xql</computeroutput> file at the
+        application root. The script will be invoked by the eXist servlet with
+        the HTTP request. It must call the
+          <computeroutput>gen:process</computeroutput> method with the mapping
+        and a few environment variables as parameters. Similarly the epilogue
+        must be called <computeroutput>epilogue.xql</computeroutput> and placed
+        at the application root. The same controller.xql file can be copy /
+        pasted from a project to another.</para>
+      <para>All the code in production should be stored in the database inside a
+          <computeroutput>/db/www/:app</computeroutput> collection (where :app
+        is the application name). Configuration files (error messages, mapping
+        resource, skin resource, etc.) must be placed inside the
+          <computeroutput>/db/www/:app/config</computeroutput> collection. It is
+        recommended to store all application's user generated content inside a
+          <computeroutput>/db/sites/:app</computeroutput> collection (and
+        sub-collections). In our current practice those conventions ease up
+        multiple applications hosting within the same database.</para>
+      <para>The library enforces conventions onto the URL mappings mostly to
+        offer debug services:</para>
+      <itemizedlist>
+        <listitem>
+          <para>adding <computeroutput>.xml</computeroutput> to a URL executes
+            only the 1st step of the pipeline and returns its result;</para>
+        </listitem>
+        <listitem>
+          <para>adding <computeroutput>.raw</computeroutput> to a URL executes
+            only the 2nd step of the pipeline and returns its result;</para>
+        </listitem>
+        <listitem>
+          <para>adding <computeroutput>.debug</computeroutput> (or a
+              <computeroutput>debug=true</computeroutput> request parameter)
+            prevents the pipeline execution, instead it returns a dump of the
+            command and of the generated pipelines.</para>
+        </listitem>
+      </itemizedlist>
+      <para>Consequently, developers should not use the epilogue to apply state
+        changes or side effects to the database.</para>
+    </section>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-12_Section-3">
+    <title>Oppidum design patterns</title>
+    <para>Oppidum architecture and execution model support common web
+      application design patterns. In some cases we have extended the mapping
+      language and/or the Oppidum API to support more of them.</para>
+    <section xml:id="paper-12_Section-3.1">
+      <title>Template system</title>
+      <para>The pipeline generator generates the epilogue step of the pipeline
+        if and only if the target mapping entry has an epilogue attribute. The
+          <computeroutput>epilogue.xql</computeroutput> script can interpret the
+        value of this attribute as the name of a page template file defining
+        common page elements such as an application header, footer and
+        navigation menu. We call this template a mesh.</para>
+      <para>This is summarized on <xref linkend="paper-12_Fig-4"/>. The template
+        system also relies on a pipeline where the view step must output an XML
+        document with a <computeroutput>site:view</computeroutput> root element
+        containing children in the <computeroutput>site</computeroutput>
+        namespace defined for that purpose.</para>
+      <figure xml:id="paper-12_Fig-4">
+        <title>Conventional pipeline for using the template system</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/8.png" align="center" width="100%"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>A typical <computeroutput>epilogue.xql</computeroutput> script
+        applies a typeswitch transformation to the mesh <xref
+          linkend="paper-12_14"/>. The transformation copies every XHTML
+        element. When it finds an element in the
+          <computeroutput>site</computeroutput> namespace, called an extension
+        point, it replaces it with the content of the children of the
+          <computeroutput>&lt;site:view&gt;</computeroutput> input stream that
+        has the same local name. If not available, it calls an XQuery function
+        from the epilogue file named after the element and replaces the element
+        with the function's result. So if an element from the mesh is
+          <computeroutput>&lt;site:menu&gt;</computeroutput>, and there is no
+          <computeroutput>&lt;site:menu&gt;</computeroutput> element in the
+        input stream, it will be replaced with the result of the
+          <computeroutput>site:menu</computeroutput> function call.</para>
+      <para>The typeswitch function at the heart of the template system can be
+        copied / pasted between applications. It relies on a variable part for
+        the extension points that is customized for each application.</para>
+    </section>
+    <section xml:id="paper-12_Section-3.2">
+      <title>Skinning applications</title>
+      <para>The template system can be used to decouple the selection of the CSS
+        and JS files to be included in a page from the direct rendering of that
+        page.</para>
+      <para>A typical <computeroutput>epilogue.xql</computeroutput> script
+        defines a <computeroutput>site:skin</computeroutput> function to be
+        called in place of a <computeroutput>&lt;site:skin&gt;</computeroutput>
+        element from the head section of a mesh file. That function dynamically
+        inserts the links to the CSS and JS files. Oppidum provides a
+          <computeroutput>skin</computeroutput> module for managing the
+        association between string tokens and sets of CSS and JS files, called
+        profiles.</para>
+      <para>The module supports several profile levels:</para>
+      <itemizedlist>
+        <listitem>
+          <para>profiles associated with a given mesh name;</para>
+        </listitem>
+        <listitem>
+          <para>profiles associated with keywords generated and passed to the
+            epilogue script as a <computeroutput>skin</computeroutput> attribute
+            of the <computeroutput>&lt;site:view&gt;</computeroutput> root
+            element of the pipeline input stream;</para>
+        </listitem>
+        <listitem>
+          <para>a catch-all <computeroutput>*</computeroutput> profile applying
+            to every page rendered through the epilogue together with some
+            exceptions declared using predicates based on a
+            micro-language.</para>
+        </listitem>
+      </itemizedlist>
+      <para>The keyword profiles are useful for a fine-grain control over the
+        selection of CSS and JS files to be included by generating the
+        appropriate keywords from the XQuery model scripts or XSLT views. The
+        catch-all profile is useful to insert a favicon or web analytics tracker
+        code.</para>
+      <para>The profile definitions are stored in a
+          <computeroutput>skin.xml</computeroutput> resource in a conventional
+        location inside the database.</para>
+    </section>
+    <section xml:id="paper-12_Section-3.3">
+      <title>Error management</title>
+      <para>Another common pattern is to signal errors from the scripts
+        composing the rendering pipeline, and to display these errors to the
+        user. Oppidum API provides a function to signal an error and another
+        function to render an error message in the
+          <computeroutput>epilogue.xql</computeroutput> script.</para>
+      <para>A typical <computeroutput>epilogue.xql</computeroutput> script
+        defines a <computeroutput>site:error</computeroutput> function to be
+        called in place of a <computeroutput>&lt;site:error&gt;</computeroutput>
+        element placed anywhere inside a mesh file. That function calls Oppidum
+        error rendering function. The skinning mechanism is also aware of the
+        error API since it allows to define a specific skin to render for the
+        displaying and disposal of the error messages.</para>
+      <para>The error management code is robust to page redirections, so that if
+        a pipeline execution ends by a redirection, the error message is stored
+        in a session parameter to be available to the rendering of the
+        redirected target page.</para>
+      <para>There is an identical mechanism to display messages to the users.
+        The messages are stored in an
+          <computeroutput>errors.xml</computeroutput> (resp.
+          <computeroutput>messages.xml</computeroutput>) resource in a
+        conventional location inside the database for internationalization
+        purposes.</para>
+    </section>
+    <section xml:id="paper-12_Section-3.4">
+      <title>Data mapping</title>
+      <para>It is common to generate pages from content stored in the database.
+        Thus it is very frequent to write code that locates that content in
+        terms of a collection and a resource and that simply returns the whole
+        resource content or that extracts some parts of it. In most cases, the
+        collection and resource paths are inferred from segments of the HTTP
+        request path.</para>
+      <para>For instance, in a blog, the
+          <computeroutput>posts/123</computeroutput> entry could be resolved as
+        a resource <computeroutput>123.xml</computeroutput> stored in the
+          <computeroutput>posts</computeroutput> collection.</para>
+      <para>The mapping file allows to associate a reference collection and a
+        reference resource with each URL. They are accessible from the model
+        script with the <computeroutput>oppidum:path-to-ref-col</computeroutput>
+        and <computeroutput>oppidum:path-to-ref</computeroutput> methods that
+        return respectively the path to the reference collection and the path to
+        the reference resource. This mechanism fosters the writing of generic
+        model scripts that adapt to different data mapping.</para>
+      <para>In addition, the reference collection and resource can be declared
+        using variables that will be replaced with specific segments of the HTTP
+        request path. For instance, if a reference resource is declared as
+          <computeroutput>resource=$3</computeroutput>, the
+          <computeroutput>$3</computeroutput> variable will be replaced by the
+        third segment of the request path.</para>
+    </section>
+    <section xml:id="paper-12_Section-3.5">
+      <title>Form-based access control</title>
+      <para>It is frequent to restrict access to some actions to specific users
+        or groups of users. Thus, a common pattern is to check users' rights
+        before doing any further action and ask for user identification. Using
+        the Oppidum constrained pipeline that would mean to always invoke the
+        same kind of code in the model part of a pipeline.</para>
+      <para>Oppidum alleviates this constraint with some extensions to the
+        application mapping syntax that allows to declare access control rules.
+        When rules have been defined, they are checked directly by the
+          <computeroutput>gen:process</computeroutput> function, before
+        generating the pipeline. An alternative pipeline is generated in case of
+        a refusal. It redirects clients to a login page with an
+        explanation.</para>
+      <para>The access to each resource or action can be restricted individually
+        by defining a list of role definitions. The roles are defined relatively
+        to the native database user definitions and resource permissions : the
+          <computeroutput>u:</computeroutput>name role restricts access to the
+        user named name; the <computeroutput>g:</computeroutput>name role
+        restricts access to users belonging to the group named name; finally the
+          <computeroutput>owner</computeroutput> role restricts access to the
+        owner of the reference resource declared in the data mapping.</para>
+    </section>
+    <section xml:id="paper-12_Section-3.6">
+      <title>Development life cycle</title>
+      <para>It is common to have different runtime environments when developing,
+        testing or deploying an application (e.g. dev, test and prod
+        environments). For instance the application may be developed with
+        eXist-DB in standalone mode, while the final application may be deployed
+        under Tomcat. This may impose a few constraints on some portions of the
+        code. For that purpose the application mapping defines a
+          <computeroutput>mode</computeroutput> attribute that remains
+        accessible with the Oppidum API. It can be used to adapt functionalities
+        to the environment. For instance it is possible to apply different
+        strategies for serving static resources while in dev or in prod, or to
+        enable different debug functionalities.</para>
+      <para>It is also recommended to share the application code with other
+        developers using a code repository system such as Git. For that purpose
+        we have found useful to develop applications directly from the file
+        system. This way it is possible to commit code to the repository at any
+        time and to move all of the application code to the database only when
+        in prod. Oppidum supports the turn over with an installation module. It
+        provides a declarative language for the application components and their
+        localization into the database. This module supports the creation of an
+        installer screen to automate installation. The installer may also be
+        used to copy some configuration files and/or some initial data or some
+        test sets to the database while in dev or in test modes.</para>
+      <para>Since the release of eXist-DB 2.0, that comes with a complete IDE
+        for in-browser development, the life-cycle based on source code written
+        in the file system may no longer be the most efficient way to work. Thus
+        we are considering to update the installation module so that it is
+        possible to work directly from the database and to package the library
+        and the applications as XAR archives. However, at the moment, we are
+        still unsure how this would integrate seamlessly with code versioning
+        systems such as Git.</para>
+    </section>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-12_Section-4">
+    <title>Example applications</title>
+    <section xml:id="paper-12_Section-4.1">
+      <title>Illustrative example</title>
+      <para>This article has been edited with an application written with
+        Oppidum. Its mapping and its mesh are shown in the code extracts below.
+        The article editor itself is an XTiger XML document template <xref
+          linkend="paper-12_12"/> as explained in <xref linkend="paper-12_6"/>
+        <xref linkend="paper-12_13"/>.</para>
+      <para>The mapping defines the following URLs:</para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            <computeroutput>GET /articles/xml-london</computeroutput> returns
+            the article as HTML for screen display</para>
+        </listitem>
+        <listitem>
+          <para>
+            <computeroutput>GET /articles/xml-london/edit</computeroutput>
+            returns an HTML page containing an editor based on the AXEL library,
+            that page loads two additional resources :</para>
+        </listitem>
+        <listitem>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <computeroutput>GET /templates/article</computeroutput> returns
+                the XTiger XML template</para>
+            </listitem>
+            <listitem>
+              <para>
+                <computeroutput>GET /articles/xml-london.xml</computeroutput>
+                returns the article as raw XML</para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+        <listitem>
+          <para>
+            <computeroutput>POST /articles/xml-london.xml</computeroutput> saves
+            the article back to the database</para>
+        </listitem>
+        <listitem>
+          <para>some other URLs manages image upload and retrieval :</para>
+        </listitem>
+        <listitem>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <computeroutput>POST
+                  /articles/xml-london/images/</computeroutput> saves a new
+                image to the database</para>
+            </listitem>
+            <listitem>
+              <para>
+                <computeroutput>GET
+                  /articles/xml-london/images/:name</computeroutput> returns the
+                image stored in the resource name</para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </itemizedlist>
+      <para>The raw XML version of the article shares the same pipeline as the
+        HTML version of the article. This exploits the .xml suffix convention
+        that short-circuits any pipeline to return the output of the first
+        step.</para>
+      <para>Four of the application pipelines are implemented as a single step
+        pipeline executing an XQuery script. This is because either they
+        directly returns a resource from the database (this is the case for the
+        XTiger XML template or to serve an image previously stored into the
+        database), or because they are called from an XHR request implementing a
+        custom Ajax protocol where the expected result is coded as raw XML. For
+        instance, the protocol to save the article only requires the POST
+        request to return an HTTP success status (201) and to set a location
+        header. It then redirects the window to the location header address
+        which is the representation of the article as HTML. These Ajax protocols
+        depend on the AXEL-FORMS javascript library that we are using to
+        generate the editor <xref linkend="paper-12_11"/>, which is out of the
+        scope of this article.</para>
+      <figure xml:id="paper-12_Fig-5">
+        <title>Pipelines for the application used to edit this article</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/9.png" align="center" scalefit="1"
+              width="14cm"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <para>The code extract below shows most of the application mapping
+        defining the previous pipelines.</para>
+      <example xml:id="paper-12_Ex-1">
+        <title>Mapping extract for the application used to edit this
+          article</title>
+        <programlisting language="xml">&lt;collection name="articles" collection="articles"
+            epilogue="standard"&gt;
+  &lt;item collection="articles/$2"
+        resource="article.xml" 
+        supported="edit" method="POST" 
+        template="templates/article"
+        epilogue="oppidocs"&gt;
+    &lt;access&gt;
+      &lt;rule action="edit POST" role="g:authors"
+            message="author"/&gt;
+    &lt;/access&gt;
+    &lt;model src="oppidum:actions/read.xql"/&gt;
+    &lt;view src="article/article2html.xsl"&gt;
+      &lt;param name="resource" value="$2"/&gt;
+    &lt;/view&gt;
+    &lt;action name="edit" epilogue="oppidocs"&gt;
+      &lt;model src="actions/edit.xql"/&gt;
+      &lt;view src="views/edit.xsl"&gt;
+        &lt;param name="skin"
+              value="article axel-1.3-with-photo"/&gt;
+      &lt;/view&gt;
+    &lt;/action&gt;
+    &lt;action name="POST"&gt;
+      &lt;model src="actions/write.xql"/&gt;
+    &lt;/action&gt;
+    &lt;collection name="images"
+                collection="articles/$2"
+                method="POST"&gt;
+      &lt;model src="models/forbidden.xql"/&gt;
+      &lt;action name="POST"&gt;
+        &lt;model src="images/upload.xql"&gt;
+        &lt;/model&gt;
+      &lt;/action&gt;
+      &lt;item resource="$4"
+            collection="articles/$2/images"&gt;
+        &lt;model src="images/image.xql"/&gt;       
+      &lt;/item&gt;
+    &lt;/collection&gt;
+  &lt;/item&gt;
+&lt;/collection&gt;</programlisting>
+      </example>
+      <para>Without entering into too much details of the mapping language, the
+        target resources are defined either by a
+          <computeroutput>collection</computeroutput> element if they are
+        supposed to contain an indefinite number of resources, or by an
+          <computeroutput>item</computeroutput> element if they are supposed to
+        contain a finite number of resources. Actions are defined by an
+          <computeroutput>action</computeroutput> element. The hierarchical
+        structure of the mapping file follows the hierarchical structure of the
+        URL input space : the name attribute matches the corresponding HTTP
+        request path segment in the hierarchy and anonymous item elements (ie.
+        without a name attribute) match any segment string at the corresponding
+        level.</para>
+      <para>The use of anonymous <computeroutput>item</computeroutput> elements
+        to define resources allows to create generic mappings that work with
+        collections of resources such as collection of articles or collection of
+        images inside articles. As such the xml-london resource illustrating
+        this article is mapped with the anonymous
+          <computeroutput>item</computeroutput> element on the second
+        line.</para>
+      <para>Some notations are supported to inject segment strings from the
+        request path into the mapping using positional $ variables. For instance
+        resolving $2 against the
+          <computeroutput>/articles/xml-london</computeroutput> URL returns the
+        xml-london string.</para>
+      <para>The mapping language also makes use of annotations to support some
+        of the design patterns or specific features:</para>
+      <itemizedlist>
+        <listitem>
+          <para>the <computeroutput>epilogue</computeroutput> attribute selects
+            a mesh to render the page in the epilogue as explained in the
+            template system design pattern;</para>
+        </listitem>
+        <listitem>
+          <para>the <computeroutput>access</computeroutput> element supports the
+            access control design pattern;</para>
+        </listitem>
+        <listitem>
+          <para>the <computeroutput>collection</computeroutput> and
+              <computeroutput>resource</computeroutput> attributes support the
+            data mapping design pattern;</para>
+        </listitem>
+        <listitem>
+          <para>the <computeroutput>template</computeroutput> attribute
+            indicates the URL of the XTiger XML template for editing a
+            resource;</para>
+        </listitem>
+        <listitem>
+          <para>the <computeroutput>param</computeroutput> element implements
+            mapping level parameters transmitted to the model or view
+            scripts.</para>
+        </listitem>
+      </itemizedlist>
+      <para>The application screen design is quite simple as it displays a menu
+        bar at the top with either an Edit button when viewing the article, as
+        shown on <xref linkend="paper-12_Fig-6"/>, or a Save and a Preview
+        buttons when editing it. Both screen are generated with the mesh shown
+        below.</para>
+      <figure xml:id="paper-12_Fig-6">
+        <title>Screen shots of the article editing application with the shared
+          menu bar</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/13.png" align="center" scalefit="1"
+              width="14cm"/>
+          </imageobject>
+        </mediaobject>
+      </figure>
+      <example xml:id="paper-12_Ex-2">
+        <title>mesh to display the article or to edit the article</title>
+        <programlisting language="xml">&lt;html xmlns:site="http://oppidoc.com/oppidum/site"
+      xmlns="http://www.w3.org/1999/xhtml"&gt;
+    &lt;head&gt;
+        &lt;site:skin/&gt;
+    &lt;/head&gt;
+    &lt;body&gt;        
+        &lt;div id="menu"&gt;
+            &lt;site:commands/&gt;
+        &lt;/div&gt;
+        &lt;div id="article"&gt;
+            &lt;site:content/&gt;
+        &lt;/div&gt;
+    &lt;/body&gt;
+&lt;/html&gt;</programlisting>
+      </example>
+      <para>The mesh defines three extension points in the
+          <computeroutput>site</computeroutput> namespace. The
+          <computeroutput>&lt;site:skin&gt;</computeroutput> extension point
+        calls a <computeroutput>site:skin</computeroutput> XQuery function as
+        explained in the skinning design pattern. The
+          <computeroutput>&lt;site:commands&gt;</computeroutput> extension point
+        calls a <computeroutput>site:commands</computeroutput> XQuery function
+        that generates some buttons to edit (when not editing), or to save (when
+        editing) the article. Finally the
+          <computeroutput>&lt;site:content&gt;</computeroutput> extension point
+        is a place-holder for the homonym element's content to be pulled from
+        the input stream and that contains either the article when viewing or an
+        HTML fragment that defines an editor using AXEL-FORMS when
+        editing.</para>
+    </section>
+    <section xml:id="paper-12_Section-4.2">
+      <title>Other applications</title>
+      <para>During the last three years, several Small Data applications have
+        been developed using Oppidum. We mention a few of them, emphasizing the
+        features they present accordingly to our definition of Small Data
+        applications: mostly publication oriented, asymmetrical, evolutive and
+        extensible.</para>
+      <para>The first one is a publication-oriented application for the editing
+        and publication of a 4 pages newsletter provided by Platinn (an
+        organization that offers coaching support to Swiss enterprises). The
+        newsletter data model has been derived from a set of legacy newsletters
+        with two goals : first the ability to define an XSLT transformation that
+        generates a CSS/XHTML representation suitable for conversion to PDF
+        ready to be sent to the print shop, second the ability to export the
+        newsletter to a content management system. The application design is
+        quite close to the illustrative example above, some additional resources
+        have been defined to manage authors profiles and a log mechanism to
+        track and display the editing history, mainly to prevent concurrent
+        editing of the same newsletter. Until now 10 newsletters have been
+        written by a redaction team of up to 5 redactors, with more than 30000
+        printed copies.</para>
+      <para>The second one is an application for maintaining and publishing a
+        multilingual (french and english) database of startup companies members
+        of the science park (<link
+          xl:href="http://societes.parc-scientifique.ch"
+          >societes.parc-scienfique.ch</link>) at EPFL (École Polytechnique
+        Fédérale de Lausanne). A contact person and the staff of the science
+        park can edit a public company profile with several modules. It
+        illustrates the “asymmetrical” and “evolutive” characteristics since the
+        goal of the application is to encourage editors to frequently and
+        accurately update their presentation. For that purpose we are using
+        statistics about the company profiles to generate some recommendations
+        to improve their presentation, and to advertise most recently updated
+        companies. There are currently about two hundreds companies using this
+        system. The semi-structured document-oriented approach has been
+        validated when we have been asked to open a web service to feed an
+        internal advertising TV screen network in the different buildings of the
+        park with some company profile extracts to avoid multiple inputs.</para>
+      <para>The third and fourth applications are web sites of associations. One
+        is a craftsmen's association of Belgium called Union des Artisans du
+        Patrimoine de Belgique (<link
+          xl:href="http://www.uniondesartisansdupatrimoine.be"
+          >uniondesartisansdupatrimoine.be</link>), and the other one is the
+        Alliance association (<link xl:href="http://alliance-tt.ch"
+          >alliance-tt.ch</link>) that provides assistance in building
+        partnerships between industry and academic research in Switzerland. Both
+        are centred on traditional content management oriented features to
+        maintain a set of pages and to publish articles about events and/or
+        members that could have been done with non-XML frameworks. However we
+        have been able to extend them with custom modules such as a moderated
+        classified ads services reserved for members in the case of the
+        craftsmen's association, and an event registration module for the
+        Alliance association. This last module has benefited from XML
+        technologies in that it has been turned into an editorial chain with the
+        ability to edit custom registration forms for each event, and to
+        generate different types of documents such as a list of badges for
+        printing and participants' list to distribute. Moreover these
+        extensions, thanks to the application model enforced by Oppidum, are
+        clearly separated from the other parts of their original application.
+        Thus they can be ported to other projects by grouping and copying the
+        pipeline files and by cut-and-paste of the corresponding application
+        mapping parts.</para>
+    </section>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-12_Section-5">
+    <title>Discussion</title>
+    <para>We do a quick comparison between Oppidum and Orbeon Forms, RESTXQ,
+      Servlex and XProc.</para>
+    <para>The Orbeon Forms page flow controller dispatches incoming user
+      requests to individual pages built out of models and views, following the
+      model / view / controller (MVC) architecture <xref linkend="paper-12_5"/>.
+      This is very close to the Oppidum architecture presented in <xref
+        linkend="paper-12_Section-2"/> however there are a few differences.
+      Orbeon page flow controller usually integrates page flows definitions
+      stored within the folders that make up the application code. With Oppidum
+      the application mapping, which is equivalent to the page flows, is a
+      monolithic resource, although we have been experimenting with
+      modularization techniques for importing definitions not described in this
+      article. One of the reasons is that we see the application mapping as a
+      first order object, and hence as a document which can be stored in the
+      database as the other user-generated content. It could ultimately be
+      dynamically generated and or edited by end-users.</para>
+    <para>The syntax is also quite different : the page flows determines the
+      correspondence between URLs and their implementation with the implicit
+      directory structure of the source code and with regular expressions for
+      less implicit associations; in Oppidum this is the implicit structure of
+      the application mapping tree. The principal reason is that the application
+      mapping in Oppidum aims at decoupling the RESTful hierarchy from the code
+      hierarchy which is difficult to achieve with Orbeon Forms. Another side
+      reason is that this allows to define some kind of cascading rules to
+      inherit the reference collection and resource which have no equivalent
+      with Orbeon Forms.</para>
+    <para>Like RESTXQ <xref linkend="paper-12_10"/> Oppidum proposes a complete
+      RESTful mapping of an application. However it diverges in the granularity
+      of this mapping. While RESTful XQuery proposes a very elegant syntax to
+      bind individual server-side XQuery functions with RESTful web services,
+      Oppidum granularity is set at a coarser pipeline grain level. As a
+      consequence Oppidum mapping is also decoupled from its implementation and
+      is maintained in a single document which can be further processed using
+      XML technologies as explained above. On the opposite RESTXQ mappings are
+      defined as XQuery 3.0 annotations intertwined with function definitions
+      only available to the developers of the application.</para>
+    <para>Both solutions provide different means to select the target mapping
+      entry, and to parse and to communicate parameters from the request to the
+      code generating the response. They also use syntactic artefacts to select
+      different targets in the mapping based on different request's properties
+      (URL path segments, HTTP verbs, HTTP headers, etc.). In this regards
+      Oppidum is much more limited than RESTXQ since it only discriminates the
+      targets from the path segments and the HTTP verbs. We could envision to
+      extend Oppidum mapping language with further conditional expressions,
+      however it seems a better solution could be to mix both approaches : in a
+      first step, Oppidum mapping could be used to do a coarse grain target
+      selection, then in a second step, RESTXQ could be used inside the model
+      part of each pipeline to select between a set of functions to call.</para>
+    <para>We can see this need emerging in Oppidum as for limiting the number of
+      XQuery files we found useful under some circumstances to group together
+      related functionalities inside a single XQuery script shared as a model
+      step between several pipelines. For instance, it is tempting to group
+      reading and writing code of a given type of resource, together with some
+      satellite actions, to create a consistent code unit (e.g. use a single
+      script to create, update and read a participant's registration in an
+      application). As a consequence the file starts by checking more properties
+      of the request to select which function to call, which seem to be one of
+      the reason that led Adam Retter to propose RESTXQ in replacement of the
+      verbish circuitry inside former eXist-DB
+        <computeroutput>controller.xql</computeroutput> files <xref
+        linkend="paper-12_9"/>. To our current perception, parts of these
+      efforts tend to address the same kind of issues as object relational
+      mapping in non-XML frameworks, without yet a clear solution for XML
+      applications.</para>
+    <para>To some extent Oppidum shares goals similar to the Servlex EXPath
+      Webapp framework <xref linkend="paper-12_7"/>. Like it it defines how to
+      write web applications on server-side, using XML technologies (currently
+      XSLT and XQuery) and it defines their execution context, as well as some
+      functions they can use <xref linkend="paper-12_8"/>. However Oppidum is
+      more restrictive as it imposes a RESTful application model and some
+      constraints on the generated pipeline composition, thus it looks like a
+      restriction of this framework. It will be interesting, in the future, to
+      check if applications written with Oppidum could be automatically
+      converted and/or packaged as EXPath Webapp applications and what would be
+      the benefits. In particular we see a strong interest in accessing the host
+      environment functionalities which are database dependent today (like
+      accessing to the request or response objects) and that could be abstracted
+      into common APIs with the EXPath framework.</para>
+    <para>Finally Oppidum does not currently makes use of XProc although it's
+      execution model is based on simple pipelines. The first reason is
+      historical since we have started to work with Orbeon Forms XML pipeline
+      language (XPL) before Oppidum. The lack of design patterns and good
+      practices led us to overcomplexify simple developments, and thus led us to
+      invent the Oppidum self-limiting three steps pipeline model in reaction.
+      But now with the return on experience, we are more confident in opening up
+      Oppidum to support direct inclusion of XProc definitions within our
+      application model. A quick solution could be to support pipeline files as
+      models or views (as it is the case in Orbeon Forms) or eventually as
+      epilogue. For that purpose, it would be feasible to rewrite the Oppidum
+      pipeline generator to directly generate pipelines written in XProc instead
+      of the URLRewrite filter pipeline format currently imposed by
+      eXist-DB.</para>
+  </section>
+  <section xmlns:xl="http://www.w3.org/1999/xlink" xml:id="paper-12_Section-6">
+    <title>Conclusion</title>
+    <para>The XML Stack clearly proposes a valuable technological option to deal
+      with data manipulated by Small Data applications. It offers the great
+      potential to adopt a uniform representation of information that bridges
+      two often separated paradigms: document and database systems. Adopting
+      so-called semi-structured data models allows capturing in a homogeneous
+      way the structure of information, at a very fine granularity level, if
+      needed. It significantly enhances reuse of content in different purposes
+      either for developing new services or delivering information through many
+      channels.</para>
+    <para>The resulting benefits are particularly important even for low-budget
+      class of applications. For end-users it avoids spending time in
+      potentially manipulating the same pieces of information through different
+      user interfaces or copying/pasting information, for instance, from a
+      document to a web form. For developers existing semi-structured data may
+      be reused to cost effectively add a wide range of new functionalities to a
+      web application as, for instance, the generation of badges and list of
+      participants who registered to an event. Finally, it is obvious, the XML
+      format is especially well adapted to generate publishable documents or to
+      deliver content on cross-media platforms.</para>
+    <para>Two main challenges need to be taken up to promote the adoption of the
+      XML Stack in Small Data applications: the capability offered to end-users
+      to easily provide valid content on the web and the provision to developers
+      with a framework that can be rapidly mastered. The paper presented
+      Oppidum, a lightweight framework to build such applications. It integrates
+      the use of AXEL, a template-driven editing library that guarantees the
+      validity of data provided by end-users.</para>
+    <para>The past and ongoing developments made us confident that Oppidum may
+      evolve, while keeping it simple, to address another concern of Small Data
+      applications: the cooperation aspects. Relying on a declarative approach,
+      we believe that, with proper data modelling, it would be easy to develop
+      simple workflows to support cooperative processes among stakeholders of a
+      web application.</para>
+    <para>In this perspective, our further research work is targeting two main
+      inter-connected issues:</para>
+    <itemizedlist>
+      <listitem>
+        <para>the first one is addressing the modeling of
+          cooperative/communication processes to be supported in order to make
+          efficient the production, the sharing and the exploitation of XML
+          information by a community of users. It covers, amongst other
+          preoccupations, the following issues: awareness, notification and role
+          controls;</para>
+      </listitem>
+      <listitem>
+        <para>the second one is addressing the collaborative editing of content
+          itself. For the time being, it does not exist too many XML web-based
+          collaborative authoring environments. We are interested in
+          investigating about models and specification of an appropriate
+          language that help to sustain the collaborative production task as
+          well as associated actions.</para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <bibliography xmlns:xl="http://www.w3.org/1999/xlink"
+    xml:id="paper-12_references">
+    <biblioentry xml:id="paper-12_1" xreflabel="[1]">
+      <abbrev>1</abbrev>
+      <title>Web Data Management</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Serge</firstname>
+            <surname>Abiteboul</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Ioana</firstname>
+            <surname>Manolescu</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Philippe</firstname>
+            <surname>Rigaux</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Marie-Christine</firstname>
+            <surname>Rousset</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Pierre</firstname>
+            <surname>Senellart</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <publishername>Cambridge University Press</publishername>
+      <date>2011</date>
+    </biblioentry>
+    <biblioentry xml:id="paper-12_2" xreflabel="[2]">
+      <abbrev>2</abbrev>
+      <title>RESTful Web Services Cookbook</title>
+      <author>
+        <personname>
+          <firstname>Subbu</firstname>
+          <surname>Allamaraju</surname>
+        </personname>
+      </author>
+      <publishername>O'Reilly Yahoo! Press</publishername>
+    </biblioentry>
+    <biblioentry xml:id="paper-12_3" xreflabel="[3]">
+      <abbrev>3</abbrev>
+      <title>Web-based structured document authoring solution (Stack
+        Overflow)</title>
+      <author>
+        <personname>Anonymous (user1887755)</personname>
+      </author>
+      <biblioid class="uri"
+        >http://stackoverflow.com/questions/13777777/web-based-structured-document-authoring-solution</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-12_4" xreflabel="[4]">
+      <abbrev>4</abbrev>
+      <title>Is Drupal suitable as a CMS for complex structured content? (Stack
+        Overflow)</title>
+      <author>
+        <personname>Anonymous (user1887755)</personname>
+      </author>
+      <biblioid class="uri"
+        >http://stackoverflow.com/questions/14214439/is-drupal-suitable-as-a-cms-for-complex-structured-content</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-12_5" xreflabel="[5]">
+      <abbrev>5</abbrev>
+      <title>Orbeon Developer and AdministratorGuide : Page Flow
+        Controller</title>
+      <author>
+        <personname>
+          <firstname>Erik</firstname>
+          <surname>Bruchez</surname>
+        </personname>
+      </author>
+      <biblioid class="uri"
+        >http://wiki.orbeon.com/forms/doc/developer-guide/page-flow-controller</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-12_6" xreflabel="[6]">
+      <abbrev>6</abbrev>
+      <title>Templates, Microformats and Structured Editing</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Francesc</firstname>
+            <surname>Campoy-Flores</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Vincent</firstname>
+            <surname>Quint</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Irène</firstname>
+            <surname>Vatton</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <publisher>
+        <publishername/>
+      </publisher>
+      <date>2006</date>
+      <publisher>
+        <publishername>ACM Symposium on Document Engineering</publishername>
+      </publisher>
+    </biblioentry>
+    <biblioentry xml:id="paper-12_7" xreflabel="[7]">
+      <abbrev>7</abbrev>
+      <title>Servlex</title>
+      <author>
+        <personname>
+          <firstname>Florent</firstname>
+          <surname>Georges</surname>
+        </personname>
+      </author>
+      <biblioid class="uri">https://github.com/fgeorges/servlex</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-12_8" xreflabel="[8]">
+      <abbrev>8</abbrev>
+      <title>Web Application EXPath Candidate Module 9 March 2013 (in
+        progress)</title>
+      <author>
+        <personname>
+          <firstname>Florent</firstname>
+          <surname>Georges</surname>
+        </personname>
+      </author>
+      <biblioid class="uri">http://expath.org/spec/webapp/editor</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-12_9" xreflabel="[9]">
+      <abbrev>9</abbrev>
+      <title>RESTful XQuery Standardised XQuery 3.0 Annotations for REST</title>
+      <author>
+        <personname>
+          <firstname>Adam</firstname>
+          <surname>Retter</surname>
+        </personname>
+      </author>
+      <publisher>
+        <publishername>XML Prague</publishername>
+      </publisher>
+      <date>2012</date>
+      <biblioid class="uri">http://archive.xmlprague.cz/2012/files/xmlprague-2012-proceedings.pdf#page=103</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-12_10" xreflabel="[10]">
+      <abbrev>10</abbrev>
+      <title>RESTXQ 1.0: RESTful Annotations for XQuery 3.0</title>
+      <author>
+        <personname>
+          <firstname>Adam</firstname>
+          <surname>Retter</surname>
+        </personname>
+      </author>
+      <biblioid class="uri"
+        >http://exquery.github.com/exquery/exquery-restxq-specification/restxq-1.0-specification.html</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-12_11" xreflabel="[11]">
+      <abbrev>11</abbrev>
+      <title>AXEL-FORMS Web Site</title>
+      <author>
+        <personname>Stéphane Sire</personname>
+      </author>
+      <biblioid class="uri">http://ssire.github.com/axel-forms/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-12_12" xreflabel="[12]">
+      <abbrev>12</abbrev>
+      <title>XTiger XML Language Specification</title>
+      <author>
+        <personname>Stéphane Sire</personname>
+      </author>
+      <biblioid class="uri">http://ssire.github.com/xtiger-xml-spec/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-12_13" xreflabel="[13]">
+      <abbrev>13</abbrev>
+      <title>Authoring XML all the Time, Everywhere and by Everyone</title>
+      <authorgroup>
+        <author>
+          <personname>
+            <firstname>Stéphane</firstname>
+            <surname>Sire</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Christine</firstname>
+            <surname>Vanoirbeek</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Vincent</firstname>
+            <surname>Quint</surname>
+          </personname>
+        </author>
+        <author>
+          <personname>
+            <firstname>Cécile</firstname>
+            <surname>Roisin</surname>
+          </personname>
+        </author>
+      </authorgroup>
+      <publisher>
+        <publishername>XML Prague</publishername>
+      </publisher>
+      <date>2010</date>
+      <biblioid class="uri">http://archive.xmlprague.cz/2010/files/XMLPrague_2010_Proceedings.pdf#page=143</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-12_14" xreflabel="[14]">
+      <abbrev>14</abbrev>
+      <title>XQuery, Search Across a Variety of XML Data</title>
+      <author>
+        <personname>Priscilla Walmsley</personname>
+      </author>
+      <publishername>O'Reilly</publishername>
+    </biblioentry>
+  </bibliography>
+</article>

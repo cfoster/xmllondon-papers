@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-11" version="5.0">
+	<info xmlns:xlink="http://www.w3.org/1999/xlink">
+		<title>Using Distributed Version Control Systems</title>
+		<subtitle>Enabling enterprise scale, XML based information development</subtitle>
+		<authorgroup>
+			<author>
+				<personname>Dr. Adrian R. Warman</personname>
+				<affiliation>
+					<jobtitle>Information Architect</jobtitle>
+					<org>
+						<orgname>IBM United Kingdom Limited</orgname>
+					</org>
+				</affiliation>
+				<address>
+				<city>Hursley Park</city>
+				<street>Winchester</street>
+				<postcode>SO21 2JN</postcode>
+				<country>United Kingdom</country>
+			</address>
+				<email>Adrian.Warman@uk.ibm.com</email>
+			</author>
+		</authorgroup>
+	</info>
+	<sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+		<title>Disclaimer</title>
+		<para>Any views or opinions expressed in this paper are those of the
+			author, and do not necessarily represent official positions,
+			strategies or opinions of International Business Machines (IBM)
+			Corporation.</para>
+		<para>No guarantees are offered as to the timeliness, accuracy or
+			validity of information presented.</para>
+	</sect1>
+	<sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+		<title>Introduction</title>
+		<para>Enterprise scale technical writing, or <quote>information development</quote>, typically requires many people, working on many aspects of content, across many time zones. At this level, traditional <quote>word processor</quote> tooling simply cannot cope, particularly where more than one person must work on the same or closely related content. By contrast, XML-based information development, where content is divided into discrete information units, solves many of the problems. But not all of them.</para>
+		<para>In particular, where several people must work on the same files concurrently, or where the timescale for the required work might conflict with other delivery obligations, technical writers can find themselves in situations where updates might be lost or broken.</para>
+		<para>These are classic problems for software developers, too, and it turns out that some software development techniques can usefully be applied to the problem of managing XML-based documentation at an enterprise scale. Specifically, Distributed Version Control System (DVCS) tooling can be applied to everyday documentation tasks. In this paper, we explain how a DVCS might be used by a product documentation team to help deliver diverse documentation sets, created using XML, for large scale parallel delivery.</para>
+	</sect1>
+	<sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+		<title>Definitions</title>
+		<para>It is helpful to clarify exactly what is meant by specific terms and concepts mentioned within this paper. We prefer straightforward, pragmatic definitions to more formal, rigorous definitions.</para>
+		<itemizedlist>
+			<listitem>
+				<para>
+					<emphasis role="bold">Information Development</emphasis> refers to the combination of resources and processes used to create content that is readily usable by the intended audience. So, if a technical writer uses a word processor to create some notes about how to install a software package, that is information development. If a software developer creates some extended comments within application source code, and those files are run through an automatic documentation generation tool (such as <code>javadoc</code>) to create HTML reference guides, that too is information development. If a marketing team creates some visually impressive video files that cannot be used by someone with a visual impairment, that is <emphasis role="italic">not</emphasis> information development. </para>
+			</listitem>
+			<listitem>
+				<para> An <emphasis role="bold">Information Set</emphasis> is a logically-distinct collection of content that has been created or assembled to address a specific concept, task or purpose. A manual for a product running on a specific platform is an information set. A chapter on installing a product is an information set. A collection of documentation source files containing all the materials necessary to produce an information set is an <emphasis role="bold">information stream</emphasis>.</para>
+			</listitem>
+			<listitem>
+				<para>
+					<emphasis role="bold">DITA</emphasis> is the Darwinian Information Typing Architecture, and is a form of <emphasis role="bold">XML markup</emphasis>, where well-formed and valid XML files are used to hold human-readable documentation source. This enables enterprise scale work, such as reuse of content, while applying strict controls to help ensure consistency. </para>
+			</listitem>
+			<listitem>
+				<para> A <emphasis role="bold">Distributed Version Control System</emphasis>, or DVCS, is a peer-to-peer file management tool. It helps track and manage changes to files, with no single repository being the definitive storage point. The distributed nature means that the ability to merge, and manage merges, of source files is essential. Each DVCS user has an entire copy of the source repository, making it possible to carry out substantial work ‘offline’. Traditionally aimed at software development, the application of DVCS to information development provides some interesting and significant benefits, as suggeste by this paper. </para>
+			</listitem>
+		</itemizedlist>
+	</sect1>
+	<sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+		<title>A simple example of workflow</title>
+		<para>Workflow in enterprise scale information development is remarkably similar to software development. Assume that a new feature is being implemented within a product. This feature will be the subject of specification and design documents. These describe details such as implementation constraints, performance targets, test cases, and so on. Similarly, if the feature must be documented because it is usable by customers, there will be usage considerations such as the target audience, the level of detail required, whether to include examples and to what level of detail, what output format to use, and so on. Other essential considerations include translation and accessibility compliance, but these are not discussed further in this paper.</para>
+		<para>As a simple example, let us assume that an established product, called ‘ProductEx’, is about to be released on an additional hardware platform. This requires substantial changes to the product documentation, such as platform-specific installation and troubleshooting details. At the same time, a new feature called ‘FastMemEx’ is being introduced and will be available on the established and new platforms. The feature modifies the behavior of the software product to make it run faster, but a trade-off is that the software requires more memory to operate. It is possible that the performance testing carried out during development might conclude that FastMemEx is not ready to be included with the next release of ProductEx, and would be deferred to a later date. Waiting until the FastMemEx<quote>go or no-go</quote> decision is made would not leave enough time for the documentation to be written, therefore it must be possible to remove the FastMemEx documentation quickly if necessary.</para>
+			<para>Even this minimal example makes it clear that there are often substantial information development tasks in a project. It represents a typical scenario for information development. In addition to any other development or maintenance work, the example identifies two distinct new information streams, each of which has implications for the other stream. Ideally, both these new streams will be delivered, but it is possible that the product component associated with one stream might be deferred, and therefore the updates for that component must be held back.</para>
+			<para>
+				We can represent this scenario diagrammatically, as shown in
+				<xref linkend="paper-11_fig1"/>.
+			</para>
+			<figure xml:id="paper-11_fig1">
+				<title>Flow of streams and merging</title>
+				<mediaobject>
+					<imageobject>
+						<imagedata fileref="images/merge1-small.png" width="100%"/>
+					</imageobject>
+				</mediaobject>
+			</figure>
+		<para>The problem for technical writers is how to manage each of these challenges.</para>
+	</sect1>
+	<sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+		<title>Basic XML content creation using DITA</title>
+		<para>Part of the solution is to use an appropriate documentation source format. As mentioned above, DITA is a well-formed XML based content markup language. It is easy to find more details about DITA, but for the purposes of this paper, the following two example files adapted from samples provided with the DITA Open Toolkit implementation are helpful.</para>
+		<para>
+			<link linkend="paper-11_file1">
+				<filename>quickstart.ditamap</filename>
+			</link>
+			<programlisting xml:id="paper-11_file1" language="xml">&lt;?xml version="1.0"
+  encoding="UTF-8"?&gt;
+&lt;!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN"
+  "map.dtd"&gt;
+&lt;map xml:lang="en-us"&gt;
+  &lt;title&gt;Getting started&lt;/title&gt;
+  &lt;topicref
+      href="quickstartguide/exploring-the-dita-ot.dita"
+      collection-type="sequence"&gt;
+    &lt;topicref href="readme/installing-full-easy.dita"/&gt;
+    &lt;topicref href="quickstartguide/rundemo.dita"/&gt;
+    &lt;topicref href="quickstartguide/runmore.dita"/&gt;
+  &lt;/topicref&gt;
+&lt;/map&gt;</programlisting>
+		</para>
+		<para>
+			<link linkend="paper-11_file2">
+				<filename>exploring-the-dita-ot.dita</filename>
+			</link>
+			<programlisting xml:id="paper-11_file2" language="xml">&lt;?xml version="1.0"
+  encoding="UTF-8"?&gt;
+&lt;!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd"&gt;
+&lt;task id="exploring-the-dita-ot"&gt;
+  &lt;title&gt;Getting Started with the DITA Open Toolkit&lt;/title&gt;
+  &lt;shortdesc&gt;The &lt;ph&gt;&lt;cite&gt;Getting Started Guide&lt;/cite&gt;&lt;/ph&gt; is
+    designed to provide a guided exploration of the
+    DITA Open Toolkit. It is geared for an audience that has
+    little or no knowledge of build scripts or DITA-OT
+    parameters. It walks the novice user through installing
+    the full-easy-install version of the toolkit and
+    running a prompted build.&lt;/shortdesc&gt;
+&lt;/task&gt;</programlisting>
+		</para>
+		<para>The ditamap in <link linkend="paper-11_file1">
+			<filename>quickstart.ditamap</filename>
+		</link> provides navigational and structural
+			information. It determines which ‘topic’ files appear in the final
+			publication, and in what order.</para>
+		<para>The dita content in <link linkend="paper-11_file2">
+			<filename>exploring-the-dita-ot.dita</filename>
+		</link> is actual ‘product’ documentation.
+			Even without knowing any DITA, you should be able to recognize
+			content such as the topic title, a simple paragraph, and a citation
+			reference to another publication.</para>
+		<para>These files can be created and modified using any text editor. Ideally, you would use a tool that is XML-aware, so that the proper checks are in place to ensure that the files are well-formed and valid. There are also some more advanced tools that go some way towards WYSIWYG presentation, although in practice these can be more frustrating than helpful because many enterprise scale documentation projects make use of attribute tagging to conditionalize the build according to a specific product, platform, audience, and so on.</para>
+		<para>The key point about these examples is that they show ‘simple’ text files as the basis of extremely large, enterprise scale, documentation. The use of XML as the ‘hosting’ structure helps ensure consistency and reliability in creating output deliverables.</para>
+	</sect1>
+	<sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+		<title>DVCS principles</title>
+		<para>As we saw in the earlier diagram, when writing enterprise scale documentation, you are very likely to encounter situations where two or more people are working on the same documentation set. Often, they will work on different files, but from time-to-time they need to update the same file at the same time. Anecdotally, but not surprisingly, many of the changes tend to be within files that are in close ‘proximity’ to each other in the overall structure, rather than being distributed ‘randomly’ throughout the content.</para>
+		<para>This need to have several people working on a common set of
+			files is not unique to technical writers. Software developers
+			encounter exactly the same challenges. They have tackled the problem
+			by extending the concept of a Version Control System (VCS) into a
+			Distributed Version Control System (DVCS).</para>
+		<para> In its simplest form, a VCS stores historical records of files in a repository. Each time a file is modified, a new copy of the updated files is stored or <quote>checked in</quote> to the repository. The main objectives are to make it easy to backup all the work, and to be able to <quote>roll back</quote> to earlier versions of the files. </para>
+		<para>
+			A VCS traditionally has a single, central server to host the
+			repository. This makes it easy to backup the content at regular
+			intervals. However, it means that people working on the files must
+			first copy them to their local machine (<quote>check out</quote>),
+			make any changes, then upload the changed files (<quote>check in</quote>)
+			back to the central server.
+		</para>
+		<para>
+			The VCS model does have limitations. In particular:
+			<orderedlist>
+				<listitem>
+					<para>You must have effectively continuous network connectivity to
+						check out or check in to the server.</para>
+				</listitem>
+				<listitem>
+					<para>It is complicated to deal with different threads of
+						development on your local machine.</para>
+				</listitem>
+				<listitem>
+					<para>There is a risk that your changes to a file will be overwritten by changes made to the same file by another developer, who checks in their changes after you have checked in yours.</para>
+				</listitem>
+			</orderedlist>
+		</para>
+		<para> One solution to these problems is to use a DVCS. A key characteristic of a DVCS is that <emphasis role="italic">everyone</emphasis> has a <emphasis role="italic">complete copy</emphasis> of the entire repository. Surprisingly, this can be more cost-effective in terms of storage space than a traditional VCS, for reasons explained in <link linkend="paper-11_storagenumbers">Appendix A</link>. Any changes made to files locally must be available to everyone else who has a copy of the repository. This means that a DVCS is intentionally designed to share file updates between the repositories, and to accommodate changes made to the same file by different developers. The sharing works in a way that: <itemizedlist>
+				<listitem>
+					<para>Is as quick and efficient as possible.</para>
+				</listitem>
+				<listitem>
+					<para>Makes the merging of separate changes to the same file automatic.</para>
+				</listitem>
+				<listitem>
+					<para>Ensures that any problem merging the changes results in a <quote>fail gracefully</quote> report.</para>
+				</listitem>
+			</itemizedlist>
+		</para>
+		<para>The last point is especially important. If something does go
+			wrong during the merge, none of the changes are lost, and you are
+			able to work on the file directly to resolve the problems.</para>
+		<para>
+			In
+			<xref linkend="paper-11_fig2"/>,
+			you can see different threads of development work from a real
+			documentation project using a DVCS called
+			<command>git</command>.
+			At frequent intervals, the changes in a given thread can be seen
+			merging back into other threads.
+		</para>
+		<figure xml:id="paper-11_fig2">
+			<title>Merging of documentation streams</title>
+			<mediaobject>
+				<imageobject>
+					<imagedata fileref="images/SourceTree-small.png" width="100%"/>
+				</imageobject>
+			</mediaobject>
+		</figure>
+	</sect1>
+	<sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+		<title>Using a DVCS for multi-branch content</title>
+		<note>
+			<para>In this paper, we do not have the space to describe DVCS operation in detail. For more information about typical DVCS tools and tasks, see either <link xlink:href="http://git-scm.com/">git</link> or <link xlink:href="http://mercurial.selenic.com/">Mercurial</link>.</para>
+		</note>
+		<para>In a DVCS such as <command>git</command>, each of the work streams is created as a 'branch', where the current collection of files is duplicated in a separate development strand. This branch can be edited independently of the original files. At any time, you can save the current state of the files in a branch, and then switch to any other branch. There is no specific limit to the number of branches you might create; in practice, creating too many branches would make it difficult to keep track of them yourself.</para>
+		<para>Branching means that each task can be split off into its own stream of activity. You can safely work on all the files within the branch, knowing that any changes you make can be re-integrated into the main branch later.</para>
+		<para>In <command>git</command>, the main branch is called <code>master</code>. To start working on the task of documenting a new feature, you might create a new branch as follows:<programlisting language="bourne">git branch MyNewFeature</programlisting>However, nothing obvious happens until you 'switch to', or <quote>check out</quote> the new branch:<programlisting language="bourne">git checkout MyNewFeature</programlisting>You have now taken copies of all the files in your project for use in the new branch. You can proceed to create and update the various files associated with the new feature.<note>
+				<para>A DVCS does not normally duplicate files when a new branch is created. A duplicate file is created only when the original file is modified. This makes branch creation and switching quick and easy.</para>
+			</note></para>
+		<para>Every so often, you save your work by checking in the changes. In <command>git</command>, this is called making a <quote>commit</quote>. A typical commit action might look something like this:<programlisting language="bourne">... various file editing tasks
+git add &lt;list of new or modified files&gt;
+git commit -m "Corrected the syntax explanation for the new feature."
+... continue editing files.</programlisting></para>
+		<para>Similarly, you will want to bring in the other changes that colleagues have made to documentation files in their branches. Assuming they have checked in their changes to the <code>master</code> branch, you can bring those changes into your files by using the command:<programlisting language="bourne">git merge master</programlisting> All being well, the external changes are merged safely into your files. Eventually, however, a problem is likely to occur, where you and your colleagues have been trying to change the same section of the same file. When this happens, the DVCS might not be able to resolve the discrepancy. Instead, it reports that the merge has failed, and tells you details of the affected file or files. For the merge to complete, you must edit the broken files and fix the problem. For any broken file, <command>git</command> makes all the necessary information available to you, including:<itemizedlist>
+				<listitem>
+					<para>The file contents as they were before you or your colleague made any changes.</para>
+				</listitem>
+				<listitem>
+					<para>The changes <emphasis role="italic">you</emphasis> made to the file.</para>
+				</listitem>
+				<listitem>
+					<para>The changes <emphasis role="italic">your colleague</emphasis> made to the file.</para>
+				</listitem>
+			</itemizedlist>Using these three details, you should have everything you need to solve the merging problem. At worst, you know who else has been editing the file, and so could talk to them about the specific changes and how you might come to an agreement on what the final content should be.</para>
+		<para>After going through several cycles of editing files and merging in changes from colleagues, you are ready to merge your changes back into the <code>master</code> branch. To do this, you switch back to the master branch, then merge in the changes from your working branch:<programlisting language="bourne">git checkout master
+git merge MyNewFeature</programlisting></para>
+		<para>It is important to realize that documentation files might be correct or incorrect according to three precise measures:<orderedlist>
+				<listitem>
+					<para>Whether the file is well-formed.</para>
+				</listitem>
+				<listitem>
+					<para>Whether the file is valid.</para>
+				</listitem>
+				<listitem>
+					<para>Whether the file is semantically meaningful.</para>
+				</listitem>
+			</orderedlist>A DVCS cannot assist you with the third measure, not least because a (comparatively) simple tool like a DVCS cannot interpret the vagaries of human communication. However, the way in which a DVCS can support the first and second measures suggests a possible future development that might one enable support for semantic assessment.</para>
+		<para>Most DVCS systems can be extended and modified in many ways; customization was an important principle in developing <command>git</command>. For example, when you check in your updates using the <command>git commit</command> command, some extra tasks can be run using an extension called a <quote>hook</quote>. A very useful application of this is to run some tests on the files as they are prepared for check in. In the following code segment, the command-line utility <command>xmllint</command> is applied to each DITA file just before it is checked in. The script ensures that only DITA files are tested in this way.<programlisting language="bourne">for FILE in `exec git diff-index --cached \
+  --name-status $against | egrep '^(A|M)' | awk \
+  '{print $2;}'` ; do
+if ( echo $FILE | egrep -q '.+\.(dita|ditamap)$' ) 
+# if the filename ends in .dita or .ditamap
+then
+  xmllint --valid --noout $FILE &gt; /dev/null 2&gt;&amp;1
+  RESULT=$?
+  # echo "Checking $FILE, return code: $RESULT"
+    if [ $RESULT -ne 0 ] 
+    then
+      EXIT_STATUS=1
+      echo "Invalid DITA markup: $FILE"
+    fi
+    # echo "EXIT_STATUS now $EXIT_STATUS"
+# else
+#   echo "Ignoring $FILE"
+fi</programlisting>The <command>xmllint</command> command checks that a given file is both well-formed and valid according to the XML catalog defined on the system. In this case, the DITA DTDs have been included in the XML catalog, which means that every time you check in your DITA files, they are automatically tested to be well-formed and valid. A potential enhancement would be to modify the <command>git</command> hook so that semantic analysis might also be performed.</para>
+	</sect1>
+	<sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+		<title>Using a DVCS to manage multiple deliveries</title>
+		<para>A common reason for using DITA and similar markup tools for enterprise scale documentation tasks is that they support conditional or filtered building of content. This is an exceptionally useful capability, and is based on the use of XSL-style pattern matching to include or exclude content, according to precise conditions.</para>
+		<para>A good example is where a content file is created that describes a task in general terms, but also includes platform- or version-specific details. One option for the final document delivery would be to build a single documentation set that includes all of the platform- or version-specific information. Within this large collection, each instance of (say) platform dependent content might be clearly identified using a small icon or logo. However, given that markup must be included anyway to identify content specifics, a second option is to have entirely separate builds: one for each of the specific variants. The result is a much larger number of documents, but each one is specifically tailored for a precise audience.</para>
+		<para>What we are describing here is another way of viewing the documentation streams. Previously, we have identified a main documentation stream (<code>master</code>), with separate branches established for clearly defined update tasks. These branches are then merged or reintegrated back into <code>master</code> as required.</para>
+		<para>But the branching model of a DVCS allows us to adopt a different model, where content that is common to all documentation is present in one branch, and content that is unique to a given platform or product version can be isolated off in a separate branch. This concept can be seen diagrammatically in <xref linkend="paper-11_fig3"/>.</para>
+		<figure xml:id="paper-11_fig3">
+			<title>Use of DVCS for multiple deliveries</title>
+			<mediaobject>
+				<imageobject>
+					<imagedata fileref="images/multirelease-small.png" width="100%"/>
+				</imageobject>
+			</mediaobject>
+		</figure>
+		<para>It is important to note that this diagram is <emphasis role="italic">not</emphasis> illustrating a deployment model; indeed some DVCS specialists actively discourage the view that a DVCS should be used for deployment purposes, where the existence of branch represents the live content on a production system. Rather, the diagram shows that content may be assembled to produce some release-ready material, in much the same way that ingredients are assembled prior to working through a recipe to create a meal.</para>
+		<para>Using a DVCS for multiple deliveries offers several advantages in comparison to the traditional single-stream content model, over and above those already described. For example, re-use of content is much each easier to achieve, promoting consistency and simplicity. The assembly-on-demand approach to multiple deliveries has some similarities to a Just-In-Time delivery model; there is no need to 'retire' a documentation stream if it is no longer required - instead you simply omit it from the final build process.</para>
+		<para>At the same time, it must be admitted that using a DVCS in this way is pushing the boundaries of what was originally intended. In a small scale, real project experiment, where content for multiple deliveries was assembled prior to deployment on a hosting system, the mechanism worked well. However, the difference in comparison to the earlier description of using DVCS is that there is no requirement to store the resulting merged content. Therefore, if there had been problems during the merge, it is possible that the effort required to resolve the problems might have exceeded the benefit of separating out the deliverable streams. It will be interesting to see whether larger scale tests of DVCS-based multi-delivery remain viable.</para>
+	</sect1>
+	<sect1 xmlns:xlink="http://www.w3.org/1999/xlink">
+		<title>Summary</title>
+		<para>In this paper, we have reviewed the basic principles of enterprise-level documentation tasks. We have outline some of the challenges faced when producing documentation that comprises different strands of work, such differing content or timescales. We have shown how some of these challenges reflect similar problems encountered when managing large scale software development concept. We have introduced a software-oriented solution: Distributed Version Control Systems. Using these building blocks, we have explained how DVCS technology might be used to help enable enterprise scale, XML-based information development.</para>
+	</sect1>
+	<appendix xmlns:xlink="http://www.w3.org/1999/xlink" xml:id="paper-11_storagenumbers">
+		<title>Storage requirements for a local repository</title>
+		<para>A common example of a VCS is <command>subversion</command>. This tool provides a central server that hosts a repository for all the working files of a project. At any time, a developer might use a client program (<command>svn</command>) to check out a 'snapshot' of the project files from a precise point in time. To switch to an older or more recent snapshot, the developer uses the <command>svn</command> command again to request the correct files from the server. This means that a <command>subversion</command> user only ever has a single set of files, and must communicate with the server to switch to a new set. If there is no network access, no switching is possible.</para>
+		<para>By contrast, a DVCS user has a complete set of all files in the repository. It is a quick and easy task to switch to any other snapshot or indeed branch within the repository, for the simple reason that all the files are available locally.</para>
+		<para>In most cases, many of the files are unchanged from snapshot to snapshot. Further, software or documentation source files are typically in a text format. Both these aspects mean that DVCS software can apply compression techniques extremely effectively. Here are some numbers from an actual project:</para>
+		<table frame="all"><title>Storage requirements compared: VCS and DVCS</title>
+			<tgroup cols="3"><colspec colname="c1" colwidth="2*"/><colspec colname="c2" colwidth="1*"/><colspec colname="c3" colwidth="1*"/>
+				<thead>
+					<row><entry>Aspect</entry><entry>VCS</entry><entry>DVCS</entry></row>
+				</thead>
+				<tbody>
+					<row><entry>Server copy of entire repository</entry><entry>800+ MB</entry><entry>331 MB</entry></row>
+					<row><entry>Local copy of repository and snapshot</entry><entry>1.6 GB</entry><entry>1 GB</entry></row>
+				</tbody>
+			</tgroup>
+		</table>
+	</appendix>
+	<appendix xmlns:xlink="http://www.w3.org/1999/xlink">
+		<title>Useful resources</title>
+		<para><link xlink:href="http://www.atlassian.com/dvcs/overview/dvcs-options-git-or-mercurial">Choosing a Distributed Version Control System</link></para>
+		<para><link xlink:href="http://thecontentwrangler.com/2008/04/11/choosing_an_xml_schema_docbook_or_dita/">Choosing an XML Schema: DocBook or DITA?</link></para>
+		<para><link xlink:href="http://en.wikipedia.org/wiki/Distributed_version_control_system">Distributed Revision Control</link></para>
+		<para><link xlink:href="http://dita-ot.sourceforge.net/">DITA Open Toolkit</link></para>
+	</appendix>
+</article>

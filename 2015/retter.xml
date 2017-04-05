@@ -1,0 +1,1661 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<article xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" version="5.0"
+    xml:lang="en">
+
+    <info>
+        <title>Implementation of Portable EXPath Extension Functions</title>
+        <authorgroup>
+            <author>
+                <personname>
+                    <firstname>Adam</firstname>
+                    <surname>Retter</surname>
+                </personname>
+                <email>adam@evolvedbinary.com</email>
+                <affiliation>
+                    <orgname>Evolved Binary</orgname>
+                </affiliation>
+            </author>
+        </authorgroup>
+
+        <keywordset>
+            <keyword>XQuery</keyword>
+            <keyword>Portability</keyword>
+            <keyword>EXPath</keyword>
+            <keyword>Haxe</keyword>
+        </keywordset>
+
+        <abstract>
+            <para>Various XPDLs (XPath Derived Languages) offer many high-level abstractions which
+                should enable us to write portable code for standards compliant processors.
+                Unfortunately the reality is that even moderately complex applications often need to
+                call additional functions which are non-standard and typically implementation
+                provided. These implementation provided extension functions reduce both the
+                portability and applicability of code written using standard XPDLs. This paper
+                examines the relevant existing body of work and proposes a novel approach to the
+                implementation of portable extension functions for XPDLs.</para>
+        </abstract>
+    </info>
+
+    <section xml:id="section-introduction">
+        <title>Introduction</title>
+        <para>High-level XML processing/programming languages such as XQuery, XSLT, XProc and XForms
+            have long held the promise of being able to write portable code that can execute on any
+            W3C compliant implementation. Unfortunately the specification of these languages leave
+            several issues to be "implementation defined"; Typically a pragmatic necessity, most
+            often occurring where the language must interact with a lower-level interface, e.g.
+            performing I/O or integrating with the environment of the host system.</para>
+        <para>If we put to one-side the potential "implementation defined" incompatibilities, which
+            in reality are often few and can likely be worked around, there is another issue which
+            hinders the creation of portable code, and that is the issue of implementation provided
+            extension functions. XQuery, XSLT, XProc and XForms are all built atop XPath, which
+            defines a Standard Library in the form of the F+O specification (XPath and XQuery
+            Functions and Operators). XQuery 3.0 and XSLT 3.0 provide F+O 3.0 <xref
+                linkend="w3c-xpath3-fns"/>, and whilst XProc 1.0 and XForms 2.0 provide the older
+            F+O 2.0 <xref linkend="w3c-xpath2-fns"/> it is most likely that new versions of those
+            specifications will also adopt F+O 3.0.</para>
+        <para>Whilst F+O 3.0 offers some 164 distinct functions and 71 operators, it is
+            predominantly focused on manipulating XML, JSON and text, unfortunately for creating
+            complex processes or applications with XPDLs (XPath Derived Languages) e.g XQuery, XSLT,
+            XProc and XForms, these functions by themselves are not enough. To fill this gap, many
+            implementations have provided their own modules of extension functions to their users;
+            for instance eXist 2.2 provides some 53 modules <footnote>
+                <para>eXist XQuery extension modules were counted by examining the eXist source code
+                    at <link xl:href="https://github.com/eXist-db/exist/tree/eXist-2.2"/></para>
+            </footnote> of extension functions for XQuery, and similarly MarkLogic 8 provides some
+            55 modules <footnote>
+                <para>MarkLogic XQuery extension modules were counted by examining the MarkLogic
+                    documentation at <link xl:href="https://docs.marklogic.com/all"/></para>
+            </footnote> of extension functions for XQuery.</para>
+
+        <para>The aim of this paper is that through examining the existing approaches to portable extension
+            functions for XPDLs, an new approach is developed for their
+            implementation which should enable them to be reused by any XPDL processor with the
+            minimum of effort.</para>
+
+        <section>
+            <title>Extension Function Costs</title>
+            <para>Initially these extension functions are most welcome as they enable the user to
+                quickly and easily perform additional operations which would be impossible (or
+                costly) to implement in an XPDL. Unfortunately over time these extension functions
+                add a burden with regards to portability <xref linkend="xml-unifying-dodds"/>
+                <xref linkend="xmlprg-restxq-retter"/>, which typically manifests itself in two
+                distinct ways: directly and indirectly.</para>
+            <section>
+                <title>Directly</title>
+                <subtitle>Restricting User Freedom</subtitle>
+                <para>The use of proprietary implementation extension functions can adversely
+                    restrict the ability of a user to freely move between implementations or reuse
+                    their existing code across implementations. An examination of several Open
+                    Source projects (eXide<footnote>
+                        <para><link xl:href="https://github.com/wolfgangmm/exide"/> revision 07207a2
+                            (12 April 2015)</para>
+                    </footnote>, graphxq<footnote>
+                        <para><link xl:href="https://github.com/apb2006/graphxq"/> revision 0b19756
+                            (8 March 2015)</para>
+                    </footnote>, xproc.xq<footnote>
+                        <para><link xl:href="https://github.com/xquery/xproc.xq"/> revision f0f0697
+                            (13 December 2014)</para>
+                    </footnote>, xray<footnote>
+                        <para><link xl:href="https://github.com/robwhitby/xray"/> revision dc03243
+                            (25 April 2015)</para>
+                    </footnote> and XQSuite<footnote>
+                        <para><link
+                                xl:href="https://github.com/eXist-db/exist/tree/develop/src/org/exist/xquery/lib/xqsuite"
+                            /> revision c32784a (5 May 2015)</para>
+                    </footnote>) which are implemented in XQuery reveals that the impact of this is
+                    typically a function of the size of the code base as illustrated in <xref
+                        linkend="figure-external-function-calls-vs-loc"/>, and the variety of
+                    extension functions that have been used as illustrated in <xref
+                        linkend="figure-total-function-calls"/> and <xref
+                        linkend="figure-distinct-function-calls"/>.</para>
+
+                <figure xml:id="figure-external-function-calls-vs-loc" xreflabel="Figure 1">
+                    <title>External Function Calls / Lines of Code</title>
+                    <mediaobject>
+                        <imageobject>
+                            <imagedata fileref="images/External-Function-Calls-per-Lines-of-Code.png" width="100%"/>
+                        </imageobject>
+                    </mediaobject>
+                </figure>
+
+                <figure xml:id="figure-total-function-calls" xreflabel="Figure 2">
+                    <title>Total Function Calls</title>
+                    <mediaobject>
+                        <imageobject>
+                          <imagedata fileref="images/Total-Function-Calls.png" width="100%"/>
+                        </imageobject>
+                    </mediaobject>
+                </figure>
+
+                <figure xml:id="figure-distinct-function-calls" xreflabel="Figure 3">
+                    <title>Distinct Function Calls</title>
+                    <mediaobject>
+                        <imageobject>
+                          <imagedata fileref="images/Distinct-Function-Calls.png" width="100%"/>
+                        </imageobject>
+                    </mediaobject>
+                </figure>
+
+                <para>The most extreme example of this impact is often felt by XQuery framework
+                    providers (e.g. XRay and xproc.xq, xqmvc<footnote>
+                        <para>The XQMVC projects' attempt at supporting both MarkLogic and eXist
+                            XQuery processors - <link
+                                xl:href="https://code.google.com/p/xqmvc/source/browse/#svn%2Fbranches%2Fdiversify%2Fsystem%2Fprocessor%2Fimpl"
+                            /></para>
+                    </footnote>, etc.) who often have to attempt to abstract out various
+                    implementation extension functions to be able to provide frameworks which will
+                    work on more than one implementation. We therefore conclude that implementation
+                    specific extension functions restrict freedom by impairing code reuse.</para>
+            </section>
+
+            <section xml:id="section-indirectly">
+                <title>Indirectly</title>
+                <subtitle>Fragmenting the Community</subtitle>
+                <para>In comparison to the C++ or Java communities, the XPDL communities are
+                    considerably smaller. The TIOBE Programming Community Index <xref linkend="tiobe-index"/> for May 2015
+                    shows that Java is the most popular programming language and that C++ is third,
+                    no XPDL languages appear in the top 100. Likewise, the PYPL Index <xref linkend="pypl-index"/> for May
+                    2015, shows Java and C++ to hold first and fifth positions respectively, with no
+                    XPDL languages appearing in the top 16. The Redmonk Programming Language Ratings
+                    <xref linkend="redmonk-index"/> for January 2015 place Java in second and C++ in joint fifth position in
+                    terms of popularity rank across StackOverflow and GitHub. From the plot produced
+                    by Redmonk we can infer that in comparison XSLT has ~57% and ~77% of the
+                    popularity rank on GitHub and Stack Overflow respectively, whilst XQuery has
+                    just ~14% and ~50%.</para>
+                <para>The last 10 years has produced an exponential growth in Open Source projects;
+                    Deshpande and Riehle reported in 2008 <xref linkend="os-growth"/> from analysing statistics for Open
+                    Source projects over the previous 10 years that Open Source growth was doubling
+                    about every 14 months. With recent social coding services such as GitHub and
+                    BitBucket and physical events facilitated by meetup.com and others, there is
+                    likely a much greater tendency to publish even small snippets of code or
+                    utilities as open source for others to reuse.</para>
+                <para>However, when publishing XPDL code projects, if those projects depend on
+                    implementation specific extension functions, then it is often non-trivial for a
+                    user of a differing implementation to adapt the code. Even if a user can adapt
+                    the code to their implementation, if they then wish to improve it, the ability
+                    to contribute these changes back upstream is also impaired as the code bases
+                    have most likely diverged; As such further forking is implied. We
+                    conclude from this that implementation specific extension functions further
+                    fragment the XPDL communities into smaller implementation specific
+                    sub-communities by restricting portability and code sharing.</para>
+            </section>
+        </section>
+    </section>
+    
+    <section xml:id="section-prior-art">
+        <title>Prior Art</title>
+        <para>This paper is not the first work to look at improving the portability of XPDLs. In
+            this section, previous efforts in the area of improving the portability of extension
+            functions within one or more XPDLs are examined.</para>
+        
+        <section>
+            <title>EXSLT</title>
+            <para>The EXSLT project <xref linkend="exslt-project"/> which first appeared in March
+                2001, at the time focused on extension functions and elements for XSLT 1.0.
+                Arguably, XSLT 1.0 had a very limited standard library provided by the core function
+                library of XPath 1.0 <xref linkend="w3c-xpath1"/>, with just 27 functions, augmented
+                with 7 additional functions. EXSLT recognised that
+                much of the XSLT community required additional extension functions and elements and
+                that it would be desirable if such functions and elements were the same across all
+                XSLT implementations to ensure the portability of XSLT code. EXSLT specified a set
+                of 8 modules which include extension functions allowing XSLT developers to write
+                portable code for tasks that were not covered by the XSLT 1.0 specification. EXSLT
+                itself did not provide an implementation of the functions, rather it tightly defined
+                the XSLT signatures and operational expectations and constraints of its extension
+                functions. Any vendor may choose to implement the EXSLT modules within their XSLT
+                implementation, however the standards set out by the EXSLT project ensure that their
+                invocation and outcome must be the same across all implementations.</para>
+            <para>The last update to EXSLT was in October 2003, and whilst still used by many XSLT
+                developers its relevance has decreased since the release of XSLT 2.0 <xref linkend="w3c-xslt2"/> which expanded
+                its standard library by adopting F+O 2.0 which provides 114 functions and 71
+                operators, many of which were likely inspired by EXSLT. The utility of EXSLT will
+                likely be further reduced by the upcoming release of XSLT 3.0 which adopts F+O
+                3.0.</para>
+        </section>
+        
+        <section xml:id="section-xslt11">
+            <title>XSLT 1.1</title>
+            <para>XSLT 1.1 <xref linkend="w3c-xslt11"/> of which the last public working draft was
+                published in August 2001 (although the first working draft appeared in December
+                2000), had the stated primary goal to <quote>improve stylesheet portability</quote>, and
+                included a new and comprehensive mechanism for working with extension functions in
+                XSLT.</para>
+            <para>XSLT 1.1 like XSLT 1.0 permits the use of extension functions which are
+                implementation defined and whose presence is testable through the use of the fn:
+                function-available function. However, XSLT 1.1 went much further than its
+                predecessor by introducing the <code>xsl:script</code> element which made possible the
+                implementation of an extension function within the XSL document itself either
+                directly in program code or by URI reference. When two distinct programming
+                languages interact, there is always the issue of type mapping, to solve this XSLT
+                1.1 specified explicit DOM2 core model and argument type mappings for ECMAScript,
+                JavaScript and Java. Extension function implementation was not limited to just
+                ECMAScript, JavaScript or Java, however bindings and mappings for other languages
+                were considered outside of the scope of XSLT 1.1 and were left to be implementation
+                defined.</para>
+            <para>Providing a user of XSLT 1.1 had used extension functions implemented in either
+                ECMAScript, JavaScript or Java, and those functions were either implemented inside
+                an <code>xsl:script</code> element or available from a resolvable URI on the Web, then it was
+                entirely possible to consume and/or create portable extension functions for
+                XSLT.</para>
+            <para>The addition of <code>xsl:script</code> in XSLT 1.1 was highly controversial <xref linkend="xml-revisited-dodds"/> with
+                opponents on both sides of the debate <xref linkend="xsl-editors-list-xslt11-comments-kay"/><xref linkend="xsl-list-xslt11-comments-muench"/><xref linkend="xml-dev-list-petition-ogbuji"/>. Unfortunately, before XSLT 1.1
+                was finished, it was considered unworkable for several reasons by the W3C XSLT
+                Working Group <xref linkend="minutes-xquery-f2f-jan-2001"/>, and was permanently suspended to be superseded by XSLT 2.0 <xref linkend="w3c-xslt2"/>. XSLT
+                2.0 adds little more than XSLT 1.0 in the area of extension functions and altogether
+                abandons the type mapping from XSLT 1.1, clearly stating that: <quote>The details of such
+                type conversions are outside the scope of this specification</quote>.</para>
+        </section>
+        
+        <section>
+            <title>FunctX</title>
+            <para>FunctX <xref linkend="functx-project"/> released by Priscilla Walmsley in July
+                2006 provides a library of over 150 useful common functions for users of XQuery and
+                XSLT. The purpose of this library is to remove the need for users to each implement
+                their own approaches to common tasks and to provide a code set that beginners could
+                learn from.</para>
+            <para>FunctX provides two implementations, one in XQuery 1.0 and the other in XSLT 2.0;
+                neither require any implementation specific extensions and as such are entirely
+                portable and useable with any W3C compliant XQuery or XSLT processor.</para>
+            <para>The availability of FunctX has almost certainly reduced the amount of duplicated
+                effort that otherwise would have been spent by developers working with XPDLs and
+                also removes the temptation for vendors to provide proprietary alternatives to
+                assist their users.</para>
+        </section>
+        
+        <section>
+            <title>EXQuery</title>
+            <para>The EXQuery project <xref linkend="exquery-project"/> which started in October 2008 as a collaborative
+                community effort set out with the initial goal of raising awareness of the
+                portability problems that could result from the use of non-standard vendor
+                extensions in XQuery. Focused solely on XQuery, the non-standard extensions which
+                could causes issues were set out as including extension functions, indexing
+                definitions, collections, full-text search and the URI schemes used for the XPath
+                <code>fn:doc</code> and <code>fn:collection</code> functions.</para>
+
+            <para>The EXQuery project firstly approached the problem of non-standard implementation
+                specific extension functions for XQuery, with the desire to define standard function
+                signatures and behaviour for similar XQuery functions which appeared across several
+                implementations.</para>
+
+            <para>The EXQuery project shortly abandoned its work on defining standard function
+                signatures for XQuery extension modules in favour of the EXPath project (see <xref linkend="section-xpath"/>) which
+                appeared in 2009, instead focusing on XQuery specific portability issues like
+                server-side scripting resulting in RESTXQ <xref linkend="xmlprg-restxq-retter"/>.</para>
+
+            <para>The EXQuery project goes further than just defining standards documents that
+                define intention and behaviour of a specific system, it also provides source code
+                for a common implementation that may be adopted as the base for any implementation
+                <xref linkend="exquery-project-code"/>; Although currently limited to Java the project has also expressed interest in
+                producing C++ implementations.</para>
+        </section>
+        
+        <section xml:id="section-xpath">
+            <title>EXPath</title>
+            <para>The EXPath project <xref linkend="expath-project"/> started in January 2009 whilst
+                independent had many similar goals to the EXQuery project. Critically, with regards
+                to extension functions, it is recognised that defining standards for these at the
+                lower XPath level as opposed to the XQuery or XSLT level would make them more widely
+                applicable to any XPDL.</para>
+
+            <para>The EXPath project provides two types of specification for XPDLs, the first looks
+                at the broader ecosystem of delivering XPDL applications (e.g. Application Packaging
+                and Web), whilst the second and more widely adopted, focuses on defining extension
+                function modules. It is this second specification type of extension function modules
+                that are of interest to this paper.</para>
+
+            <para>The EXPath project to date has released three specifications for standard
+                extension modules for XPDLs: Binary Data Handling, File System API and HTTP Client.
+                In addition, at the time of writing there are another five extension module
+                specifications under development which focus on: File Compression, Cryptography,
+                Geospatial and NoSQL database access. The EXPath project like the EXSLT project
+                focuses on defining function signatures and behaviour, albeit at the XPath as
+                opposed to the XSLT level; again the goal being that any vendor may implement an
+                extension module standard and that users will benefit from code portability across
+                all implementations that support the EXPath specifications.</para>
+
+            <para>Whilst the EXPath project has predominantly focused on defining standards
+                documents that specify the intention and behaviour of a number of modules of related
+                XPath extension functions, there have been some related efforts <xref linkend="fgeorges-expath-http-code"/><xref linkend="exquery-expath-file-code"/><xref linkend="fgeorges-expath-file-code"/> to
+                produce common implementation code for JVM (Java Virtual Machine) based
+                implementations.</para>
+        </section>
+        
+    </section>
+    
+    <section xml:id="section-analysis">
+        <title>Analysis</title>
+        <para>The review of prior art in <xref linkend="section-prior-art"/>, uncovers three
+            distinct approaches to reduce the impact of non-portable extension functions in XPDLs: <orderedlist>
+                <listitem>
+                    <para>Function Standardisation</para>
+                    <para>Specifying function libraries and the exact behaviour of those functions
+                        so that vendors may each implement the same functions. EXSLT, EXQuery and
+                        EXPath all take this approach, although EXQuery and EXPath also have some
+                        support for reducing the overhead of implementing (for the JVM) by providing
+                        common code.</para>
+                </listitem>
+                <listitem>
+                    <para>Function Distributions</para>
+                    <para>Providing libraries of ready-to-use common functions that are implemented
+                        in a language known to every implementation. This is the approach taken by
+                        FunctX, whose implementations are provided in pure XQuery or XSLT.</para>
+                </listitem>
+                <listitem>
+                    <para>Implementation Type Mapping</para>
+                    <para>Tightly defining the function interface and type mapping between the host
+                        language and the extension function language. This is the approach taken by
+                        XSLT 1.1, which when restricting implementation to ECMAScript, JavaScript or
+                        Java, would have enabled the creation and use of libraries of portable
+                        extension functions for XSLT. Arguably XSLT 1.1 also overlaps with the
+                        Function Distributions approach as it allows the implementation of the
+                        extension function to be embedded within the XSLT itself.</para>
+                </listitem>
+            </orderedlist>
+        </para>
+        <para>Function Standardisation is a great start, but without a majority of significant
+            implementations <xref linkend="expath-implementations"/>, adoption is likely to remain a
+            problem. Implementation can be assisted by reducing the overhead for vendors to achieve
+            this, one such mechanism is providing common code; however, this must be inclusive to
+            languages other than those atop the JVM (See <xref
+                linkend="section-xpdl-implementation-survey"/>).</para>
+        <para>Ignoring source-level interoperability for the moment, one issue with providing common
+            code is that each implementation almost certainly has a different type system and
+            approach to representing the XDM <xref linkend="w3c-xdm3"/> types (amongst others). The Implementation Type
+            Mapping approach taken by XSLT 1.1 demonstrates an interesting mechanism for solving
+            this by explicitly laying out a type model and mappings from XSLT to the implementation
+            language. Both the EXQuery and EXPath projects have also made embryonic attempts at
+            defining mappings for XDM types, however both are restricted to the JVM through their
+            use of Scala <xref linkend="exquery-xdm-api"/> and Java <xref linkend="expath-xml-model"/> respectively.</para>
+        <para>Function Distributions of Standardised Functions is the ultimate goal; The ability to
+            distribute extension functions for XPDLs that will interoperate with any implementation.
+            However, without Implementation Type Mapping and standard interfaces it is certainly
+            impossible that an implementation of an XPDL extension function would work with an
+            unknown vendors XPDL implementation.</para>
+        <para>Implementation Type Mapping should be considered as the foundation layer for any form
+            of interoperability between an XPDL extension function and varying XPDL implementations.
+            Without this every implementation of an XPDL extension function for a specific XPDL
+            platform would require re-implementation.</para>
+        <para>If we want to solve the problem of portable extension functions for XPDLs then it
+            would seem that we must adopt a layered approach where we combine aspects of all three
+            existing approaches: <orderedlist>
+                <listitem>
+                    <para>An Implementation Type mapping needs to be created which is either at a
+                        level of abstraction that is not specific to any particular implementation
+                        language or can be losslessly implemented in a specific language, yet is
+                        still specific enough to constrain implementations to extension function
+                        standard specifications.</para>
+                    <para>Function Standardisation for extension functions needs to take place at
+                        the XPath level so as to ensure that the functions are applicable to the
+                        widest range of XPDLs.</para>
+                    <para>Standardised Functions need to be implemented according to an
+                        Implementation Type Mapping to form a Function Distribution, but in a
+                        language that allows them to be distributed in either source or binary form
+                        for any vendor implementation regardless of platform.</para>
+                </listitem>
+            </orderedlist>
+            <figure xml:id="figure-layered-approach-to-portable-xpdl-extension-functions" xreflabel="Figure 4">
+                <title>Layered Approach to Portable XPDL Extension Functions</title>
+                <mediaobject>
+                    <imageobject>
+                        <imagedata fileref="images/Layered-Approach-to-Portable-XPDL-Extension-Functions.svg" width="100%"/>
+                    </imageobject>
+                </mediaobject>
+            </figure>
+        </para>
+        
+        <section xml:id="section-commonality-of-expath-standardised-functions-and-implementation-type-mapping">
+            <title>Commonality of EXPath Standardised Extension Functions and Implementation Type Mapping</title>
+            <para>Whilst the EXPath project has provided definitions for several modules of
+                Standardised Functions for XPDL extension functions, there has been little work by
+                EXPath or others <xref linkend="minutes-expath-f2f-feb-2015"/> in reducing the duplication of effort across vendors who wish
+                to implement these functions, i.e. by exploring Implementation Type Mapping.</para>
+            <para>Consider the signature of the <code>file:exists</code> function (as shown in <xref
+                    linkend="programlisting-file-exists"/>) which is just one of the Standardised
+                Functions from the EXPath File Module <xref linkend="expath-file1"/>. <example
+                    xml:id="programlisting-file-exists">
+                    <title>file:exists function signature</title>
+                    <programlisting language="xquery">
+file:exists($path as xs:string) as xs:boolean
+                    </programlisting>
+                </example> When we examine the three known implementations of this for BaseX 8.1.1
+                    <xref linkend="basex-expath-file-exists"/>, eXist 2.2 <xref
+                    linkend="aretter-exist-expath-file-exists"/> and Saxon 9.6.0.5 <xref
+                    linkend="fgeorges-saxon-expath-file-exists"/> we find that each implementation
+                is very similar; Each implements a host interface which represents an XPDL function,
+                and within that implements a host function which has access to the arguments and
+                context of the XPDL function call. A <emphasis>simplified</emphasis> representation of the interfaces of
+                these processors is extracted:
+                <example>
+                    <title>BaseX Extension Function Interface</title>
+                    <programlisting language="java">
+interface StandardFunc {
+  Item item(QueryContext qc, InputInfo ii)
+      throws QueryException;
+}
+                    </programlisting>
+                </example>
+                <example>
+                    <title>eXist Extension Function Interface</title>
+                    <programlisting language="java">
+interface BasicFunction {
+  Sequence eval(Sequence[] args,
+      Sequence contextSequence)
+      throws XPathException;
+}
+                    </programlisting>
+                </example>
+                <example>
+                    <title>Saxon Extension Function Interface</title>
+                    <programlisting language="java">
+interface ExtensionFunctionCall {
+  SequenceIterator call(
+    SequenceIterator[] arguments,
+    XPathContext context) throws XPathException;
+}                        
+                    </programlisting>
+                </example>                 
+            </para>
+            <para>Whilst there is currently no non-Java implementation of the EXPath File Module, if we examine a similarly simple function such as XPath's <code>fn:year-from-date</code> in XQilla <xref linkend="xqilla-fn-date-from-year"/> (a C++ implementation) then we can again extract a <emphasis>simplified</emphasis> function interface:
+                <example>
+                    <title>XQilla Function Interface</title>
+                    <programlisting language="C++">
+class XQFunction {
+  public:
+    Sequence createSequence(DynamicContext*
+        context, int flags=0) const;
+};
+                    </programlisting>
+                </example>
+            </para>
+            <para>The similarity of these interfaces leads us to conclude that there is further room for common abstraction and that specifying a standard Implementation Type Mapping and interfaces could lead to a reduction in duplicated effort for implementers of these EXPath extension functions and therefore any XPDL extension functions.</para>
+        </section>
+        <section xml:id="section-xpdl-implementation-survey">
+            <title>XPDL Implementation Survey</title>
+            <para>To achieve the broadest appeal between implementers of XPDL extension functions,
+                it cannot be assumed that primary support for Java, ECMAScript or JavaScript in
+                itself will be acceptable to the larger community; As partially demonstrated by the
+                failure of XSLT 1.1 (see <xref linkend="section-xslt11"/>). Therefore, any
+                Implementation Type Mapping or Function Distribution should be applicable to any
+                platform and most likely not just limited to the JVM 
+                <xref linkend="exquery-xdm-api"/><xref linkend="expath-xml-model"/>. To inform how such a
+                Mapping or Distribution may be implemented, we should first understand the variety
+                of source languages of existing XPDL processors. The results of a survey of XPDL processors is presented in
+                <xref linkend="table-xpdl-implementation-survey"/>.</para>
+            
+            <table xml:id="table-xpdl-implementation-survey">
+                <title>Survey of XPDL Implementations</title>
+                <tgroup cols="8">
+                    <colspec colname="col-c"/>
+                    <colspec colname="col-c++"/>
+                    <colspec colname="col-haskell"/>
+                    <colspec colname="col-java"/>
+                    <colspec colname="col-javascript"/>
+                    <colspec colname="col-dot-net"/>
+                    <colspec colname="col-objective-c"/>
+                    <colspec colname="col-pascal"/>
+                    <thead>
+                        <row>
+                            <entry>C</entry>
+                            <entry>C++</entry>
+                            <entry>Haskell</entry>
+                            <entry>Java</entry>
+                            <entry>JavaScript</entry>
+                            <entry>.NET</entry>
+                            <entry>Objective-C</entry>
+                            <entry>Pascal</entry>
+                        </row>
+                    </thead>
+                    <tbody>
+                        <row>
+                            <entry>libxml2<footnote xml:id="footnote-impl-xpath" xreflabel="p"><para>Implements XPath</para></footnote></entry>
+                            <entry>Berkley DBXML (libxquery-devel)<footnoteref linkend="footnote-impl-xpath"/><footnote xml:id="footnote-impl-xquery" xreflabel="q"><para>Implements XQuery</para></footnote></entry>
+                            <entry>Haskell XML Toolbox<footnoteref linkend="footnote-impl-xpath"/></entry>
+                            <entry>Altova Raptor XML<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/><footnote xml:id="footnote-impl-xslt" xreflabel="s"><para>Implements XSLT</para></footnote></entry>
+                            <entry>Frameless<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry>Exselt<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xslt"/> (F#)</entry>
+                            <entry>GDataXML<footnoteref linkend="footnote-impl-xpath"/></entry>
+                            <entry>Xidel<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/></entry>
+                        </row>
+                        <row>
+                            <entry>libxslt<footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry>Intel SOA Expressway XSLT<footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry>HXQ<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/></entry>
+                            <entry>Apache VXQuery<footnoteref linkend="footnote-impl-xquery"/></entry>
+                            <entry>Saxon/CE<footnoteref linkend="footnote-impl-xslt"/><footnote xml:id="footnote-saxon-port"><para>Source-level port of Saxon from Java</para></footnote></entry>
+                            <entry>.NET Standard Library <code>XmlNode</code><footnoteref linkend="footnote-impl-xpath"/></entry>
+                            <entry>NSXML<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry/>
+                        </row>
+                        <row>
+                            <entry>Saxon/C<footnoteref linkend="footnote-impl-xslt"/><footnoteref linkend="footnote-saxon-port"/></entry>
+                            <entry>MarkLogic<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry/>
+                            <entry>BaseX<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/></entry>
+                            <entry>xpath NPM<footnoteref linkend="footnote-impl-xpath"/></entry>
+                            <entry>XMLPrime<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/><footnoteref linkend="footnote-impl-xslt"/> (C#)</entry>
+                            <entry>Panthro<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/></entry>
+                            <entry/>
+                        </row>
+                        <row>
+                            <entry/>
+                            <entry>pugixml<footnoteref linkend="footnote-impl-xpath"/></entry>
+                            <entry/>
+                            <entry>DataDirect XQuery<footnoteref linkend="footnote-impl-xquery"/></entry>
+                            <entry>XQIB<footnoteref linkend="footnote-impl-xquery"/></entry>
+                            <entry>xsltc<footnoteref linkend="footnote-impl-xslt"/> (C#)</entry>
+                            <entry/>
+                            <entry/>
+                        </row>
+                        <row>
+                            <entry/>
+                            <entry>QtXmlPatterns<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry/>
+                            <entry>EMC Documentum<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                        </row>
+                        <row>
+                            <entry/>
+                            <entry>Sedna<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/></entry>
+                            <entry/>
+                            <entry>eXist-db<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                        </row>
+                        <row>
+                            <entry/>
+                            <entry>Sablotron<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry/>
+                            <entry>GNU Qexo<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                        </row>
+                        <row>
+                            <entry/>
+                            <entry>TinyXPath<footnoteref linkend="footnote-impl-xpath"/></entry>
+                            <entry/>
+                            <entry>IBM WebSphere Application Server Feature Pack for XML<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                        </row>
+                        <row>
+                            <entry/>
+                            <entry>Xalan-C++<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry/>
+                            <entry>Qizx<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                        </row>
+                        <row>
+                            <entry/>
+                            <entry>XQilla<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/></entry>
+                            <entry/>
+                            <entry>Saxon<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                        </row>
+                        <row>
+                            <entry/>
+                            <entry>Zorba<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xquery"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry/>
+                            <entry>Xalan-J<footnoteref linkend="footnote-impl-xpath"/><footnoteref linkend="footnote-impl-xslt"/></entry>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                            <entry/>
+                        </row>
+                    </tbody>
+                </tgroup>
+            </table>
+            <para>The survey was produced from aggregating the W3C XML Query list of implementations
+                <xref linkend="w3c-xquery-implementations"/>, the EXPath CG list of XPath engines <xref linkend="expath-xpath-engines"/> and relevant Google searches. The
+                aggregate list was then reduced to those implementations for which information was
+                still available and up-to-date. The list of programming languages for the survey was
+                chosen based on the available implementations, and the native language of that
+                implementation; For example with the Go programming language the approach appears to
+                be to call xsltproc <xref linkend="xslt-with-go-kennedy-2013"/> (a wrapper around libxslt which itself is implemented in
+                C), and the common approach from Python seems to be to use the lxml python wrapper
+                <xref linkend="python-lxml"/> for libxml2 and libxslt (both themselves implemented in C).</para>
+            <para>From the survey it is clear that there is no lack of native programming language
+                implementations of XPDL processors. The majority of implementations are written in
+                Java and C++, which could likely be justified by the size of the C++ and Java
+                communities (as briefly discussed in <xref linkend="section-indirectly"/>).</para>
+        </section>
+    </section>
+        
+    <section>
+        <title>Portable XPDL Extension Function Implementation</title>
+        <para>From an analysis of the current state of the art in regard to extension functions for
+            XPDLs it can be determined that if we want to reduce the effort to implement a
+            standardised extension function then we need to provide an Implementation Type Mapping;
+            This allows the implementer of a standardised extension function to code to a standard
+            interface without worrying about vendor specifics. However, such an Implementation Type
+            Mapping needs to take into account the implementation language of the vendors XPDL
+            processor, and this could potentially lead to an issue of fanout with many similar
+            Implementation Type Mappings, one for each implementation language, which is far from
+            ideal.</para>
+        <para>In addition, we have seen that providing common code can help to reduce the effort
+            which is duplicated by each vendor implementing the same XPDL extension functions.
+            Unfortunately this further compounds the fanout issue, as it would be very time
+            consuming to provide common implementation code for each XPDL extension function in
+            every known XPDL platform implementation language.</para>
+        <section>
+            <title>Implementation Portability</title>
+            <para>Ideally we would like to be able to specify a single Implementation Type Mapping
+                and implement any XPDL extension function just once according to that mapping and
+                have it execute with any vendors XPDL implementation.</para>
+            <para>Sun Microsystems coined the phrase <quote>Write Once, Run Anywhere</quote> (WORA) around 1996
+                in relation to Java <xref linkend="wora-wikipedia"/>. Java is a high-level language which avoids platform
+                specific implementation details by compiling to byte-code which is then executed by
+                a virtual machine. The ability to distribute an XPDL extension function as byte-code
+                has several attractions, such as the user not having to compile any code. However,
+                the promise is somewhat shallow as executing Java requires a JVM to be installed on
+                the target platform, without that the byte-code cannot be executed. For those
+                vendors whose implementations are themselves not written in Java, they could still
+                execute an XPDL extension function written in Java via JNI (Java Native Interface),
+                however it may not be desirable to also force their users to install a JVM on their
+                systems. A WORA experience for XPDL extension functions could eliminate the fanout
+                cost of implementation, however Java is not suitable for all implementations.</para>
+            <para>If we can't achieve WORA we could instead consider falling back to a WOCA (Write
+                Once, Compile Anywhere) approach where we distribute the Implementation Type Mapping
+                and any common implementation source code in a single language that can be compiled
+                on any platform. At first, C or C++ would seem a suitable choice for WOCA due to the
+                fact that many XPDL processors are implemented in C or C++ and any XPDL processor
+                implemented in Java could call a C or C++ implementation of an XPDL extension
+                function via JNI. Through SWIG <xref linkend="cplusplus-swig"/> we could also make
+                any C or C++ XPDL extension function applicable to XPDL processors implemented in
+                many other languages. Whilst C and C++ have many desirable properties, such as
+                instruction set portability, compiler availability, and interoperability, the code
+                is often highly hardware (e.g. big-endian vs little-endian), Operating System
+                specific (e.g. Win32 API vs Posix API) and library specific (e.g Std vs Boost vs Qt
+                etc), thus imposing a great deal of constraints to actually achieve WOCA; Therefore
+                we would most likely still require several C or C++ variants for different
+                systems.</para>
+            <para>Having identified issues with both, WORA where we would distribute a compiled
+                intermediate byte-code for a VM (Virtual Machine), and WOCA where we would
+                distribute source code which could be compiled to machine code, we are naturally led
+                to investigate Source-to-source compilation. Source-to-source compilation allows us
+                to take source code expressed in one language and translate it into a different
+                target language. Regardless of the language of our initial source code, based on the
+                results of our survey (see <xref linkend="table-xpdl-implementation-survey"/>) we
+                know that we would need to generate code for at least C++ and Java targets.</para>
+            <para>An examination of the available source-to-source compilers leads us to the Haxe
+                Cross-platform Toolkit which fits our requirements well as it has targets for C++,
+                C#, Java and JavaScript amongst others <xref linkend="haxe-targets"/>, with targets
+                in development for C and LLVM <xref linkend="haxe-experimental-c-llvm-targets"/>.
+                Haxe uses a single source language also called Haxe which is similar to ECMAScript
+                but with influences from ActionScript and C#. The Haxe toolkit also provides a
+                cross-target standard library for the Haxe language. With Haxe it seems entirely
+                possible that we can entirely eliminate the fanout issue of implementation by: 1)
+                specifying an Implementation Type Mapping between XDM and the Haxe Language and 2)
+                going further than providing common code for the implementation of an XPDL extension
+                function, instead implement the entire function according to the Implementation Type
+                Mapping in the Haxe language itself. The vendor of an XPDL processor could then take
+                the Haxe code and compile it to the implementation language of their processor to
+                produce a distribution of standardised extension functions; This role could also
+                perhaps also be taken by an intermediary such as the EXPath project.</para>
+        </section>
+        <section xml:id="section-implementation-type-mapping">
+            <title>Implementation Type Mapping for Haxe</title>
+            <para>We have developed a partial Implementation Type Mapping between XDM and Haxe (the
+                source code is available from the EXQuery GitHub repository <xref
+                    linkend="exquery-xpdl-haxe-code"/>) that provides enough functionality to allow
+                implementation of a single EXPath extension function: the <code>file:exists</code>
+                function (as discussed in <xref
+                    linkend="section-commonality-of-expath-standardised-functions-and-implementation-type-mapping"
+                />). In addition to implementing Type Mappings for the XDM, we also need to
+                implement interfaces to map the XPath concept of calling a function and passing
+                arguments.</para>
+            <para>To produce interfaces for mapping the concept of an XPDL extension function, which
+                is effectively an externally declared function in terms of the XPath specification,
+                we need to understand both how a function is declared and subsequently called. A
+                function call in XPath 3.0 <xref linkend="w3c-xpath3-fun-call"/>is made up of the several constructs expressed in
+                EBNF (Extended Backus-Naur Form) as reproduced in <xref linkend="programlisting-xpath3-function-call"/>.</para>
+            <example xml:id="programlisting-xpath3-function-call">
+                <title>XPath 3.0 Function Call EBNF</title>
+                <programlisting language="ebnf">
+FunctionCall ::= EQName ArgumentList
+ArgumentList ::= "(" (Argument ("," Argument)*)? ")"
+                </programlisting>
+            </example>
+            <para>XPath only specifies how to call a function, it does not specify how to define a
+                function, so here we have opted to follow the XQuery 3.0 specification which does
+                specify how to define a function <xref linkend="w3c-xquery3-fun-decl"/>. A function definition in XQuery 3.0 is made
+                up of the EBNF constructs as reproduced in <xref linkend="programlisting-xquery3-function-decl"/>.</para>
+            <example xml:id="programlisting-xquery3-function-decl">
+                <title>XQuery 3.0 Function Declaration EBNF</title>
+                <programlisting>
+FunctionDecl        ::=    "function" EQName "(" ParamList? ")" ("as" SequenceType)? (FunctionBody | "external")
+ParamList           ::=    Param ("," Param)*
+Param               ::=    "$" EQName TypeDeclaration?
+FunctionBody        ::=    EnclosedExpr
+
+TypeDeclaration     ::=    "as" SequenceType
+SequenceType        ::=    ("empty-sequence" "(" ")") | (ItemType OccurrenceIndicator?)
+OccurrenceIndicator ::=    "?" | "*" | "+"
+
+EQName			    ::=    QName | URIQualifiedName
+                </programlisting>
+            </example>
+            <para>As our XPDL extension functions will always be external in nature, we can
+                transform the <code>FunctionDecl</code> construct, to extract a
+                    <code>FunctionSignature</code>. As our functions are always external we can also
+                ignore the <code>FunctionBody</code> construct as this will instead be implemented
+                in Haxe code. As our extension functions are always the target of a function call,
+                we can reduce <code>EQName</code> to <code>QName</code>. All of the other constructs
+                can be translated into interfaces for our Implementation Type Mapping to the Haxe
+                language.</para>
+            <example xml:id="programlisting-haxe-function-type-mapping">
+                <title>Function Type Mapping for Haxe</title>
+                <programlisting language="haxe">
+package xpdl.extension.xpath;
+
+interface Function {
+  public function signature() : FunctionSignature;
+  public function eval(
+    arguments: Array&lt;Argument&gt;,
+    context: Context) : Sequence;
+}
+
+class FunctionSignature {
+  var name: QName;
+  var returnType: SequenceType;
+  var paramLists: Array&lt;Array&lt;Param&gt;&gt;;
+
+  public function new(name, returnType, paramLists)
+  {
+    this.name = name;
+    this.returnType = returnType;
+    this.paramLists = paramLists;
+  }
+}
+                </programlisting>
+            </example>
+            <para><xref linkend="programlisting-haxe-function-type-mapping"/> shows part of our
+                Implementation Type Mapping for functions (full code in <xref
+                    linkend="appendix1"/>). The mapping is direct enough that anyone with a
+                knowledge of the relevant EBNF constructs of XPath and XQuery can understand the
+                simplicity of the function type mapping between an XPDL extension function and
+                Haxe.</para>
+            <para>Yet, being able to specify the interface for a function is not enough; we also
+                need to create Implementation Type Mappings for the XDM types. Whilst ultimately
+                we need to map all XDM types, within this paper we focus exclusively on the
+                types required for our partial implementation, i.e. those types needed by the
+                function signature of the <code>file:exists</code> function (see <xref linkend="programlisting-file-exists"/>).</para>
+            <para>The signature of <code>file:exists</code> shows how we only need to create type
+                mappings for <code>xs:string</code> and <code>xs:boolean</code> to appropriate Haxe
+                types. We take the approach to encapsulate the Haxe types inside representations of
+                the XDM types, as we believe that this will provide greater flexibility for future changes.</para>
+            <example>
+                <title>Haxe Implementation Type Mapping for <code>xs:string</code> and <code>xs:boolean</code></title>
+                <programlisting language="haxe">
+package xpdl.xdm;
+
+import xpdl.HaxeTypes.HString;
+
+interface Item {
+  public function stringValue() : xpdl.xdm.String;
+}
+
+interface AnyType {
+}
+
+interface AnyAtomicType extends Item extends AnyType
+{
+}
+
+class Boolean implements AnyAtomicType {
+  var value: Bool;
+
+  public function new(value) {
+    this.value = value;
+  }
+
+  public function stringValue() {
+    return new xpdl.xdm.String(Std.string(value));
+  }
+
+  public function haxe() {
+    return value;
+  }
+}
+
+class String implements AnyAtomicType {
+  var value: HString;
+
+  public function new(value) {
+    this.value = value;
+  }
+
+  public function stringValue() {
+    return this;
+  }
+
+  public function haxe() {
+    return value;
+  }
+}
+                </programlisting>
+            </example>
+            <para>There is certainly an argument concerning whether we should actually implement the
+                <code>xs:string</code> and <code>xs:boolean</code> XDM types in Haxe by providing classes, or whether we
+                should simply provide interfaces for a vendor to implement. Further research through
+                a survey of vendor requirements would be required to answer this definitively. For
+                the purposes of this paper, classes have been implemented for these basic atomic
+                types.</para>
+        </section>
+        <section xml:id="section-implementation-portable-file-exists">
+            <title>Implementation of a portable <code>file:exists</code></title>
+            <para>Given the function type mapping and Implementation Type Mapping that we have
+                defined in <xref linkend="section-implementation-type-mapping"/> we can now implement
+                our first truly portable XPDL extension function by making use of Haxe.</para>
+            <example xml:id="programlisting-haxe-file-exists">
+                <title>Implementation of the <code>file:exists</code> function in Haxe</title>
+                <programlisting language="haxe">
+class ExistsFunction implements Function {
+  private static var sig = new FunctionSignature(
+    new QName(
+      "exists",
+       "http://expath.org/ns/file",
+       "file"),
+       
+    new SequenceType(
+      Some(new ItemOccurrence(Boolean))),
+      [
+        [ new Param(new QName("path"),
+          new SequenceType(Some(
+            new ItemOccurrence(
+              xpdl.xdm.Item.String))))
+        ]
+      ]
+  );
+
+  public function new() {}
+
+  public function signature() {
+    return sig;
+  }
+
+  public function eval(
+    arguments : Array&lt;Argument&gt;,
+    context: Context)
+  {
+    var path = arguments[0].getArgument().
+               iterator().next().
+               stringValue().haxe();
+    var exists = FileSystem.exists(path);
+    return new ArraySequence( [
+                           new Boolean(exists) ] );
+  }
+}
+                </programlisting>
+            </example>
+            <para><xref linkend="programlisting-haxe-file-exists"/> shows the main concern
+                of our implementation of file:exists (full code in <xref
+                    linkend="appendix2"/>).</para>
+        </section>
+        <section xml:id="section-implementation-processor">
+            <title>XPDL Processor Vendor Implementation</title>
+            <para>We have defined both an Implementation Type Mapping for XDM and associated
+                interfaces for functions in the Haxe language, and subsequently created an
+                implementation of an XPDL Extension Function, the EXPath File Module's
+                    <code>file:exists</code> function in Haxe written for the type mapping and
+                interfaces. However, such an XPDL extension function implementation is still not
+                useful without vendor support, as the Haxe code must be compiled to the XPDL
+                processors implementation language and made available to the XPDL from the
+                processor.</para>
+            <para>As a proof-of-concept we have compiled the Haxe code to both Java source and byte
+                code using the Haxe compiler and modified eXist-db to support XPDL Extension
+                Functions (the source code is available from the eXist GitHub repository <xref
+                    linkend="exist-xpdl-extension-code"/>). Modifying eXist to recognise any XPDL
+                Extension Function Module and make its functions available as extension functions in
+                XQuery was achieved in approximately 300 lines of Java code; For the partial
+                implementation, only support for the XDM types <code>xs:string</code> and
+                    <code>xs:boolean</code> was required, but we recognise that the amount of code
+                required will increase as further XDM types are mapped.</para>
+            <para>Whilst modifying eXist to support XPDL Extension Function Modules, we recognised
+                that there were several different approaches that could be taken to implement a
+                mapping between eXists own XDM model and our Haxe XDM model. These approaches,
+                whilst not exhaustive, will most likely also apply to other XPDL processors, and so
+                we briefly enumerate them here for reference:
+                <orderedlist>
+                    <listitem>
+                        <para>Mapping of Haxe XDM types to eXist XDM types and vice-versa. This could be achieved either statically or dynamically, or through a combination of both approaches. A static implementation would be coded in source, whereas a dynamic mapping would be generated as needed at runtime.</para>
+                    </listitem>
+                    <listitem>
+                        <para>Modify eXists XDM classes to implement the Haxe XDM interfaces. This would allow us a single XDM model and we could transparently pass eXists XDM types into the Haxe compiled functions.</para>
+                    </listitem>
+                    <listitem>
+                        <para>Inversion of Responsibility, using byte-code generation at runtime to have the Haxe XDM interfaces implement the eXist XDM interfaces. This would make the Haxe XDM model compatible with the eXist XDM model, so that Haxe XDM types could be used transparently by eXist.</para>
+                    </listitem>                    
+                </orderedlist></para>
+            <para>For expediency in creating the proof-of-concept modifications in eXist, we used a static mapping of XDM types in combination with a dynamic mapping of functions. For the dynamic mapping of functions we used byte-code generation to generate classes at runtime to bridge between eXist's concept of an extension function and our Haxe XPDL extension function.</para>
+        </section>
+    </section>
+    
+    <section>
+        <title>Summary and Conclusion</title>
+        <para>Having explicitly laid out the issues with portability of XPDLs in regard to
+            non-standard extension functions (see <xref linkend="section-introduction"/>), we have reviewed both the past and
+            current works on improving the status-quo (see <xref linkend="section-prior-art"/>), and performed a critical
+            analysis of these approaches (see <xref linkend="section-analysis"/>). From our critical analysis we have
+            identified three common approaches to improving portability: Function Standardisation,
+            Function Distributions and Implementation Type Mappings. To resolve the issue of
+            portability with respect to extension functions for XPDL users, we argue that there have
+            to be solutions in place for all three approaches and that these must work together
+            holistically.</para>
+        <para>Function Standardisation is already well supported by the EXPath project, a community
+            oriented organisation which is vendor agnostic and has already proven itself capable of
+            coordinating stakeholders to define modules of common XPDL extension functions and their
+            behaviour.</para>
+        <para>Function Distributions require implementations of extension functions which they can
+            then make available. These extension functions themselves however need to be portable,
+            so that the resultant XPDL code that uses them is also portable. Arguably the FunctX
+            distribution was successful because its extension functions were portable, as they were
+            written in XSLT and XQuery, making them useable on any vendors XQuery or XSLT processor.
+            For more complex extension functions which cannot be expressed in an XPDL, a portable
+            Implementation Type Mapping is a required enabler to creating Function
+            Distributions.</para>
+        <para>We have presented a solution for a portable Implementation Type Mapping through the
+            use of source-to-source compilation (section <xref
+                linkend="section-implementation-type-mapping"/>), and implemented what we believe to
+            be the first truly portal extension function for an XPDL whilst using a non-XPDL to
+            implement the function (section <xref linkend="section-implementation-portable-file-exists"/>). Further, we have created a proof-of-concept by
+            integrated support for the Implementation Type Mapping into a real-world XPDL processor
+            (section <xref linkend="section-implementation-processor"/>).</para>
+        <para>The use of Haxe for source-to-source compilation is an interesting and novel approach
+            towards solving the issue of portable extension functions for XPDLs. Whilst it does not
+            eliminate the need of some effort by XPDL processor vendors to support it, it greatly
+            reduces the work to a one-off exercise to support a portable Implementation Type
+            Mapping. In this manner an XPDL extension function written once in Haxe, when compiled
+            will work on any XPDL processor (in a target language supported by Haxe) which
+            implements the Implementation Type Mapping. For authors of portable XPDL extension
+            functions, rather than just creating a standardisation of a function module through the
+            EXPath project and waiting for each vendor to implement this, they can now also write a
+            single implementation which can be adopted quickly by the widest possible
+            audience.</para>
+        <section>
+            <title>Future Work</title>
+            <para>The Implementation Type Mapping and the proof-of-concept currently only implement
+                the basic XDM types required for this paper, a full XDM Implementation Type Mapping
+                in Haxe is desirable and would likely provide new insights into creating a portable
+                Implementation Type Mapping.</para>
+            <para>The target code generated by the Haxe compiler can be somewhat verbose and even
+                confusing to the consuming developer. It is possible to tune the code generation by
+                tightly controlling DCE (Dead Code Elimination) and native vs reflective generation.
+                The use of various Haxe language annotations should be investigated to achieve the
+                generation of cleaner target code.</para>
+            <para>The options for implementation approach discussed in <xref linkend="section-implementation-processor"/> are likely
+                coupled to the observation at the end of <xref linkend="section-implementation-portable-file-exists"/> over how concrete the XDM
+                Implementation Type Mapping should be. Further research is required in this area,
+                likely informed by creating more proof-of-concept integrations with several other
+                XPDL processors.</para>
+            <para>Whilst Haxe does not favour Java as a target above any other, a non-Java
+                proof-of-concept would reinforce our argument that Haxe allows us to create a
+                portable implementation. A C++ integration for the Zorba XQuery processor could
+                perhaps serve as a suitable reinforcement.</para>
+        </section>
+    </section>
+
+    <appendix xml:id="appendix1">
+        <title>Function Type Mapping in Haxe</title>
+        <programlisting language="haxe">
+package xpdl.extension.xpath;
+
+interface Function {
+  public function signature() : FunctionSignature;
+  public function eval(arguments: Array&lt;Argument&gt;, context: Context) : Sequence;
+}
+
+interface Context {
+}
+
+class FunctionSignature {
+  var name: QName;
+  var returnType: SequenceType;
+  var paramLists: Array&lt;Array&lt;Param&gt;&gt;;
+
+  public function new(name, returnType, paramLists) {
+    this.name = name;
+    this.returnType = returnType;
+    this.paramLists = paramLists;
+  }
+}
+
+class QName {
+  public static var NULL_NS_URI = "";
+  public static var DEFAULT_NS_PREFIX = "";
+
+  var localPart : String;
+  var namespaceUri(default, null) : String;
+  var prefix(default, null) : String;
+
+  public function new(localPart, ?namespaceUri, ?prefix) {
+    this.localPart = localPart;
+    this.namespaceUri = (namespaceUri == null) ? NULL_NS_URI : namespaceUri;
+    this.prefix = (prefix == null) ? DEFAULT_NS_PREFIX : prefix;
+  }
+}
+
+class SequenceType {
+  var type: Option&lt;ItemOccurrence&gt;; //None indicates empty-sequence()
+
+  public function new(type) {
+    this.type = type;
+  }
+}
+
+class ItemOccurrence {
+  var itemType: Class&lt;Item&gt;;
+  var occurrenceIndicator: OccurrenceIndicator;
+
+  public function new(itemType, ?occurenceIndicator) {
+    this.itemType = itemType;
+    this.occurrenceIndicator = (occurrenceIndicator == null) ? OccurrenceIndicator.ONE : occurrenceIndicator;
+  }
+}
+
+enum OccurrenceIndicator {
+  ZERO_OR_ONE;    // ?
+  ONE;            // implementation detail
+  ONE_OR_MORE;    // +
+  ZERO_OR_MORE;   // *
+}
+
+class Param {
+  var name: QName;
+  var type: SequenceType;
+
+  public function new(name, type) {
+    this.name = name;
+    this.type = type;
+  }
+}
+
+interface Argument {
+  public function getArgument() : Sequence;
+}
+
+interface Module {
+  public function name() : String;
+  public function description() : String;
+  public function functions() : List&lt;Class&lt;Function&gt;&gt;;
+}
+        </programlisting>
+    </appendix>
+
+    <appendix xml:id="appendix2">
+        <title><code>file:exists</code> implementation in Haxe</title>
+        <programlisting language="haxe">
+package example.expath.file;
+
+import xpdl.extension.Module;
+import xpdl.extension.xpath.*;
+import xpdl.extension.xpath.SequenceType.ItemOccurrence;
+import xpdl.xdm.Sequence;
+import xpdl.xdm.Item.Item;
+import xpdl.xdm.Item.Boolean;
+import sys.FileSystem;
+
+class ExistsFunction implements Function {
+
+  private static var sig = new FunctionSignature(
+    new QName("exists", FileModule.NAMESPACE, FileModule.PREFIX),
+    new SequenceType(Some(new ItemOccurrence(Boolean))),
+    [
+      [ new Param(new QName("path"), new SequenceType(Some(new ItemOccurrence(xpdl.xdm.Item.String)))) ]
+    ]
+  );
+
+  public function new() {}
+
+  public function signature() {
+    return sig;
+  }
+
+  public function eval(arguments : Array&lt;Argument&gt;, context: Context) {
+    var path = arguments[0].getArgument().iterator().next().stringValue().haxe();
+    var exists = FileSystem.exists(path);
+    return new ArraySequence( [ new Boolean(exists) ] );
+  }
+}
+
+class ArraySequence implements Sequence {
+  var items: Array&lt;Item&gt;;
+
+  public function new(items: Array&lt;Item&gt;) {
+    this.items = items;
+  }
+
+  public function iterator() {
+    return new ArraySequenceIterator(items.iterator());
+  }
+}
+
+class ArraySequenceIterator implements xpdl.support.Iterator&lt;Item&gt; {
+  var it: Iterator&lt;Item&gt;;
+
+  public function new(it) {
+    this.it = it;
+  }
+
+  public function hasNext() {
+    return it.hasNext();
+  }
+
+  public function next() {
+    return it.next();
+  }
+}
+
+class FileModule implements Module {
+  @final public static var NAMESPACE = "http://expath.org/ns/file";
+  @final public static var PREFIX = "file";
+
+  public function name() {
+    return "FileModule.hx";
+  }
+
+  public function description() {
+    return "Haxe implementation of the EXPath File Module";
+  }
+
+  public function functions() : List&lt;Class&lt;Function&gt;&gt; {
+    var lst = new List&lt;Class&lt;Function&gt;&gt;();
+    lst.add(ExistsFunction);
+    return lst;
+  }
+}
+        </programlisting>
+    </appendix>
+
+    <bibliography>
+        <biblioentry xml:id="w3c-xpath3-fns" xreflabel="[1]">
+            <abbrev>1</abbrev>
+            <title>XPath and XQuery Functions and Operators 3.0</title>
+            <publishername>W3C</publishername>
+            <pubdate>8 April 2014</pubdate>
+            <biblioid class="uri">http://www.w3.org/TR/xpath-functions-30/</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="w3c-xpath2-fns" xreflabel="[2]">
+            <abbrev>2</abbrev>
+            <title>XQuery 1.0 and XPath 2.0 Functions and Operators (Second Edition)</title>
+            <publishername>W3C</publishername>
+            <pubdate>14 December 2010</pubdate>
+            <biblioid class="uri">http://www.w3.org/TR/xpath-functions/</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="xml-unifying-dodds" xreflabel="[3]">
+            <abbrev>3</abbrev>
+            <title>Unifying XSLT Extensions</title>
+            <publishername>xml.com</publishername>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Leigh</firstname>
+                        <surname>Dodds</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>29 March 2000</pubdate>
+            <biblioid class="uri">http://www.xml.com/pub/a/2000/03/29/deviant/index.html</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="xmlprg-restxq-retter" xreflabel="[4]">
+            <abbrev>4</abbrev>
+            <title>RESTful XQuery</title>
+            <subtitle>Standardised XQuery 3.0 Annotations for REST</subtitle>
+            <confgroup>
+                <conftitle>XML Prague</conftitle>
+            </confgroup>
+            <publishername>XML Prague</publishername>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Adam</firstname>
+                        <surname>Retter</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>12 February 2012</pubdate>
+            <biblioid class="uri"
+                >http://archive.xmlprague.cz/2012/files/xmlprague-2012-proceedings.pdf#page=103</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="tiobe-index" xreflabel="[5]">
+            <abbrev>5</abbrev>
+            <title>TIOBE Programming Community Index</title>
+            <publishername>TIOBE Software</publishername>
+            <pubdate>May 2015</pubdate>
+            <biblioid class="uri">http://www.tiobe.com/index.php/content/paperinfo/tpci/index.html</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="pypl-index" xreflabel="[6]">
+            <abbrev>6</abbrev>
+            <title>PYPL PopularitY of Programming Language Index</title>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Pierre</firstname>
+                        <surname>Carbonnelle</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>May 2015</pubdate>
+            <biblioid class="uri">http://pypl.github.io/PYPL.html</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="redmonk-index" xreflabel="[7]">
+            <abbrev>7</abbrev>
+            <title>Redmonk Programming Language Ratings</title>
+            <publishername>RedMonk</publishername>
+            <pubdate>January 2015</pubdate>
+            <biblioid class="uri">https://redmonk.com/sogrady/2015/01/14/language-rankings-1-15/</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="os-growth" xreflabel="[8]">
+            <abbrev>8</abbrev>
+            <title>The Total Growth of Open Source</title>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Amit</firstname>
+                        <surname>Deshpande</surname>
+                    </personname>
+                </author>
+                <author>
+                    <personname>
+                        <firstname>Dirk</firstname>
+                        <surname>Riehle</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <orgname>SAP Research, SAP Labs LLC</orgname>
+            <confgroup>
+                <conftitle>The Fourth Conference on Open Source Systems (OSS 2008)</conftitle>
+            </confgroup>
+            <publishername>Springer Verlag</publishername>
+            <pagenums>197-209</pagenums>
+            <pubdate>2008</pubdate>
+        </biblioentry>
+        <biblioentry xml:id="exslt-project" xreflabel="[9]">
+            <abbrev>9</abbrev>
+            <title>The EXSLT Project</title>
+            <biblioid class="uri">http://www.exslt.org</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="w3c-xpath1" xreflabel="[10]">
+            <abbrev>10</abbrev>
+            <title>XML Path Language (XPath) Version 1.0</title>
+            <publishername>W3C</publishername>
+            <pubdate>16 November 1999</pubdate>
+            <biblioid class="uri">http://www.w3.org/TR/xpath/</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="w3c-xslt2" xreflabel="[11]">
+            <abbrev>11</abbrev>
+            <title>XSL Transformations (XSLT) Version 2.0</title>
+            <publishername>W3C</publishername>
+            <pubdate>23 January 2007</pubdate>
+            <biblioid class="uri">http://www.w3.org/TR/xslt20/</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="w3c-xslt11" xreflabel="[12]">
+            <abbrev>12</abbrev>
+            <title>XSL Transformations (XSLT) Version 1.1</title>
+            <publishername>W3C</publishername>
+            <pubdate>24 August 2001</pubdate>
+            <biblioid class="uri">http://www.w3.org/TR/xslt11/</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="xml-revisited-dodds" xreflabel="[13]">
+            <abbrev>13</abbrev>
+            <title>XSLT Extensions Revisited</title>
+            <publishername>xml.com</publishername>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Leigh</firstname>
+                        <surname>Dodds</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>14 February 2001</pubdate>
+            <biblioid class="uri">http://www.xml.com/pub/a/2001/02/14/deviant.html</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="xsl-editors-list-xslt11-comments-kay" xreflabel="[14]">
+            <abbrev>14</abbrev>
+            <title>Re: [xsl] XSLT 1.1 comments</title>
+            <publishername>W3C xsl-editors Mailing List</publishername>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Michael</firstname>
+                        <surname>Kay</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>11 February 2001</pubdate>
+            <biblioid class="uri">https://lists.w3.org/Archives/Public/xsl-editors/2001JanMar/0087.html</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="xsl-list-xslt11-comments-muench" xreflabel="[15]">
+            <abbrev>15</abbrev>
+            <title>Re: [xsl] XSLT 1.1 comments</title>
+            <publishername>xsl-list Mailing List</publishername>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Steve</firstname>
+                        <surname>Muench</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>12 February 2001</pubdate>
+            <biblioid class="uri">http://markmail.org/message/5fpk5gecmslzepdy</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="xml-dev-list-petition-ogbuji" xreflabel="[16]">
+            <abbrev>16</abbrev>
+            <title>Petition to withdraw xsl:script from XSLT 1.1</title>
+            <publishername>xml-dev Mailing List</publishername>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Uche</firstname>
+                        <surname>Ogbuji</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>1 March 2001</pubdate>
+            <biblioid class="uri">http://markmail.org/thread/tquj4ozsax3pjkm2</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="minutes-xquery-f2f-jan-2001" xreflabel="[17]">
+            <abbrev>17</abbrev>
+            <title>Minutes of the Face-to-face meeting of the W3C XQuery Working Group in Bangkok</title>
+            <publishername>W3C XQuery Working Group</publishername>
+            <pubdate>January 2001</pubdate>
+            <biblioid class="uri">https://lists.w3.org/Archives/Member/w3c-xsl-wg/2001Feb/0083.html</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="functx-project" xreflabel="[18]">
+            <abbrev>18</abbrev>
+            <title>FunctX</title>
+            <publishername>Datypic</publishername>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Priscilla</firstname>
+                        <surname>Walmsley</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>July 2006</pubdate>
+            <biblioid class="uri">http://www.functx.com</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="exquery-project" xreflabel="[19]">
+            <abbrev>19</abbrev>
+            <title>EXQuery</title>
+            <subtitle>Collaboratively Defining Open Standards for Portable XQuery Applications</subtitle>
+            <publishername>EXQuery</publishername>
+            <pubdate>October 2008</pubdate>
+            <biblioid class="uri">http://www.exquery.org</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="exquery-project-code" xreflabel="[20]">
+            <abbrev>20</abbrev>
+            <title>EXQuery Common Implementation Source Code</title>
+            <publishername>The EXQuery Project</publishername>
+            <biblioid class="uri">https://github.com/exquery/exquery</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="expath-project" xreflabel="[21]">
+            <abbrev>21</abbrev>
+            <title>EXPath</title>
+            <subtitle>Collaboratively Defining Open Standards for Portable XPath Extensions</subtitle>
+            <publishername>EXPath</publishername>
+            <pubdate>January 2009</pubdate>
+            <biblioid class="uri">http://www.expath.org</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="fgeorges-expath-http-code" xreflabel="[22]">
+            <abbrev>22</abbrev>
+            <title>EXPath HTTP Client Module Common Implementation Source Code</title>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Florent</firstname>
+                        <surname>Georges</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <biblioid class="uri">https://github.com/fgeorges/expath-http-client-java</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="exquery-expath-file-code" xreflabel="[23]">
+            <abbrev>23</abbrev>
+            <title>EXPath File Module Common Implementation Source Code</title>
+            <publishername>The EXQuery Project</publishername>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Adam</firstname>
+                        <surname>Retter</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <biblioid class="uri">https://github.com/exquery/exquery/tree/master/expath-file-module</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="fgeorges-expath-file-code" xreflabel="[24]">
+            <abbrev>24</abbrev>
+            <title>EXPath File Module Common Implementation Source Code</title>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Florent</firstname>
+                        <surname>Georges</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <biblioid class="uri">https://github.com/fgeorges/expath-file-java</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="expath-implementations" xreflabel="[25]">
+            <abbrev>25</abbrev>
+            <title>Implementations of EXPath Modules</title>
+            <publishername>W3C EXPath Community Group</publishername>
+            <pubdate>8 May 2015</pubdate>
+            <biblioid class="uri">https://www.w3.org/community/expath/wiki/Modules#Implementations</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="w3c-xdm3" xreflabel="[26]">
+            <abbrev>26</abbrev>
+            <title>XQuery and XPath Data Model 3.0</title>
+            <publishername>W3C</publishername>
+            <pubdate>8 April 2014</pubdate>
+            <biblioid class="uri">http://www.w3.org/TR/xpath-datamodel-30/</biblioid>
+        </biblioentry> 
+        <biblioentry xml:id="exquery-xdm-api" xreflabel="[27]">
+            <abbrev>27</abbrev>
+            <title>API for XQuery 1.0 and XPath 2.0 Data Model (XDM) (Second Edition)</title>
+            <publishername>The EXQuery Project</publishername>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Adam</firstname>
+                        <surname>Retter</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>12 February 2015</pubdate>
+            <biblioid class="uri">https://github.com/exquery/exquery/tree/xdm-model/xdm</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="expath-xml-model" xreflabel="[28]">
+            <abbrev>28</abbrev>
+            <title>XML Model for Java</title>
+            <publishername>The EXPath Project</publishername>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Florent</firstname>
+                        <surname>Georges</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>6 January 2015</pubdate>
+            <biblioid class="uri">https://github.com/expath/tools-java</biblioid>
+        </biblioentry>        
+        <biblioentry xml:id="minutes-expath-f2f-feb-2015" xreflabel="[29]">
+            <abbrev>29</abbrev>
+            <title>Minutes of Face-to-face meeting of the W3C EXPath Community Group in Prague</title>
+            <publishername>W3C EXPath Community Group</publishername>
+            <pubdate>12 February 2015</pubdate>
+            <biblioid class="uri">https://lists.w3.org/Archives/Public/public-expath/2015Feb/0005.html</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="expath-file1" xreflabel="[30]">
+            <abbrev>30</abbrev>
+            <title>File Module 1.0</title>
+            <publishername>W3C EXPath Community Group</publishername>
+            <pubdate>20 February 2015</pubdate>
+            <biblioid class="uri">http://expath.org/spec/file</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="basex-expath-file-exists" xreflabel="[31]">
+            <abbrev>31</abbrev>
+            <title>BaseX 8.1.1 implementation of EXPath file:exists function</title>
+            <publishername>BaseX</publishername>
+            <pubdate>9 January 2015</pubdate>
+            <biblioid class="uri">https://github.com/BaseXdb/basex/blob/8.1.1/basex-core/src/main/java/org/basex/query/func/file/FileExists.java</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="aretter-exist-expath-file-exists" xreflabel="[32]">
+            <abbrev>32</abbrev>
+            <title>eXist implementation of EXPath file:exists function</title>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Adam</firstname>
+                        <surname>Retter</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>21 February 2015</pubdate>
+            <biblioid class="uri">https://github.com/adamretter/exist-expath-file-module/blob/master/src/main/scala/org/exist/expath/module/file/FileModule.scala</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="fgeorges-saxon-expath-file-exists" xreflabel="[33]">
+            <abbrev>33</abbrev>
+            <title>Saxon implementation of EXPath file:exists function</title>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Florent</firstname>
+                        <surname>Georges</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>16 January 2015</pubdate>
+            <biblioid class="uri">https://github.com/fgeorges/expath-file-java/blob/master/file-saxon/src/org/expath/file/saxon/props/Exists.java</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="xqilla-fn-date-from-year" xreflabel="[34]">
+            <abbrev>34</abbrev>
+            <title>XQilla implementation of XPath fn:date-from-year function</title>
+            <publishername>XQilla</publishername>
+            <pubdate>16 November 2011</pubdate>
+            <biblioid class="uri">http://xqilla.hg.sourceforge.net/hgweb/xqilla/xqilla/file/6468e5681607/include/xqilla/functions/FunctionYearFromDate.hpp</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="w3c-xquery-implementations" xreflabel="[35]">
+            <abbrev>35</abbrev>
+            <title>W3C XML Query</title>
+            <subtitle>Implementations</subtitle>
+            <publishername>W3C XQuery Working Group</publishername>
+            <biblioid class="uri">http://www.w3.org/XML/Query/#implementations</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="expath-xpath-engines" xreflabel="[36]">
+            <abbrev>36</abbrev>
+            <title>W3C EXPath Community Group Wiki</title>
+            <subtitle>XPath Engines</subtitle>
+            <publishername>W3C EXPath Community Group</publishername>
+            <pubdate>8 May 2015</pubdate>
+            <biblioid class="uri">https://www.w3.org/community/expath/wiki/Engines</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="xslt-with-go-kennedy-2013" xreflabel="[37]">
+            <abbrev>37</abbrev>
+            <title>Using XSLT with Go</title>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>William</firstname>
+                        <surname>Kennedy</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>3 November 2013</pubdate>
+            <biblioid class="uri">http://www.goinggo.net/2013/11/using-xslt-with-go.html</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="python-lxml" xreflabel="[38]">
+            <abbrev>38</abbrev>
+            <title>lxml</title>
+            <subtitle>XML Toolkit for Python</subtitle>
+            <biblioid class="uri">http://lxml.de/</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="wora-wikipedia" xreflabel="[39]">
+            <abbrev>39</abbrev>
+            <title>Write once, run anywhere</title>
+            <publishername>Wikipedia, The Free Encyclopedia</publishername>
+            <biblioid class="uri">https://en.wikipedia.org/wiki/Write_once,_run_anywhere</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="cplusplus-swig" xreflabel="[40]">
+            <abbrev>40</abbrev>
+            <title>SWIG</title>
+            <subtitle>Simplified Wrapper and Interface Generator</subtitle>
+            <biblioid class="uri">http://www.swig.org/</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="haxe-targets" xreflabel="[41]">
+            <abbrev>41</abbrev>
+            <title>Haxe Compiler Targets</title>
+            <biblioid class="uri">http://haxe.org/documentation/introduction/compiler-targets.html</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="haxe-experimental-c-llvm-targets" xreflabel="[42]">
+            <abbrev>42</abbrev>
+            <title>Experimental C and LLVM Targets for Haxe</title>
+            <biblioid class="uri">https://github.com/waneck/haxe-genc</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="exquery-xpdl-haxe-code" xreflabel="[43]">
+            <abbrev>43</abbrev>
+            <title>Source code for Implementation Type Mapping of XPDL Extension Functions in Haxe</title>
+            <publishername>The EXQuery Project</publishername>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Adam</firstname>
+                        <surname>Retter</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>12 May 2015</pubdate>
+            <biblioid class="uri">https://github.com/exquery/xpdl-extension-lib</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="w3c-xpath3-fun-call" xreflabel="[44]">
+            <abbrev>44</abbrev>
+            <title>XML Path Language (XPath) 3.0</title>
+            <subtitle>Static Function Calls</subtitle>
+            <publishername>W3C</publishername>
+            <pubdate>8 April 2014</pubdate>
+            <biblioid class="uri">http://www.w3.org/TR/xpath-30/#id-function-calls</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="w3c-xquery3-fun-decl" xreflabel="[45]">
+            <abbrev>45</abbrev>
+            <title>XQuery 3.0: An XML Query Language</title>
+            <subtitle>Function Declaration</subtitle>
+            <publishername>W3C</publishername>
+            <pubdate>8 April 2014</pubdate>
+            <biblioid class="uri">http://www.w3.org/TR/xquery-30/#FunctionDeclns</biblioid>
+        </biblioentry>
+        <biblioentry xml:id="exist-xpdl-extension-code" xreflabel="[46]">
+            <abbrev>46</abbrev>
+            <title>Source code of XPDL Extension Functions integration with eXist</title>
+            <authorgroup>
+                <author>
+                    <personname>
+                        <firstname>Adam</firstname>
+                        <surname>Retter</surname>
+                    </personname>
+                </author>
+            </authorgroup>
+            <pubdate>12 May 2015</pubdate>
+            <biblioid class="uri">https://github.com/eXist-db/exist/tree/xpdl-extensions/src/org/exist/xpdl</biblioid>
+        </biblioentry>        
+    </bibliography>
+
+</article>

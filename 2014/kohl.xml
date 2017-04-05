@@ -1,0 +1,711 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-19" version="5.0" xml:lang="en">
+
+  <info xmlns:xl="http://www.w3.org/1999/xlink" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+    <title>From monolithic XML for print/web to lean XML for data: realising linked data for
+      dictionaries</title>
+
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Matt</firstname>
+          <surname>Kohl</surname>
+        </personname>
+        <email>matt.kohl@oup.com</email>
+        <affiliation>
+          <orgname>Oxford University Press</orgname>
+        </affiliation>
+      </author>
+      <author>
+        <personname>
+          <firstname>Sandro</firstname>
+          <surname>Cirulli</surname>
+        </personname>
+        <email>sandro.cirulli@oup.com</email>
+        <affiliation>
+          <orgname>Oxford University Press</orgname>
+        </affiliation>
+      </author>
+      <author>
+        <personname>
+          <firstname>Phil</firstname>
+          <surname>Gooch</surname>
+        </personname>
+        <email>phil.gooch@oup.com</email>
+        <affiliation>
+          <orgname>Oxford University Press</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+
+    <keywordset>
+      <keyword>XProc</keyword>
+      <keyword>RDF</keyword>
+      <keyword>dictionaries</keyword>
+    </keywordset>
+
+    <abstract>
+      <para>In order to reconcile the need for legacy data compatibility with changing business
+        requirements, proprietary XML schemas inevitably become larger and looser over time. We
+        discuss the transition at Oxford University Press from monolithic XML models
+        designed to capture monolingual and bilingual print dictionaries derived from multiple
+        sources, towards a single, leaner, semantic model. This new model reflects the lexical
+        content units of a traditional dictionary, while maximising human readability and machine
+        interpretability, thus facilitating transformation to Resource Description Framework (RDF)
+        triples as linked data.</para>
+      <para>We describe a modular transformation process based on XProc, XSLT, XSpec and Schematron
+      that maps complex structures and multilingual metadata in the legacy data to the structures
+      and harmonised taxonomy of the new model, making explicit information that is often implicit
+      in the original data. Using the new model in its prototype RDF form, we demonstrate how
+      cross-lingual, cross-domain searches can be performed, and custom data-sets can be
+      constructed, that would be impossible or very time-consuming to achieve with the original XML
+      content stored at the individual dictionary level.</para>
+    </abstract>
+
+  </info>
+
+  <?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><section xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xl="http://www.w3.org/1999/xlink" xmlns:xi="http://www.w3.org/2001/XInclude" version="5.0" xml:base="paper-19-sections/introduction.xml">
+  <title>Introduction</title>
+
+  <para>Oxford University Press (OUP) publishes a number of academic dictionaries both in print
+    and online, most notably the Oxford English Dictionary <xref linkend="paper-19_oed"/>, as well as
+    current dictionaries for English and bilingual dictionaries for modern languages <xref linkend="paper-19_odo"/>. Recently, we have also expanded our dictionaries offering by
+    licensing in lexical content from other publishers as part of the Oxford Global Language
+    Solutions (OGLS) <xref linkend="paper-19_ogls"/> initiative, enabling us to meet demands for
+    lexical content in languages outside OUP's catalogue.</para>
+
+  <para>As there is no standard for digital publication of dictionaries, the OGLS data-sets come to
+    us in a variety of formats (XML, MySQL, InDesign, MS Word and Excel, plain text, etc.) To offer
+    this licensed-in content to our customers, we draw on in-house and freelance developers to
+    convert to OxMonolingML and OxBilingML, our dictionary XML Document Type Definitions (DTDs).
+    These DTDs evolved from SGML and were originally designed to capture a dictionary as it appears
+    on a printed page. Recently, we have received feedback from customers about excessive hierarchy
+    and complication in these models. This added to a growing concern within our team that the DTDs
+    have become somewhat monolithic and permit too much variation, a consequence of frequently
+    needing to loosen the structures to capture content from diverse print sources. Despite our
+    attempts to combat permissiveness with best-practice advice and supplement with Schematron
+    validation <xref linkend="paper-19_schematron"/>, the XML we receive from our developers often
+    departs from our standards.</para>
+
+  <para>Meanwhile, a pilot project to create linked data from a sample of dictionary data-sets was
+    approved. The proposal involved designing a schema to model language concepts, rather than print
+    conventions, one which results in intelligent, semantic, machine-interpretable lexical content
+    in XML.</para>
+
+</section>
+
+  <?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><section xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xl="http://www.w3.org/1999/xlink" xmlns:xi="http://www.w3.org/2001/XInclude" version="5.0" xml:id="paper-19_data-modelling" xml:base="paper-19-sections/data_modelling.xml">
+  <title>Data Modelling</title>
+
+
+  <para>While the OxMonolingML &amp; OxBilingML DTDs capture the formatting intricacies of print
+    dictionaries and enable these to be reproduced online, they are not ideal data models for
+    machine processing. The rationale for developing a new dictionaries data model was two-fold.
+    First, the need to future-proof, as far as possible, our multilingual lexical content, so that
+    it will be reusable and interoperable with other tools and data-sets in the growing fields of
+    language technology and linked data. Second, to address licensee feedback about the difficulty
+    of understanding and processing a deeply hierarchical, and overly complicated content model that
+    tended to lack semantic consistency across data-sets. The following requirements were
+    prioritised: </para>
+  <itemizedlist>
+    <listitem>
+      <para><emphasis>Self-documenting</emphasis>: Data structures, element names and
+        attribute values should be human understandable.</para>
+    </listitem>
+    <listitem>
+      <para><emphasis>Semantically rich</emphasis>: Data structures should be readily
+        machine-processable and machine-interpretable.</para>
+    </listitem>
+    <listitem>
+      <para><emphasis>Well structured</emphasis>: There should be only one, clear way to model
+        any given lexical item.</para>
+    </listitem>
+  </itemizedlist>
+  <para>The third requirement was particularly important, as the OxMonolingML and OxBilingML DTDs
+    allow optional and repeatable structures in many places while lacking clear semantics,
+    resulting in many ways of modelling the same lexical structure. The DTDs also permit mixed
+    content (elements that may contain other elements, text, or both) in many places. Without
+    additional Schematron validation, this caused numerous quality assurance problems, as many
+    elements could be validly empty (according to the models), but invalid semantically. For
+    example, does the appearance of empty element content in a mixed content model imply a data
+    conversion error, editorial omission, or genuine lack of data? The new model needed be
+    expressed in a more rigorous formalism to reduce the need for numerous Schematron content
+    validation rules.</para>
+
+  <para>From these requirements, the following modelling principles were determined:</para>
+
+  <itemizedlist>
+    <listitem>
+      <para>The model should be agnostic to source or language.</para>
+    </listitem>
+    <listitem>
+      <para>The model should be able to handle both monolingual and bilingual data.</para>
+    </listitem>
+    <listitem>
+      <para>The model should be modular, to facilitate maintainance and customisation.</para>
+    </listitem>
+    <listitem>
+      <para>Attribute values, as far as possible, should come from controlled
+        vocabularies.</para>
+    </listitem>
+    <listitem>
+      <para>Mixed content should be reduced to a minimum.</para>
+    </listitem>
+    <listitem>
+      <para>The content should be readily transformed to other structured data, such as
+        RDF.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>As a result of being strict on mixed content, we decided that empty elements should have a
+    specific semantic purpose - empty element content in XML instances must not be used to imply
+    lack of content. For example, initially we decided that a word sense in a monolingual
+    dictionary should always contain a definition. However, cases later arose where this could
+    not always be enforced. Rather than make <code>&lt;definition&gt;</code> optional or
+    allow it to be empty, we introduced a <code>&lt;noDefinition&gt;</code> element to be
+    used as a placeholder. Any empty or missing <code>&lt;definition&gt;</code> elements
+    in an instance would therefore be a data conversion error. </para>
+  <para>Additional modelling principles arose from the need to simplify the complex sense hierarchy,
+    (which was in any case inconsistent across dictionaries) and our goal of making the data more
+    modular and less monolithic:</para>
+  <itemizedlist mark="bullet">
+    <listitem>
+      <para>Subsidiary relationships should be preserved via attribute values pointing to the
+        identifier of the parent sense, rather than traditional nesting, effectively flattening the
+        sense XML without sacrificing an entry’s complexity. </para>
+    </listitem>
+    <listitem>
+      <para>The scope of an entry should always be a single Lemma. Derivatives, phrases, and other
+        items traditionally nested in sub-entries are all upgraded to entry level. Again, formerly
+        hierarchical relationships are retained through semantic linking.</para>
+    </listitem>
+  </itemizedlist>
+  <para>DTDs remain popular at the Press as they are familiar and understandable to both editors and
+    content developers. However, to facilitate enhanced content validation and maximise
+    interoperability and tool support, we selected XML Schema as the primary formalism for the new
+    model. Because a dictionary entry can also be represented as a collection of metadata about a
+    word or phrase, we undertook parallel modelling in Resource Description Framework (RDF) <xref linkend="paper-19_rdf"/>, Web Ontology Language (OWL) <xref linkend="paper-19_owl"/> and XML Schema.</para>
+  <para>Both the dcument-centric and metadata models consider the core concepts of Lemma (dictionary
+    headword), Etymology (origin), Sense (semantics), Definition (meaning), Example (usage), and
+    their relationships. The XML model reflects the lexical content units of a traditional
+    dictionary entry, and so explicitly models concepts of synonymy and meronymy (phrasal
+    constructions composed of one or more lemmas) as specific element types that indicate their
+    relationship to the lemma. The RDF model goes further and considers these as lemmas that happen
+    to be in a synonym or meronym relationship. For example, in the XML model we have <programlisting language="xml">&lt;sense id="d5e644"&gt;
+  &lt;definitions&gt;
+    &lt;definition id="d5e649" xml:lang="en"&gt;
+      &lt;text&gt;
+        An English definition of the term
+      &lt;/text&gt;
+    &lt;/definition&gt;
+  &lt;/definitions&gt;
+  &lt;synonyms&gt;
+    &lt;synonym targetid="a5e644"&gt;
+      another term
+    &lt;/synonym&gt;
+  &lt;/synonyms&gt;
+&lt;/sense&gt;</programlisting> whereas in the RDF model the same relationships are reified and would be
+    represented as <programlisting language="xml">&lt;Sense rdf:about="sense:d5e644"&gt;
+  &lt;hasSynonym rdf:resource="lemma:a5e644"/&gt;
+  &lt;hasDefinition rdf:resource="definition:d5e649"/&gt;
+&lt;/Sense&gt;
+&lt;Definition rdf:about="definition:d5e649"&gt;
+  &lt;rdfs:label xml:lang="en"&gt;
+    An English definition of the term
+  &lt;/rdfs:label&gt;
+&lt;/Definition&gt;
+&lt;Lemma rdf:about="lemma:a5e644"&gt;
+  &lt;rdfs:label xml:lang="en"&gt;
+    another term
+  &lt;/rdfs:label&gt;
+&lt;/Lemma&gt;</programlisting> </para>
+
+  <para>The conceptual classes are shown in <xref linkend="paper-19_conceptual_classes"/>.</para>
+
+  <figure xml:id="paper-19_conceptual_classes">
+    <title>Reified conceptual classes</title>
+    <mediaobject>
+      <imageobject>
+        <imagedata fileref="images/ontology-classes-trimmed.png" width="100%"/>
+      </imageobject>
+    </mediaobject>
+  </figure>
+
+  <para>Instances of the Register, Domain, PartOfSpeech classes were modelled as hierarchical,
+    controlled vocabularies in RDF, with translations in major languages. For example:</para>
+
+  <programlisting language="xml">&lt;Domain rdf:about="domain:physics"&gt;
+  &lt;rdfs:subClassOf
+    rdf:resource="domain:physical-science"/&gt;
+  &lt;rdfs:label xml:lang="en"&gt;Physics&lt;/rdfs:label&gt;
+  &lt;rdfs:label xml:lang="de"&gt;Physik&lt;/rdfs:label&gt;
+  &lt;rdfs:label xml:lang="es"&gt;Física&lt;/rdfs:label&gt;
+&lt;/Domain&gt;</programlisting>
+
+  <para>This provided a mechanism to map metadata values in the legacy data to
+    language-independent identifiers in the new model (see <xref linkend="paper-19_data_conversion"/>).</para>
+
+</section>
+
+  <?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><section xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xl="http://www.w3.org/1999/xlink" xmlns:xi="http://www.w3.org/2001/XInclude" version="5.0" xml:id="paper-19_data_conversion" xml:base="paper-19-sections/data_conversion.xml">
+    <title>Data Conversion</title>
+
+    <para>Our dictionaries catalogue includes more than 40 monolingual and bilingual titles, and to
+    move that much data into the new model, we would need a scalable transformation strategy.
+    Furthermore, conversion would require some standardisation steps that could be leveraged to
+    enhance the OxMonolingML &amp; OxBilingML data for our current customers, so building something
+    modular was also desirable.</para>
+
+    <para>Given these requirements, we decided to build a modular XProc <xref linkend="paper-19_xproc"/>
+    pipeline comprising XSLT, Schematron and XML Schema validation steps, with specific modules for
+    each language in order to hold harmonised metadata across dictionaries and languages. A
+    simplified diagram of the XProc pipeline is shown in <xref linkend="paper-19_pipeline_diagram"/>.</para>
+
+    <figure xml:id="paper-19_pipeline_diagram">
+        <title>XProc pipeline</title>
+        <mediaobject>
+            <imageobject>
+                <imagedata fileref="images/xproc_pipeline.svg" width="98%"/>
+            </imageobject>
+        </mediaobject>
+    </figure>
+
+    <para>The input port of the XProc pipeline is a monolingual dictionary in the OxMonolingML DTD
+    format. Three parameters may be passed to the pipeline in order to apply language-specific or
+    licensee-specific steps as needed.</para>
+
+    <para>The input file goes through a sequence of XSL transformations which yield an intermediate
+    file that we like to call OxMonolingML++. This is an enhanced version of the source data,
+    featuring harmonised structural variations in sub-entries, synonyms, antonyms, etc. as well as
+    metadata mappings from the source language to their English equivalent, e.g.:
+    <programlisting language="xml">&lt;pos value="adjective"&gt;adjetivo&lt;/pos&gt;</programlisting></para>
+
+    <para>These steps are grouped inside a single sub-pipeline ending with the Schematron
+        validation. The sub-pipeline has dedicated output ports for storing the OxMonolingML++ file
+        and the Schematron error report.</para>
+
+    <para>A similar process is applied in the second sub-pipeline that generates the final output
+    referred in the diagram as Lexical Data. This sub-pipeline also allows for licensee-specific
+    steps triggered by the corresponding licensee parameter.</para>
+
+    <para>Both Schematron and XML Schema validations are performed on the final output with
+    dedicated output ports for storing error reports. When there are licensee-specific steps, an XSL
+    transformation generates a corresponding version of the XML schema for validation of the custom
+    output.</para>
+
+    <para>Development of the pipeline components was carried out by a team of four developers and a
+    project manager using Agile methodologies. Behaviour-driven development was employed by writing
+    XSpec unit tests <xref linkend="paper-19_xspec"/> for core transformation scenarios, as illustrated
+    in <xref linkend="paper-19_xspec_unit_test"/>.</para>
+
+    <example xml:id="paper-19_xspec_unit_test">
+        <title>XSpec unit test</title>
+        <programlisting language="xml">&lt;x:scenario label="When processing adj inv/adv"&gt;
+  &lt;x:context&gt;
+    &lt;pos&gt;adj inv/adv&lt;/pos&gt;
+  &lt;/x:context&gt;
+  &lt;x:expect label="It should produce an
+                   adjective and an adverb"&gt;
+    &lt;pos value="adjective"&gt;adj inv&lt;/pos&gt;
+    &lt;genpunc&gt;/&lt;/genpunc&gt;
+    &lt;pos value="adverb"&gt;adv&lt;/pos&gt;
+  &lt;/x:expect&gt;
+&lt;/x:scenario&gt;</programlisting>
+    </example>
+
+    <para>Jenkins <xref linkend="paper-19_jenkins"/> was employed as a continuous integration server for
+    running automated XSpec unit tests and building the final deliverables both for licensees and
+    internal use. The workflow is illustrated in <xref linkend="paper-19_build_workflow"/>.</para>
+
+    <figure xml:id="paper-19_build_workflow">
+        <title>Build workflow</title>
+        <mediaobject>
+            <imageobject>
+                <imagedata fileref="images/build_workflow.png" width="75%"/>
+            </imageobject>
+        </mediaobject>
+    </figure>
+
+    <para>XML source data in OxMonolingML, XSL and XSpec code, Schematron and XML Schema are managed
+    under Subversion (SVN) <xref linkend="paper-19_svn"/>. The Jenkins build process checks out the
+    latest version of the code and data from the repository, and then runs the main conversion
+    pipeline via Ant <xref linkend="paper-19_ant"/>, which executes the XSpec unit tests, generates and
+    executes the XProc pipeline, and runs additional tasks for packaging the deliverables. The
+    artefacts created by the build process are reviewed by a linguist for quality assurance. If any
+    critical errors arise from unit tests or linguistic QA, the code is fixed through another
+    iteration. Otherwise, Jenkins commits and tags the final deliverable in SVN with a release
+    number, and archives it on an external drive in order to be shipped to the licensee.</para>
+    <para>The build process can also be run in 'test' mode, triggered when any code or data changes
+        are made to the repository. Access to the latest unit test results are always available from
+        the Jenkins web interface.</para>
+    <para>For better scalability (and to avoid the need to maintain a single, monolithic pipeline),
+    the framework relies on pipeline configuration files, which outline the required steps and
+    metadata mappings for specific data-sets. Using these configurations and some boilerplate
+    pipeline XSL, the Ant script builds and executes a custom XProc on the fly.</para>
+
+</section>
+
+  <?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><section xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xl="http://www.w3.org/1999/xlink" xmlns:xi="http://www.w3.org/2001/XInclude" version="5.0" xml:id="paper-19_results" xml:base="paper-19-sections/results.xml">
+  <title>Results and Discussion</title>
+
+  <para>The following lists provide an overview of the data at each stage of our transformation. </para>
+  <para><xref linkend="paper-19_abanicar-es"/> shows a Spanish dictionary entry in the format licensed from
+    the original publisher, i.e. before it has been converted to our OxMonolingML DTD by one of our
+    freelance or in-house developers. The structure is very straightforward, but all content,
+    including element and attribute names, is in the source language, making interoperability and
+    reuse more difficult. </para>
+  <example xml:id="paper-19_abanicar-es">
+    <title>Spanish entry for abanicar in original source data</title>
+    <programlisting language="xml">&lt;ENTRADA ID="370" ORDER="370" OLDID="350"&gt;
+  &lt;ZONA-ENTRADA&gt;
+    &lt;LEMA&gt;abanicar&lt;/LEMA&gt;
+  &lt;/ZONA-ENTRADA&gt;
+  &lt;CATGRAM&gt;&amp;verbo_transitivo_dueae;&lt;/CATGRAM&gt;
+  &lt;ACEPCIO ACEP="1"&gt;
+    &lt;SIGNIFICAT&gt;
+      Dar aire con el abanico u otro objeto:
+    &lt;/SIGNIFICAT&gt;
+    &lt;EXEMPLE&gt;
+      Pedro se abanica descuidadamente
+      con su sombrero de copa y muestra un gesto
+      de aburrimiento.
+    &lt;/EXEMPLE&gt;
+  &lt;/ACEPCIO&gt;
+  &lt;ACEPCIO ACEP="2"&gt;
+    &lt;TEMA&gt;taur&lt;/TEMA&gt;
+    &lt;SIGNIFICAT&gt;
+      Incitar al toro agitando ante él el capote de
+      un lado a otro, generalmente para que cambie
+      de lugar en la suerte de varas.
+    &lt;/SIGNIFICAT&gt;
+  &lt;/ACEPCIO&gt;
+  &lt;OBSERVACIO NUM="1" CLASE="conjugacion"
+              TIPO="irregular"&gt;
+  Conjug. [1] como &lt;C&gt;sacar&lt;/C&gt;.&lt;/OBSERVACIO&gt;
+&lt;/ENTRADA&gt;</programlisting>
+  </example>
+
+  <para><xref linkend="paper-19_abanicar-oxmono"/> shows the same Spanish data following conversion to the
+    OxMonolingML DTD. Metadata is still in Spanish at this point, and the structure is arguably less
+    transparent than the original (due to the OxMonolingML DTD needing to capture a wide range of
+    content for both print and online use). We used this data as input for our conversion
+    framework.</para>
+
+  <example xml:id="paper-19_abanicar-oxmono">
+    <title>Spanish entry for abanicar in OxMonolingML</title>
+    <programlisting language="xml">&lt;e xrid="370" type="standard"&gt;
+  &lt;hg&gt;
+    &lt;hw&gt;abanicar&lt;/hw&gt;
+  &lt;/hg&gt;
+  &lt;sg&gt;
+    &lt;se1&gt;
+      &lt;posg&gt;
+        &lt;pos&gt;verbo transitivo&lt;/pos&gt;
+      &lt;/posg&gt;
+      &lt;se2 num="1"&gt;
+        &lt;msDict type="core"&gt;
+          &lt;df&gt;Dar aire con el abanico u otro 
+objeto&lt;genpunc tag="SIGNIFICAT"&gt;:&lt;/genpunc&gt;&lt;/df&gt;
+          &lt;eg&gt;
+            &lt;ex&gt;Pedro se abanica descuidadamente con su sombrero 
+de copa y muestra un gesto de 
+aburrimiento&lt;genpunc tag="EXEMPLE"&gt;.&lt;/genpunc&gt;&lt;/ex&gt;
+          &lt;/eg&gt;
+        &lt;/msDict&gt;
+      &lt;/se2&gt;
+      &lt;se2 num="2"&gt;
+        &lt;lg&gt;
+          &lt;sj&gt;taur&lt;/sj&gt;
+        &lt;/lg&gt;
+        &lt;msDict type="core"&gt;
+          &lt;df&gt;Incitar al toro agitando ante él el capote de un lado 
+a otro, generalmente para que cambie de lugar en la suerte de 
+varas&lt;genpunc tag="SIGNIFICAT"&gt;.&lt;/genpunc&gt;&lt;/df&gt;
+        &lt;/msDict&gt;
+      &lt;/se2&gt;
+    &lt;/se1&gt;
+  &lt;/sg&gt;
+  &lt;note type="conjugacion|irregular" position="entry"&gt;Conjug. [1] 
+  como &lt;i&gt;sacar&lt;/i&gt;&lt;genpunc tag="OBSERVACIO"&gt;.&lt;/genpunc&gt;&lt;/note&gt;
+&lt;/e&gt;</programlisting>
+  </example>
+
+  <para> <xref linkend="paper-19_abanicar-lex"/> shows the output following XSLT transformation to the new
+    Lexical model. All metadata are now from controlled vocabularies (e.g.
+    <markup>partOfSpeech="verb"</markup> and <markup>domain="bullfighting"</markup>), and the
+    structure is more transparent (NB conjugation information has been omitted, as we hold language
+    data on constructions, conjugations and morphology in a separate repository). </para>
+
+  <example xml:id="paper-19_abanicar-lex">
+    <title>Spanish entry for abanicar in new Lexical model</title>
+    <programlisting language="xml">&lt;entry id="d5e1674"&gt;
+  &lt;heading xml:lang="es" partOfSpeech="verb"&gt;
+    &lt;headword&gt;abanicar&lt;/headword&gt;
+  &lt;/heading&gt;
+  &lt;senses&gt;
+    &lt;sense id="d5e1683"&gt;
+      &lt;definitions&gt;
+        &lt;definition xml:lang="es"&gt;
+          &lt;text&gt;Dar aire con el abanico u otro objeto&lt;/text&gt;
+        &lt;/definition&gt;
+      &lt;/definitions&gt;
+      &lt;examples&gt;
+        &lt;example&gt;
+          &lt;text&gt;Pedro se abanica descuidadamente con su sombrero 
+          de copa y muestra un gesto de aburrimiento&lt;/text&gt;
+        &lt;/example&gt;
+      &lt;/examples&gt;
+    &lt;/sense&gt;
+    &lt;sense domain="bullfighting" id="d5e1694"&gt;
+      &lt;definitions&gt;
+        &lt;definition xml:lang="es"&gt;
+          &lt;text&gt;Incitar al toro agitando ante él el capote de 
+          un lado a otro, generalmente para que cambie de lugar 
+          en la suerte de varas&lt;/text&gt;
+        &lt;/definition&gt;
+      &lt;/definitions&gt;
+    &lt;/sense&gt;
+  &lt;/senses&gt;
+&lt;/entry&gt;</programlisting>
+  </example>
+
+  <para><xref linkend="paper-19_abanicar-rdf"/> shows the output following XSLT transformation of the Lexical
+    model to RDF/XML. Controlled vocabulary labels have been replaced with compact URIs using CURIE
+    syntax <xref linkend="paper-19_curie"/> pointing to instances in the domain ontology. This allows us
+    to use inference when writing SPARQL queries to interrogate the RDF data. For example,
+    <markup>domain:bullfighting</markup> is a <markup>subClassOf domain:sport</markup>, so a query
+    to extract all sporting terms across all languages would identify the bullfighting term in this
+    example. When combined with our bilingual dictionaries, which provide sense-level and
+    domain-specific translations, or external, multilingual, public domain lexical resources, such
+    an approach is potentially very powerful, as discussed in <xref linkend="paper-19_next_steps"/>.</para>
+
+  <example xml:id="paper-19_abanicar-rdf">
+    <title>Spanish entry for abanicar in RDF/XML</title>
+    <programlisting language="xml">&lt;Lemma rdf:about="lemma:es_verb_abanicar"&gt;
+  &lt;rdfs:label xml:lang="es"&gt;abanicar&lt;/rdfs:label&gt;
+  &lt;hasSource rdf:resource="source:oxford_gls_sudc_vox_dgle_exb1_5"/&gt;
+  &lt;hasLanguage rdf:resource="lang:es"/&gt;
+  &lt;hasPartOfSpeech rdf:resource="partOfSpeech:verb"/&gt;
+  &lt;hasSense rdf:resource="sense:es_verb_abanicar_se_1"/&gt;
+  &lt;hasSense rdf:resource="sense:es_verb_abanicar_se_2"/&gt;
+&lt;/Lemma&gt;
+
+&lt;Sense rdf:about="sense:es_verb_abanicar_se_1"&gt;
+  &lt;isDescribedBy rdf:resource="definition:es_verb_abanicar_se_1_def_1"/&gt;
+  &lt;hasExample rdf:resource="example:es_verb_abanicar_se_1_ex_1"/&gt;
+&lt;/Sense&gt;
+
+&lt;Sense rdf:about="sense:es_verb_abanicar_se_2"&gt;
+  &lt;isDescribedBy rdf:resource="definition:es_verb_abanicar_se_2_def_1"/&gt;
+  &lt;hasDomain rdf:resource="domain:bullfighting"/&gt;
+&lt;/Sense&gt;
+
+&lt;StandardDefinition rdf:about="definition:es_verb_abanicar_se_1_def_1"&gt;
+  &lt;rdfs:label xml:lang="es"&gt;Dar aire con el abanico u otro objeto:&lt;/rdfs:label&gt;
+&lt;/StandardDefinition&gt;
+
+&lt;StandardDefinition rdf:about="definition:es_verb_abanicar_se_2_def_1"&gt;
+  &lt;rdfs:label xml:lang="es"&gt;Incitar al toro agitando ante él el capote
+  de un lado a otro, generalmente para que cambie de lugar en la
+  suerte de varas.&lt;/rdfs:label&gt;
+&lt;/StandardDefinition&gt;
+
+&lt;Example rdf:about="example:es_verb_abanicar_se_1_ex_1"&gt;
+  &lt;rdfs:label xml:lang="es"&gt;Pedro se abanica descuidadamente con su
+  sombrero de copa y muestra un gesto de aburrimiento.&lt;/rdfs:label&gt;
+&lt;/Example&gt;</programlisting>
+  </example>
+</section>
+
+  <?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><section xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xl="http://www.w3.org/1999/xlink" xmlns:xi="http://www.w3.org/2001/XInclude" version="5.0" xml:id="paper-19_next_steps" xml:base="paper-19-sections/next_steps.xml">
+  <title>Next Steps</title>
+  <para>At this stage, the output XML meets our current requirements, retaining both human
+    readability and scope for further machine processing, and we can turn our attention to creating
+    RDF. Because we provided for this during data modelling and developed the XML Schema and
+    ontology in parallel, the XML readily converts into our RDF model. Transformation is as
+    straightforward as writing some simple XSLT and adding a step to the XProc pipeline.</para>
+
+  <para>Once the build process generates manifold-dictionary RDF, we use that to populate a
+    triplestore, which we can query for custom, multi-source, multilingual data-sets. For example,
+    the following SPARQL query extracts English musical terms and their synonyms, along with their
+    Spanish translations. <example xml:id="paper-19_sparql-ex">
+    <title>SPARQL query to extract English and Spanish musical terms</title>
+    <programlisting language="xml">SELECT ?txt ?tran ?syntxt ?syntran
+WHERE {
+  ?lemma rdfs:label ?txt ;
+    :hasLanguage lang:en ;
+    :hasSense ?sense .
+  OPTIONAL {?lemma :hasEtymology ?et .
+     ?et :originatesFrom ?etl ;
+         :hasDateOfOrigin ?etd .}
+  ?sense :hasSynonym ?syn ;
+    :hasDomain [rdfs:subClassOf domain:music ] ;
+    :hasTranslation ?t .
+  ?t rdfs:label ?tran ;
+     :hasLanguage lang:es .
+  ?syn rdfs:label ?syntxt ;
+    :hasSense ?synsense .
+  ?synsense :hasTranslation ?synt ;
+    :hasDomain [rdfs:subClassOf domain:music ] .
+  ?synt rdfs:label ?syntran ;
+        :hasLanguage lang:es .
+}</programlisting>
+    </example> </para>
+  <para>In plain English, the query finds English lemmas that have a sense in the domain of music
+    (or subclass thereof) that sense has a synonym and a Spanish translation. The synonym lemma
+    must also have a sense in the domain of music as well as a Spanish translation. Using the
+    the SgVizler Javascript libraries for visualising SPARQL query results <xref linkend="paper-19_sgvizler"/>, we can create an interactive graph showing the terms coloured
+    by date of origin:</para>
+
+  <figure xml:id="paper-19_musical_terms">
+    <title>Graph of musical terms in English and Spanish</title>
+    <mediaobject>
+      <imageobject>
+        <imagedata fileref="images/musical_terms.png" width="100%"/>
+      </imageobject>
+    </mediaobject>
+  </figure>
+
+  <para>Having the data in RDF and OWL also facilitates the discovery of new relationships which were
+    not explicitly stated in the original XML data. This can be achieved through inference by using
+    a reasoner or a rule language. For example, consider the symmetric property depicted in <xref linkend="paper-19_symmetric_property"/>.</para>
+
+  <figure xml:id="paper-19_symmetric_property">
+    <title>Inference via symmetric property</title>
+    <mediaobject>
+      <imageobject>
+        <imagedata fileref="images/symmetric_property.svg" width="75%"/>
+      </imageobject>
+    </mediaobject>
+  </figure>
+
+  <para>By modelling the property <code>hasCrossReference</code> using
+      <code>owl:SymmetricProperty</code> a reasoner can infer a new relationship between
+    lemma_1 and lemma_3 which was not present before.</para>
+
+  <para>More complex inference statements can be enforced using a rule language such as SWRL <xref linkend="paper-19_swrl"/>. For example, a rule for inferencing new antonyms could be
+    expressed in SWRL as follows (the rule has been simplified for sake of clarity):
+    <programlisting language="swrl">Lemma(?x), Lemma(?y), hasAntonym(?x, ?y), hasSynonym(?y, ?z)
+    -&gt; hasAntonym(?x, ?z)</programlisting>
+  </para>
+
+</section>
+
+  <?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><section xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xl="http://www.w3.org/1999/xlink" xmlns:xi="http://www.w3.org/2001/XInclude" version="5.0" xml:base="paper-19-sections/conclusion.xml">
+    <title>Conclusion</title>
+
+    <para>Our move towards a simpler, more consistent and harmonised XML data model for our
+        dictionaries allows us to generate rich RDF representations of lexical data with a
+        relatively straightforward transformation process. This is still very much an experimental
+        approach, but it allows us to explore and visualise our lexical data across domains and
+        languages in ways that were previously impossible when the content was held in separate
+        silos in inconsistent XML representations.</para>
+
+</section>
+
+  <?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><bibliography xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xl="http://www.w3.org/1999/xlink" xmlns:xi="http://www.w3.org/2001/XInclude" version="5.0" xml:base="paper-19-sections/bibliography.xml">
+
+  <biblioentry xml:id="paper-19_oed">
+    <abbrev>1</abbrev>
+    <title>The Oxford English Dictionary</title>
+    <publishername>Oxford University Press</publishername>
+    <biblioid class="uri">http://www.oed.com</biblioid>
+  </biblioentry>
+
+  <biblioentry xml:id="paper-19_odo">
+    <abbrev>2</abbrev>
+    <title>Oxford Dictionaries</title>
+    <publishername>Oxford University Press</publishername>
+    <biblioid class="uri">http://www.oxforddictionaries.com</biblioid>
+  </biblioentry>
+
+  <biblioentry xml:id="paper-19_ogls">
+    <abbrev>3</abbrev>
+    <title>Oxford Global Language Solutions</title>
+    <publishername>Oxford University Press</publishername>
+    <biblioid class="uri">http://www.oup.com/ogls</biblioid>
+  </biblioentry>
+
+  <biblioentry xml:id="paper-19_schematron">
+    <abbrev>4</abbrev>
+    <title>Schematron</title>
+    <publishername>ISO/IEC</publishername>
+    <biblioid class="uri">http://www.schematron.com</biblioid>
+  </biblioentry>
+
+  <biblioentry xml:id="paper-19_rdf">
+    <abbrev>5</abbrev>
+    <title>Resource Description Framework</title>
+    <publishername>World Wide Web Consortium</publishername>
+    <biblioid class="uri">http://www.w3.org/standards/techs/rdf</biblioid>
+  </biblioentry>
+
+  <biblioentry xml:id="paper-19_owl">
+    <abbrev>6</abbrev>
+    <title>OWL 2 Web Ontology Language</title>
+    <publishername>World Wide Web Consortium</publishername>
+    <biblioid class="uri">http://www.w3.org/TR/owl2-overview/</biblioid>
+  </biblioentry>
+
+  <biblioentry xml:id="paper-19_xproc">
+    <abbrev>7</abbrev>
+    <title>XProc: An XML Pipeline Language</title>
+    <publishername>World Wide Web Consortium</publishername>
+    <biblioid class="uri">http://www.w3.org/TR/xproc</biblioid>
+  </biblioentry>
+
+  <biblioentry xml:id="paper-19_xspec">
+    <abbrev>8</abbrev>
+    <title>XSpec - BDD Framework for XSLT</title>
+    <publishername>Tennison, Jeni</publishername>
+    <biblioid class="uri">http://code.google.com/p/xspec</biblioid>
+  </biblioentry>
+
+  <biblioentry xml:id="paper-19_jenkins">
+    <abbrev>9</abbrev>
+    <title>Jenkins</title>
+    <publishername>Jenkins CI</publishername>
+    <biblioid class="uri">http://jenkins-ci.org</biblioid>
+  </biblioentry>
+
+  <biblioentry xml:id="paper-19_svn">
+    <abbrev>10</abbrev>
+    <title>Apache Subversion</title>
+    <publishername>Apache Software Foundation</publishername>
+    <biblioid class="uri">http://subversion.apache.org</biblioid>
+  </biblioentry>
+
+  <biblioentry xml:id="paper-19_ant">
+    <abbrev>11</abbrev>
+    <title>The Apache Ant Project</title>
+    <publishername>Apache Software Foundation</publishername>
+    <biblioid class="uri">http://ant.apache.org</biblioid>
+  </biblioentry>
+
+  <biblioentry xml:id="paper-19_curie">
+    <abbrev>12</abbrev>
+    <title>CURIE Syntax 1.0: A syntax for expressing compact URIs</title>
+    <publishername>World Wide Web Consortium</publishername>
+    <biblioid class="uri">http://www.w3.org/TR/curie</biblioid>
+  </biblioentry>
+
+  <biblioentry xml:id="paper-19_sgvizler">
+    <abbrev>13</abbrev>
+    <title>Sgvizler</title>
+    <publishername>World Wide Web Consortium</publishername>
+    <biblioid class="uri">http://www.w3.org/2001/sw/wiki/Sgvizler</biblioid>
+  </biblioentry>
+
+  <biblioentry xml:id="paper-19_swrl">
+    <abbrev>14</abbrev>
+    <title>SWRL: A Semantic Web Rule Language Combining OWL and RuleML</title>
+    <publishername>World Wide Web Consortium</publishername>
+    <biblioid class="uri">http://www.w3.org/Submission/SWRL</biblioid>
+  </biblioentry>
+
+</bibliography>
+
+</article>

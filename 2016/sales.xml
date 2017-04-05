@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-12" version="5.0" xml:lang="en">
+
+  <info xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>A journey from document to data</title>
+    <subtitle><emphasis>or</emphasis>: buy into one format, get two production-ready assets free</subtitle>
+
+    <authorgroup>
+      <author>
+        <personname>
+          <firstname>Andrew</firstname>
+          <surname>Sales</surname>
+        </personname>
+        <email>andrew@andrewsales.com</email>
+        <affiliation>
+          <orgname>Andrew Sales Digital Publishing Limited</orgname>
+        </affiliation>
+      </author>
+    </authorgroup>
+
+    <keywordset>
+      <keyword>XSLT</keyword>
+      <keyword>Schematron</keyword>
+      <keyword>meta-programming</keyword>
+    </keywordset>
+
+    <abstract>
+      <para>XML is often treated as a neutral format from which to generate other outputs: HTML, JSON, other flavours of XML. In some cases, it can make sense to use it as a means to auto-generate other XML-based assets which themselves act on XML inputs, such as XSLT or Schematron schemas.</para>
+      <para>This paper will present a study of how XML and related technologies helped a publisher to streamline the production process for one of its products, enabling better consistency of data capture and an enhanced customer experience. It will describe how a legacy document-centric format was refined to allow publication processes to run more smoothly, and how an abstraction of the capturing format allowed other key assets in the workflow to be generated automatically, reducing development costs and delivering ahead of schedule.</para>
+    </abstract>
+
+  </info>
+
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Background</title>
+    <para>This background is intended to help explain some of the design decisions made later.</para>
+    <para>The content relating to this paper was destined for a single online product, which was conceived to allow corporate lawyers to compare market activity, such as mergers and acquisitions. This valuable information is for the most part freely available in the public domain by virtue of regulatory or legal requirement, but value is added to the paid-for version by providing an editorial digest (some of the official documents can exceed 1,000 pages in length) of the key points of each transaction helping the lawyer to assess trends, for instance which countries or sectors work might be coming from and how much it might be worth.</para>
+    <para>The main idea was to enable lawyers to compare transactions of various types by differing criteria. For example, they might want to know how many companies incorporated in the UK banking and finance sector had gone public in the last six months, or the typical value of an acquisition in the mining sector.</para>
+    <para>For the first iteration of the product, the legacy editorial and publishing systems already in place had to be respected, because it was judged more important by the business to launch in some form than to delay and launch with something more tailored and functional. This meant that there had to be two main workarounds in the initial publishing workflow.</para>
+  </section>
+  
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Legacy format</title>
+    <para>The first was the editorial format. The source material comes from HTML pages and PDFs, and  analysts were used to working in a document format (in PTC Arbortext), so for speed and convenience this continued. Importantly, the editorial content included analysis as free text, and so did not neatly fall into a purely data-centric model. Some additions were made to the governing DTD, which had originally been designed as a generic digest format, and was used for other content types, in order to introduce some specific semantics for this domain: analysts could mark up e.g. countries, dates, company names, transaction type and industry sector to enable some comparisons - but the tagging of this information was not controlled (such as by Schematron) at all at source. On top of that, it was not directly embedded in the main text, but separated out in the metadata header. This loose association meant that the integrity of the information was at risk and there was scope for error.</para>
+    <para>Information could also appear “buried” in strings. For example, to express whether all resolutions had been passed at a company’s AGM, there were c.50 variants on the significant value, such as:</para>
+    <programlisting language="xml">&lt;row&gt;
+&lt;entry&gt;All resolutions passed?&lt;/entry&gt;
+&lt;entry&gt;All resolutions proposed at the AGM were
+passed apart from resolution xx...&lt;/entry&gt;
+&lt;/row&gt;</programlisting> <!-- emphasise apart from resolution xx -->
+    <para>where a yes/no value was sufficient.</para>
+  </section>
+  
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Legacy system</title>
+    <para>The second workaround concerned the (post-editorial) publishing mechanism.</para>
+    <para>The editorial XML is converted to a common, generic publishing XML format, which is then further processed before HTML pages are generated for publication. All editorial XML follows this same route as a matter of policy. This meant that, while some front-end development was possible to enable some filtering on the added metadata mentioned above, there was limited scope for the more in-depth comparison useful to customers.</para>
+    <para>So a back-end application was then built to query the selected transaction types using XSLT to produce a spreadsheet with macros to help the user run comparisons. This was clunky, slow, extremely sensitive to any change in the editorial XML format, and hard to maintain.</para>
+    </section>
+
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>A new hope</title>
+    <para>An opportunity to address some of the data capture and design issues presented itself when another part of the business created a similar product platform for their local market, this time in conjunction with a third-party vendor. Their platform stored the data to be compared on the back end in a (relational) database, with strict(-er) data-typing, and crucially it was free of the in-house production workflow constraints. Again as a quick win, the UK arm of the business was encouraged to adopt this platform also, and work to migrate the legacy data for upload to the new platform ensued.</para>
+    </section>
+  
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Migration</title>
+    <para>The rationale for migrating was threefold:</para>
+    <orderedlist>
+      <listitem>
+        <para>Although the dataset was relatively small (around 1,700 reasonably short documents), the time-and-money cost of using expert authors to re-key<footnote><para>And re-keyed in this way it would have been: in most instances, an expert eye was needed to ensure the correct nugget of information was selected and if need be adjusted appropriately.</para></footnote> it on the new platform as a data entry activity would be prohibitive.</para>
+      </listitem>
+      <listitem>
+        <para>Had it been simply transferred to the new platform, the information would have resided in the supplier’s database only, raising continuity and IP issues. I therefore advocated retaining the canonical version (“editorial master”) of the content in-house and generating the new platform format from it as needed.</para>
+      </listitem>
+      <listitem>
+        <para>There was a requirement to publish both the existing full-text view, also containing other, “non-comparable” fields, simultaneously and for this to be in sync with the “comparable” data.</para>
+      </listitem>
+    </orderedlist>
+    
+    <!-- [DIAGRAM TO SHOW THE WORKFLOW, WITH THE DATA PART SHOWN AS SUBSET OF THE FULL-TEXT VIEW] -->
+    
+    <figure>
+      <title>Migration workflow</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/as2016-workflow.jpg" width="100%">
+          </imagedata>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    
+    <para>So it was agreed that the migration would be semi-automatic. I wrote XSLT which extracted the relevant information, if present in the source, into two-column key-value pair XHTML tables for editorial review, with additional inline semantic elements to capture the typed data. XHTML was used because we needed a simple format that could be easily accommodated by the existing pipelines, with the secondary advantage that Arbortext was already set up to handle it.  Rather than using the string value of the cells in the “key” column, each <code>row/@class</code> was used as an identifier, which editors would not normally change.</para>
+    
+    <programlisting language="xml">&lt;tr class="announcementDate"&gt;
+	&lt;!--key--&gt;
+  &lt;td&gt;Date of substantive announcement&lt;/td&gt;
+	&lt;!--value--&gt;
+  &lt;td&gt;
+  &lt;date day="1" month="Nov" year="2012"
+    xmlns=”transaction-example”/&gt;
+  &lt;/td&gt;
+&lt;/tr&gt;</programlisting>
+  
+  <para>Here <code>@class</code> identifies the field rather than expressing its datatype, so that the next step in the publishing pipeline can use this as a reliable hook independent of the field’s name.</para>
+  
+<para>The datatype was constrained instead by Schematron rules applied to each “value” column. The rules could be shared across transaction types to some extent. Editors reviewed the extracted data in this format in Arbortext and only once it passed validation against the schema was it fit to publish.</para>
+    
+  <para>It was a long haul and messy — but there were common fields across transaction types, so the lines of code to write decreased as each type was tackled (they were prioritised according to a tight release schedule, so could not be done all at once). About 40-50% of the fields could be migrated automatically, with the rest adjusted or filled in by hand. 
+  After this migration, the resulting XHTML really expressed how the data should be captured in the first place; or so it would be natural to assume.</para>
+  
+  </section>
+  
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>De(v|ta)il</title>
+<para>There are two wrinkles which prevent that from happening.</para>
+    
+    <para>The first is that not all the information the analysts write fits neatly into a data-centric model: they are still authoring some discursive or other very variable text, such as a general analysis of the transaction. This content did not belong in the new platform’s database on the back end, as it served no purpose to compare it across transactions. Second, it still needed to be published on the new platform, however, so the all-XML-shall-pass-through-this-pipeline still had to be used to generate the full-text version, which appeared elsewhere on the new platform, for continuity’s and completeness’ sake. And that pipeline consumes in-house formats most readily, so it still had to be used, again on grounds of convenience (cost, time etc).</para>
+    
+    <para>The analysts who create the content had acknowledged independently that the way in which they captured the “comparable” data fields for the new platform would have to change<footnote><para>They found that introducing consistency for fields which had a fixed set of values helped in their task.</para></footnote>. With the existing editorial format having to be retained, as outlined above, the choice I made was to modify it slightly by introducing new elements inline and constraining their allowed value and occurrence using Schematron at authoring-time. To experienced XML people, this kind of validation is the <foreignphrase>sine qua non</foreignphrase> of data quality and integrity, but it was a significant step in this workflow, as the only validation to date had been by a (quite permissive) DTD. Furthermore, the CMS which stored the content carried out no validation on receipt. So it had been perfectly possible to publish invalid content, something less desirable when the content did not only have to look right.</para>
+    
+    <para>So it was decided that for new content, this new editorial format would be used and enforced by a Schematron schema, making it an editorial responsibility to ensure structurally correct content.</para>
+    
+    <para>With the XHTML to JSON pipeline already in place at the publication end of the workflow, I also needed to produce XSLT which would transform the new editorial format to XHTML. (Those for the old editorial format could have been re-worked, but new transaction types had been added in the meantime along with changes and additions to the fields to be included in the new format, so this option was less attractive.)</para>
+    
+  </section>
+  
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>A level of indirection</title>
+    <para>The experience of the migration was like a dry run for the new editorial format. Two assets would need creating and managing over time:</para>
+    <orderedlist>
+      <listitem>
+        <para>editorial Schematron (this time applied at the content-writing stage);</para>
+      </listitem>
+      <listitem>
+        <para>XSLT to transform editorial format to XHTML.</para>
+      </listitem>
+    </orderedlist>
+    <para>Each of these would need creating for around a dozen content types, with others slated for addition.</para>
+    <para>Faced with a sizeable time estimate to create these, based on the preceding migration work, I considered:</para>
+    <blockquote>
+      <para>What if the fielded data and their respective types could themselves be abstracted, and this expressed as XML, from which to generate the additional assets?</para>
+    </blockquote>
+    
+    <para>So I devised a general format that could be used for all transaction types, expressed by a RELAX NG schema plus Schematron schema. From this, it is possible to write transforms to generate both the editorial Schematron and the XSLT for creating XHTML from the editorial XML.</para>
+    
+    <figure>
+      <title>Configuration format and outputs</title>
+      <mediaobject>
+        <imageobject>
+          <imagedata fileref="images/as2016-configuration-format.jpg" width="100%">
+          </imagedata>
+        </imageobject>
+      </mediaobject>
+    </figure>
+    
+    <section>
+      <title>The format</title>
+      
+      <programlisting language="relaxng">start =
+  element transaction {
+    attribute type { transaction-types },
+    element group {
+        attribute label { text },
+        element field {
+          attribute id { xsd:ID },
+          attribute type { data-types },
+          attribute occurs 
+            { occurrence-indicators }?,
+          attribute controlledList{ text }?,
+          attribute isCompanyName
+            { string "true" | "false" }?
+        }+
+     }+
+  }
+
+data-types = string
+"date" | 
+"country" | 
+"currency" |
+"integer" |
+"string" | 
+"boolean" | 
+"percentage" | 
+"controlled-list"
+
+occurrence-indicators = string 
+"?" | 
+"+" | 
+"*" | 
+"1"</programlisting>
+      
+      <para>The root element is refined for each transaction by its <code>@type</code>, which is e.g. a merger and acquisition. Sections within the data are modelled by <code>&lt;group&gt;</code>s, which have a <code>@label</code>. </para>
+      
+      <para>The ID of each field corresponds to the <code>row/@class</code> in the editorial format.</para>
+      
+      <para><code>field/@controlledList</code> refers to a controlled list contained in a separate lookup, when <code>field/@type='controlled-list'</code> is specified. <code>field/@type='boolean'</code> is strictly speaking a controlled list with two allowed values, “Yes” or “No” – but since these are very common, I used this as shorthand instead.</para>
+      
+      <para><code>@isCompanyName</code> is a flag to indicate that any trailing text in parentheses (optionally specifying the company’s role in a transaction, such as the acquiring party in a takeover) should be removed.<footnote><para>It isn’t a distinct datatype of its own because it was a late addition and the exact requirement was emergent; it would perhaps more naturally be <code>type='companyName'</code> instead.</para></footnote></para>
+      
+      <para>Note that string+ or controlled-list+ means multiple <code>&lt;p&gt;</code>s within the XHTML <code>&lt;td&gt;</code>; a percentage or currency combined with ‘<code>+</code>’ implies a range of two values.</para>
+        
+        <para>The Schematron schema contains a few sanity checks that e.g. <code>@type='boolean'</code> could only occur once for a given field.</para>
+      
+    </section>
+    
+    <section>
+      <title>XSLT to generate XSLT</title>
+      <para>The transform reads in the configurations for all the transaction types and outputs a single stylesheet (purely for ease of distribution), using one mode per transaction type. The skeleton structure of the XHTML output is constructed from each configuration (titled sections containing tables), with each KVP-containing table row processed by the relevant datatype-specific template.</para> 
+      
+      <!--[EXAMPLE]-->
+      <para>For an example, see <xref linkend="paper-12_auto-generated-XSLT"/>.</para>
+      
+      <para>These comprise the only hand-crafted portion of the editorial XML to XHTML transform.</para>
+    </section>
+    
+    <section>
+      <title>XSLT to generate Schematron</title>
+      <para>The Schematron schema contains generic patterns which can be applied to several fields, mainly to validate their datatype and cardinality, as well as a small handful of manually-created rules of either global or very specific applicability.</para> 
+      
+      <para>For most fields, their IDs (<code>row/@class</code>) are stored in a variable according to datatype, e.g.</para>
+      
+      <programlisting language="schematron">&lt;let name="currency-classes" 
+value="$lookup-classes
+[@type='currency-classes']/value"/&gt;</programlisting>
+      
+      <para>and each generic pattern then references the class values:</para>
+      
+      <programlisting language="schematron">&lt;pattern id="currency-only-cell"&gt;
+&lt;rule context="row
+  [@class = $currency-classes]/entry[2]"&gt;
+  &lt;assert test="*[1]
+  [self::range[value] or self::value] 
+  and count(value|range[value]) = 1"&gt;
+  "&lt;value-of select="../entry[1]"/&gt;" 
+  must contain a single currency value or range 
+  of values only&lt;/assert&gt;
+        &lt;/rule&gt;
+      &lt;/pattern&gt;</programlisting>
+      
+      <para>The lookup (<code>$lookup-classes</code>) referenced by each let here is automatically generated from the configurations, therefore only the configuration files need to be maintained for the appropriate constraint to be applied to an added or amended field.</para>
+      
+      <para>In the case of the controlled list datatype, an abstract pattern was used, with the class(es) and allowed value(s) being passed in:</para>
+      
+      <programlisting language="schematron">&lt;pattern id="controlled-list-cell-para" 
+  abstract="true"&gt;
+&lt;rule context="row[@class 
+  = $class]/entry[2]/para"&gt;
+&lt;assert test=". = $controlled-list-values"&gt;
+  "&lt;value-of select="../../entry[1]"/&gt;" 
+  must contain one of: 
+  &lt;value-of 
+    select="string-join
+    ($controlled-list-values, ', ')"/&gt;;
+    got "&lt;value-of select="."/&gt;"&lt;/assert&gt;
+&lt;/rule&gt;
+&lt;/pattern&gt;
+      
+&lt;pattern id="controlled-list_ABC-XYZ"
+  is-a="controlled-list-cell-para"&gt;
+  &lt;param name="class" 
+    value="'marketForTheIssuersShares' 
+    and $transaction-type = ('ABC','XYZ')"/&gt;
+  &lt;param name="controlled-list-values" 
+    value="$lookup-values
+    [@type='main-aim-other']/value"/&gt;
+&lt;/pattern&gt;</programlisting>
+      
+      <para>This allowed the transaction type to be added as an optional dimension to the lookup, for instance where fields with the same ID in different transaction types used different controlled lists.<footnote><para>I could have avoided this with IDs unique across all transaction types, but wanted to make the configurations as easy to maintain as possible.</para></footnote></para>
+      
+      <para>Each of these concrete patterns was generated automatically also. The controlled list lookup (referred to in <code>$lookup-values</code> above) is a manually-curated XML file.</para>
+      
+      
+    </section>
+      <section>
+        <title>End-to-end example</title>
+        <!--one suitable field from spec-->
+        <para>To show how this works in practice, let us consider take an example of a field to be filled with one or more strings from a fixed list of values.</para>
+        
+        <example>
+          <title>Configuration for field to contain value(s) from a controlled list</title>
+          <programlisting language="xml">&lt;field id="favouriteXMLTechnology" 
+  type="controlled-list"
+  controlledList="XML-technologies" occurs="+"/&gt;</programlisting>
+        </example>
+        
+        <!-- editorial XML -->
+        <para>In the editorial format this might appear as:</para>
+        
+        <programlisting language="xml">&lt;row class='favouriteXMLTechnology'&gt;
+  &lt;entry&gt;Favourite XML technology/-ies&lt;/entry&gt;
+  &lt;entry&gt;
+    &lt;para&gt;XSLT&lt;/para&gt;
+    &lt;para&gt;XQuery&lt;/para&gt;
+    &lt;para&gt;XForms&lt;/para&gt;
+  &lt;/entry&gt;
+&lt;/row&gt;</programlisting>
+        
+        <para>where the hand-crafted lookup for the allowed values is:</para>
+        
+        <programlisting language="xml">&lt;values type='XML-technologies'&gt;
+  &lt;value&gt;XForms&lt;/value&gt;
+  &lt;value&gt;XPath&lt;/value&gt;
+  &lt;value&gt;XProc&lt;/value&gt;
+  &lt;value&gt;XQuery&lt;/value&gt;
+  &lt;value&gt;XSLT&lt;/value&gt;
+&lt;/values&gt;</programlisting>
+        
+        <para>The auto-generated XSLT for the field is then:</para>
+      
+        <!-- generated XSLT-->
+        <example xml:id="paper-12_auto-generated-XSLT">
+          <title>Auto-generated XSLT for value(s) from a controlled list</title>
+          <programlisting language="xslt">&lt;xsl:template 
+  match="row[@class='favouriteXMLTechnology']"
+  mode="example"&gt;
+  &lt;xsl:call-template 
+    name="controlled-list-multi"/&gt;
+&lt;/xsl:template&gt;</programlisting>
+        </example>
+        
+        <para>And for reference, the relevant hand-crafted templates:</para>
+        
+        <programlisting language="xslt">&lt;xsl:template name="controlled-list-multi"&gt;
+  &lt;xsl:variable name="para" as="item()+"&gt;
+    &lt;xsl:apply-templates select="entry[2]/para"
+                         mode="html"/&gt;
+  &lt;/xsl:variable&gt;
+
+  &lt;xsl:apply-templates select="." mode="datatype"&gt;
+    &lt;xsl:with-param name="value" select="$para"/&gt;
+  &lt;/xsl:apply-templates&gt;
+&lt;/xsl:template&gt;
+        
+&lt;xsl:template match="row" mode="datatype"&gt;
+  &lt;xsl:param name="value" as="item()*"/&gt;
+  &lt;xsl:apply-templates select="entry[1]"/&gt;
+  &lt;xsl:element name="td" 
+    namespace="http://www.w3.org/1999/xhtml"&gt;
+    &lt;xsl:sequence select="$value"/&gt;
+  &lt;/xsl:element&gt;
+&lt;/xsl:template&gt;</programlisting>
+
+        <para>Here is the accompanying Schematron:</para>
+        
+        <!-- generated Schematron --> 
+        <example>
+          <title>Auto-generated Schematron for value(s) from a controlled list</title>
+          <programlisting language="schematron">&lt;pattern id="XML-technologies-controlled-list"
+         is-a="controlled-list-cell-para"&gt;
+  &lt;param name="class"
+         value="('favouriteXMLTechnology')"/&gt;
+  &lt;param name="controlled-list-values"
+    value="$lookup-values
+            [@type='XML-technologies']/value"/&gt;
+&lt;/pattern&gt;</programlisting>
+        </example>
+        
+        <para>And finally, the XHTML output:</para>
+        
+        <!--XHTML output-->
+        <example>
+          <title>XHTML output for value(s) from a controlled list</title>
+          <programlisting language="xml">&lt;tr class='favouriteXMLTechnology'&gt;
+  &lt;td&gt;Favourite XML technology/-ies&lt;/td&gt;
+  &lt;td&gt;
+    &lt;p&gt;XSLT&lt;/p&gt;
+    &lt;p&gt;XQuery&lt;/p&gt;
+    &lt;p&gt;XForms&lt;/p&gt;
+  &lt;/td&gt;
+&lt;/tr&gt;</programlisting>
+        </example>
+        
+      </section>
+    
+  </section>
+  
+  <section xmlns:xl="http://www.w3.org/1999/xlink">
+    <title>Conclusion</title>
+    <para>It was moving away from what had been regarded as a document format to a more data-centric one with the constraints provided by strict validation, that enabled:</para>
+    <orderedlist>
+      <listitem><para>more efficient, better quality and more consistent data capture, including rigour in the use of allowed string values through controlled lists;</para></listitem>
+    <listitem><para>fewer downstream processing errors;</para></listitem>
+    <listitem><para>the derivation of a configuration format for the Schematron schema and XSLT that were needed, which in turn allowed these assets to be managed and maintained much more easily and efficiently.</para></listitem>
+    </orderedlist>
+    
+    <para>The first two result naturally enough from following best practice. Real-world circumstances often mean compromises in this respect. It was the latter point that made the difference here, and the approach arguably would not have been accepted without the initial data migration activity. In terms of lines of code written, the XSLT reduced from c.5,000 from the initial migration to c.600 for the auto-generation work. The work had been estimated to take from 8-12 weeks; the actual time taken was reduced to under four weeks.</para>
+  </section>
+</article>

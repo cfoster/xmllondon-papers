@@ -1,0 +1,1055 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" schematypens="http://relaxng.org/ns/structure/1.0"?><article xmlns="http://docbook.org/ns/docbook" xml:id="paper-11">
+  <info>
+    <title>Interoperability of XProc pipelines</title>
+    <subtitle>A real world publishing scenario</subtitle>
+    <author>
+      <personname>
+        <firstname>Achim</firstname>
+        <surname>Berndzen</surname>
+      </personname>
+      <affiliation>
+        <orgname>&lt;xml-project /&gt;</orgname>
+      </affiliation>
+    </author>
+    <author>
+      <personname>
+        <firstname>Gerrit</firstname> 
+        <surname>Imsieke</surname>
+      </personname>
+      <affiliation>
+        <orgname>le-tex publishing services GmbH</orgname>
+      </affiliation>
+    </author>
+    <abstract>
+      <para>Although XProc is a standard, real-life applications often use optional steps that conformant processors need not
+        implement, or they use extensions. For some of the extensions there exists a specification, EXProc. Others are
+        processor-specific, either bundled with the processor or written by third parties.</para>
+      <para><emphasis role="italic">transpect</emphasis> is a comprehensive XProc framework for checking and converting XML and
+        XML-based document formats. <emphasis role="italic">transpect</emphasis> exploits both extensions shipped with the XProc
+        processor <emphasis role="italic">XML Calabash</emphasis> and extensions written by le-tex. </para>
+      <para>One of this paper’s authors, Achim Berndzen, has ported many of <emphasis role="italic">transpect</emphasis>’s XProc
+        modules and Calabash extensions to his own processor, <emphasis role="italic">MorganaXProc</emphasis>. He also ported a
+        conversion/checking application that is built on these modules to <emphasis role="italic">MorganaXProc</emphasis>.</para>
+      <para>This paper draws on the insights that this migration has brought forth. It presents what pipeline authors, framework
+        developers, and XProc processor vendors need to consider in order to make their pipelines, software libraries, and
+        processors interoperable.</para>
+    </abstract>
+  </info>
+  <section xml:id="paper-11_Sec1">
+    <title>Introduction</title>
+    <para>XProc <xref linkend="paper-11_bib1"/> proves to be a very efficient language when it comes to apply complex chains of
+      operations on sequences of XML documents. In this paper we will evaluate the interoperability of XProc pipelines, i.e. the
+      possibility to migrate a complex pipeline system developed for one XProc processor to another. We take interoperability in
+      this sense to be an indicator for the maturity of XProc and its usability, which in turn is relevant for technology
+      decision makers, pipeline authors, users, and the XProc community as a whole.</para>
+    <para>In order to get some assessment on the interoperability of XProc pipelines, we focus on a real world scenario: The
+      migration of the <emphasis role="italic">transpect</emphasis> pipeline package<footnote xml:id="paper-11_Fn1">
+        <para><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://transpect.io">http://transpect.io</link><emphasis xml:lang="de"> </emphasis></para>
+      </footnote> developed for <emphasis role="italic">XML Calabash</emphasis><footnote xml:id="paper-11_Fn2">
+        <para><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://xmlcalabash.com">http://xmlcalabash.com</link></para>
+      </footnote> to <emphasis role="italic">MorganaXProc</emphasis><footnote xml:id="paper-11_Fn3">
+        <para><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.xml-project.com/morganaxproc/">http://www.xml-project.com/morganaxproc/</link>
+        </para>
+      </footnote>.</para>
+    <para><emphasis role="italic">transpect</emphasis> is a framework for checking and converting XML documents and XML-based
+      data, such as .docx, IDML, and EPUB, developed by le-tex, a premedia services and software development company based in
+      Leipzig, Germany. <emphasis role="italic">transpect</emphasis> is based on open standards, in particular XProc, XSLT 2.0,
+      Relax NG, and Schematron. It has been adopted by many publishers and standardization bodies and is considered as the
+      largest XProc application worldwide ‎[2].</para>
+    <para><emphasis role="italic">transpect</emphasis> was developed using <emphasis role="italic">XML Calabash</emphasis>, the
+      XProc processor created by Norman Walsh (who is also the chair of the W3C’s XProc working group). For a long time
+        <emphasis role="italic">XML Calabash</emphasis> was the only publicly available and actively maintained XProc
+      implementation. It has a 100% score against the XProc test suite. <emphasis role="italic">XML Calabash</emphasis> can
+      therefore be called the “gold standard” of an XProc implementation. </para>
+    <para>The target of our migration project is <emphasis role="italic">MorganaXProc</emphasis>, a new XProc processor
+      developed by &lt;xml-project /&gt;. It also is a complete implementation of XProc (including the extension steps of the
+      EXProc.org library) which has a very high score (99.67%) against the test suite, passing all tests but three, all of which
+      are related to optional and rarely used features of the recommendation.</para>
+    <para>Having a very complex system of XProc pipelines to be taken from a very good XProc implementation to a fairly good
+      one, we think there is a good chance of finding some answers to the question of real world interoperability of XProc
+      pipelines.</para>
+    <para>After giving the term “interoperability” a more precise meaning, we will set the stage for the real word scenario and
+      give you a brief overview of <emphasis role="italic">transpect</emphasis> – the pipeline package to migrate. Then we will
+      give you an insight in what kind of problems to expect for such a migration by looking at the W3C recommendation for
+      XProc, the current state of this technology and its implementations. Based on this assessment, we will give you a report
+      on the real problems of the <emphasis role="italic">transpect</emphasis> migration from one processor to another and how
+      we solved them. Based on our findings, we will come back to the question of interoperability and suggest consequences for
+      technology decision makers and pipeline authors as well as for the XProc community.</para>
+  </section>
+  <section xml:id="paper-11_Sec2">
+    <title>Interoperability in real world scenarios</title>
+    <para>Before we start talking about our migration project, it might be appropriate to get our notion of “interoperability in
+      real world scenarios” a little more precise. In its origins, interoperability means the ability of two systems to work
+      together. The sense in which we use the term “interoperability” here differs slightly from its original use. It comes from
+      W3C’s terminology in the “Technical Report Development Process”, where a working group is asked to “be able to demonstrate
+      two interoperable implementations of each feature”<footnote xml:id="paper-11_Fn4">
+        <para><emphasis xml:lang="de">See </emphasis><xref linkend="paper-11_bib2"/><emphasis xml:lang="de">, 7.4.4</emphasis></para>
+      </footnote> of the technical report. This is primarily intended to make sure that the report is so precise that two
+      independent implementers can build equivalent implementations on this basis. From the position of a technology user,
+      having interoperable implementation means the ability to use the technology in either implementation without any or with
+      only minor changes. This is the sense in which we use the term “interoperability” in this paper. We say that XProc
+      pipelines are interoperable when it is possible to migrate them from one XProc implementation to another without any or
+      with only minor changes.</para>
+    <para>Now, having cited the relevant paper from W3C, our question may seem odd: XProc is a W3C recommendation and
+      interoperability is a requirement for becoming a recommendation, so XProc allows pipeline authors to write interoperable
+      pipelines in our sense. Certified by W3C! No further investigation required.</para>
+    <para>However, that there <emphasis role="italic">can </emphasis>be interoperable pipelines does not mean, that every
+      pipeline running successfully on one conformant processor <emphasis role="italic">is </emphasis>actually interoperable and
+      will also run on another conformant processor. There are mainly two reasons to raise the question of interoperability in
+      real world scenarios:</para>
+    <para>First, XProc in many senses is not a fixed, but an enabling technology. The most prominent feature of XProc in this
+      respect is the open or extensible step library. Implementers are not restricted to the features defined in the
+      recommendation, but will typically enhance their implementation in ways useful for pipeline authors. And authors develop
+      complex systems or packages of XProc pipelines to achieve real-life aims. And to do this, they will make use of additional
+      features that their XProc implementation offers, standard or not.</para>
+    <para>The second kind of doubt regarding interoperability might come up because as already mentioned for a long time there
+      was only one XProc implementation publicly available and actively maintained: <emphasis role="italic">XML
+        Calabash</emphasis> developed by Norman Walsh, who is also the chair of W3C’s XProc working group. Therefore pipeline
+      authors did not even have the chance to test their pipelines in different environments. Of course they may take care to
+      use only those features covered by the recommendation, but in practice their conception of XProc will be what the
+      implementation they use offers, not the technical standards behind the implementation. Therefore, one might argue that we
+      do not have enough experience judging the question of interoperability beyond the test suite yet.</para>
+    <para>And this throws a slightly different light on the question of interoperability: Given that a pipeline author has
+      successfully developed a complex package of pipelines using one XProc processor, how much effort does it take to make this
+      package usable on another XProc processor?</para>
+    <para>Why does interoperability in real world scenarios matter? The answer to this question does obviously depend on who you
+      are. If you are a pipeline author, developing XProc pipeline systems for a customer or your own use, our question of
+      interoperability can be translated to the problem of write once, use everywhere. If XProc is an interoperable technology,
+      there is a good chance to reuse a pipeline that is developed and tested for one implementation with another processor. For
+      pipeline users interoperability means freedom of choice: If I want to use this pipeline, am I chained to a certain XProc
+      processor or can I use every conformant XProc implementation I like?</para>
+    <para>For people making technology decisions, interoperability of XProc pipelines is important, because XProc is in many
+      respects not a technology without alternatives: You can do it with XProc, but you could also use other technologies to
+      chain together complex operations on sequences of XML documents. XProc is best suited for this task because it was
+      designed for it, but this is obviously not the only criterion in a decision for or against the use of XProc.
+      Interoperability might not be the decisive criterion, but surely vendor independence and reusability will be taken into
+      account. Finally for the XProc community a positive judgement about the interoperability would be an approval of the work
+      done, while problems with interoperability might give hints at future tasks.</para>
+  </section>
+  <section xml:id="paper-11_Sec3">
+    <title><emphasis role="italic">transpect’s</emphasis> methodology and its reliance on <emphasis role="italic">XML
+        Calabash</emphasis> extensions</title>
+    <para>Being a framework that is used by more than 20 publishers and standardization bodies for converting and checking a 6-
+      to 7-digit figure of diverse manuscript and typeset pages per annum, <emphasis role="italic">transpect</emphasis>
+      certainly qualifies as a real-life XProc example. What makes it a particularly good test case for migration and
+      interoperability is its reliance on optional steps and <emphasis role="italic">XML Calabash</emphasis> extensions.</para>
+    <para><emphasis role="italic">transpect</emphasis> offers functionality and methodology for converting and checking XML
+      data. </para>
+    <para>The functionality part consists of roughly 25 modules for converting .docx to a flat, DocBook-based intermediate
+        format<footnote xml:id="paper-11_Fn5">
+        <para><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://github.com/le-tex/Hub">https://github.com/le-tex/Hub</link></para>
+      </footnote>, from this format to JATS or TEI XML, from XHTML to InDesign’s IDML, etc. </para>
+    <para>The methodology part is about configuration management (we’ll look at that in a minute) and error reporting –
+      collecting errors and warnings across many conversion steps and presenting them in an HTML rendering of the input, at the
+      error locations. </para>
+    <para>An example for a complex <emphasis role="italic">transpect</emphasis> conversion chain starts from docx, goes via flat
+      and hierarchized DocBook to the publisher’s preferred JATS XML vocabulary and from there to EPUB. <emphasis role="italic">transpect</emphasis> chooses to use an intermediate XML format because it would be too costly to implement the complex
+      section and list hierarchizations etc. for each XML vocabulary. It is easier to do the heavy lifting within one vocabulary
+      (for example, DocBook) and convert from there to other vocabularies such as TEI, JATS/BITS, Springer A++, WileyML, etc. </para>
+    <para>This use of a neutral intermediate format increases the number of conversion steps. After each conversion step, there
+      may be checks that report errors for the consolidated HTML report. These checks are motivated by different quality
+      assurance requirements, such as:</para>
+    <para>Many upconversion operations will rely on consistent use of certain styles in the Word or InDesign input files. These
+      style names may be checked against a list of permitted styles using Schematron. After hierarchization, another Schematron
+      check may detect whether there are appendices before the first book chapter, that all references given in the bibliography
+      are being cited, and what else the publisher may impose as business rules. The final BITS or JATS XML will then be
+      validated against the corresponding Relax NG schema. The resulting EPUB will be checked against IDPF’s epubcheck and
+      additional, E-book-store-specific rules that pertain to minimum image resolution<footnote xml:id="paper-11_Fn6">
+        <para><emphasis xml:lang="de">There is a </emphasis><emphasis role="italic" xml:lang="de">transpect</emphasis><emphasis xml:lang="de"> module, </emphasis><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://github.com/transpect/image-props-extension">https://github.com/transpect/image-props-extension</link><emphasis xml:lang="de">, that reports pixel dimensions,
+            color space, and other information for bitmap files. This extension has originally been written as a Calabash
+            extension that interfaces Java libraries such as Apache Commons Imaging, </emphasis><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://commons.apache.org/proper/commons-imaging/">https://commons.apache.org/proper/commons-imaging/</link></para>
+      </footnote>, maximum file size, required metadata fields, etc.</para>
+    <para>In <emphasis role="italic">transpect</emphasis>, the first conversion step will typically insert so-called @srcpath
+      attributes at every paragraph, formatted text span, image, etc. These @srcpath attributes will be carried along through
+      subsequent conversion checks, including the HTML rendering of the source content. Each Schematron and Relax NG
+        validation<footnote xml:id="paper-11_Fn7">
+        <para><emphasis role="italic">transpect</emphasis>
+          <emphasis xml:lang="de">provides another Calabash extension, </emphasis><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://github.com/transpect/rng-extension">https://github.com/transpect/rng-extension</link><emphasis xml:lang="de">, that uses a patched Jing validator that
+            also reports the XPath location of an error. The usual line number information does not make sense in multi-step
+            pipelines that do not serialize the intermediate XML documents.</emphasis></para>
+      </footnote> will record the @srcpath that is closest to the error location. In a final step, the consolidated error
+      messages will be merged into the HTML rendering, yielding the <emphasis role="italic">transpect</emphasis> HTML
+      report.</para>
+    <para>The steps that unzip IDML or docx input files, determine image properties and report XPath locations for Relax NG
+      validation errors all rely on Calabash extensions that block an easy migration path to another XProc processor.</para>
+    <para>The other main concept pertains to configuration management. Before <emphasis role="italic">transpect</emphasis>’s
+      modular approach was pursued, converters frequently used case switches for handling special cases (for certain imprints,
+      book series, individual books, …). This rendered the conversion code quickly unmaintainable. In other cases, the input
+      files were considered too unimportant to justify case switches in the code. Therefore, they had to be converted manually
+      or with other tools. </para>
+    <para>In <emphasis role="italic">transpect</emphasis>, the detailed step orchestration can be loaded dynamically or even
+      generated for individual production lines. This occurs frequently in multi-pass XSLT conversions where certain production
+      lines necessitate additional conversion steps. </para>
+    <para>In standard XProc, the complete pipeline that will be run must be known in advance. <emphasis role="italic">transpect</emphasis> uses <emphasis role="italic">XML Calabash</emphasis>’s cx:eval step in order to run these
+      dynamically loaded innards of larger steps.</para>
+    <para>(In addition to the XProc orchestration, the applied XSLT, CSS, style lists, Schematron rules, etc. may be loaded
+      dynamically from the so-called conversion cascade.)</para>
+    <para>To summarize, the two core <emphasis role="italic">transpect</emphasis> methodology components, error reports and
+      cascaded configuration, rely heavily on Calabash extensions that wrap Java libraries and on cx:eval, a calabash extension
+      step that allows dynamic evaluation of pipelines.</para>
+  </section>
+  <section xml:id="paper-11_Sec4">
+    <title>Obstacles to expect</title>
+    <para>Which obstacles are to be expected when one tries to migrate a complex pipeline system from one conformant XProc
+      processor to another? If you have some experience with XProc, one thing or the other may cross your mind. In a more
+      systematic perspective we can deduce five different types of obstacles for migration:</para>
+    <orderedlist numeration="arabic">
+      <listitem>
+        <para>The distinction between required and optional steps/features</para>
+      </listitem>
+      <listitem>
+        <para>Implementation-defined features in the W3C recommendation</para>
+      </listitem>
+      <listitem>
+        <para>The proposed extension steps from the EXProc<footnote xml:id="paper-11_Fn8">
+            <para>See <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://exproc.org">http://exproc.org</link></para>
+          </footnote> community initiative</para>
+      </listitem>
+      <listitem>
+        <para>Processor specific steps and author defined steps in a second language such as Java, C, or whatever the processor
+          is able to understand.</para>
+      </listitem>
+      <listitem>
+        <para>Problems from the underlying technologies in façade-steps</para>
+      </listitem>
+    </orderedlist>
+    <para>Let us shortly discuss these types to ensure a common understanding and to get those people on board, who do not work
+      with XProc in their every day life:</para>
+    <section xml:id="paper-11_Sec5">
+      <title>Required and optional steps/features of an XProc processor</title>
+      <para>As a lot of recommendations published by W3C, the recommendation for XProc defines two levels of conformance. First
+        there are “required features”, forcing a conformant implementation to implement these features in the way defined in the
+        recommendation. Secondly there are “optional features” to characterize those features a conformant processor is not
+        required to implement. However if the implementation chooses to cover one or more of these features, they must conform
+        to the recommendation. The most prominent place for this distinction is XProc step library: A conformant processor must
+        implement all 31 required steps and it may implement one or more of the 10 optional steps. To quote from the
+        recommendation: “The following steps are optional. If they are supported by a processor, they must conform to the
+        semantics outlined here, but a conformant processor is not required to support all (or any) of these steps.“<footnote xml:id="paper-11_Fn9">
+          <para><xref linkend="paper-11_bib1"/>, 7.2</para>
+        </footnote></para>
+      <para>Concerning our question of real world interoperability, the threat is obvious: A pipeline author could use an
+        optional step in her pipeline, which is supported by one processor but not implemented in the other. The pipeline will
+        typically fail to compile and raise a static error. And this does concern such practically important steps as running an
+        XQuery expression over a sequence of documents (&lt;p:xquery/&gt;) or the validation of an XML document with Schematron,
+        RelaxNG or XML Schema.</para>
+    </section>
+    <section xml:id="paper-11_Sec6">
+      <title>Implementation-defined features in the W3C Recommendation</title>
+      <para>A brief look at the W3C Recommendation for XProc shows that there are all in all 47 features of XProc listed as
+          “implementation-defined”.<footnote xml:id="paper-11_Fn10">
+          <para><emphasis xml:lang="de">See </emphasis><xref linkend="paper-11_bib1"/>, A.1</para>
+        </footnote> Additionally there are 21 features marked as “implementation-dependent”.<footnote xml:id="paper-11_Fn11">
+          <para>See <xref linkend="paper-11_bib1"/>, A.2</para>
+        </footnote> We will not discuss all these features here: to do so might be boring to readers and they are not all
+        relevant to the question we discuss here. Many implementation-defined features are concerned with the connection of a
+        top level XProc pipeline with the outer world, viz. the problem of providing documents and option values to a pipeline
+        using the user interface of the respective implementation. So it comes up to the question, <emphasis role="italic">how</emphasis> to invoke a pipeline in a given implementation, not whether a pipeline is able to run on a given
+        implementation or not.</para>
+      <para>But others may be important to the question of interoperability, for example provision (20): “The set of URI schemes
+        actually supported is implementation-defined.“<footnote xml:id="paper-11_Fn12">
+          <para><xref linkend="paper-11_bib1"/>, A.1</para>
+        </footnote> If my pipeline system developed for processor <emphasis role="italic">A</emphasis> relies on the
+        availability of a certain URI scheme I cannot expect this scheme to be available on another processor, even though both
+        are conformant implementations. The same does hold for provision (46), stating that processors may support different
+        sets of methods for serializing XML documents.</para>
+      <para>In practical use cases, the most challenging provision concerning implementation-defined or implementation-dependent
+        features may be this: “The evaluation order of steps not connected to one another is implementation-dependent.”<footnote xml:id="paper-11_Fn13">
+          <para><xref linkend="paper-11_bib1"/>, A.2</para>
+        </footnote> This might sound scary if you come from traditional programming languages and are used to think that the
+        sequence of operations is program-defined, not processor-defined. On the other hand: In XProc everything is about
+        sequences of documents flowing through a sequence of steps connected by ports. And the provision says the processor has
+        to respect the connections specified in the pipeline and is free to reorganize the evaluation order of the steps that
+        are not connected. So everything seems fine and there is nothing to worry about. </para>
+      <para>But when you think again, you might come up with a pipeline fragment like this:<footnote xml:id="paper-11_Fn14">
+          <para>This fragment is inspired by<emphasis xml:lang="de"> [3].</emphasis></para>
+        </footnote></para>
+      <para>&lt;nasp:log-in-to-a-web-service /&gt;</para>
+      <para>&lt;nasp:send-data-to-this-service /&gt;</para>
+      <para>Although there is no port connection between the two steps, obviously the log-in step has to be performed before any
+        data is send. With some effort one might be able to rewrite the two steps and establish a port connection between them.
+        But that would be totally against XProc’s spirit: The order of steps is determined by data flow, but here we would
+        construct a data flow to ensure the necessary execution order of the steps.</para>
+      <para>Other examples where the execution order is not as the pipeline auther expects it to be is when a resource stored
+        with &lt;p:store/&gt; (that does not have an output port) is needed in another step, yet the store step is executed
+        after the other step because the XProc processor may choose to do so.</para>
+      <para>So the provision that a processor is free to rearrange the execution order of steps not connected by ports surely
+        poses a great threat on interoperability: A pipeline running perfectly well on one processor may not produce the
+        expected results or even fail because the other processor has chosen to rearrange the steps in a different order. Now,
+        this is obviously not only a threat to interoperability, but may also raise problems if you are working with one
+        processor, because the provision does not state that the order of execution has to be stable concerning different runs
+        of the same pipeline. The execution order might, for example, depend on the latency of some web service or the file
+        system. So even using one processor, you might get wrong results from different runs of the same pipeline. Certainly
+        there are workarounds, as one may introduce artificial connections between steps just to control the order of execution,
+        but this may surely lead to more complex or even unreadable pipelines.</para>
+      <para>One might therefore argue that the “reorder rule” is at least a problematic aspect of the recommendation. Norman
+        Walsh seems to agree with this, because in <emphasis role="italic">XML Calabash</emphasis> he provides a possibility to
+        say that step <emphasis role="italic">A</emphasis> has to be executed after step <emphasis role="italic">B</emphasis>
+        even if the two steps are not connected by ports. To do this, he introduced an extension attribute called
+        “cx:depends-on” containing a whitespace separated list of step names which must be executed before the step with the
+        attribute is executed. As Walsh stated<footnote xml:id="paper-11_Fn15">
+          <para>[4]<emphasis xml:lang="de">, 5.2</emphasis></para>
+        </footnote>, this solution does solve the problem for one processor, but is a threat to the interoperability of a
+        pipeline with other processors, because of the very nature of extension attributes.</para>
+      <para>Extension attributes are defined in the XProc recommendation, section 3.8. Formally an extension attribute is an
+        attribute used on an element in an XProc pipeline, usually a step, where the attribute name has a non-null namespace URI
+        and is not in one of XProc’s namespaces. Any implementer is free to introduce such attributes as long as the
+        requirements of the recommendation are met, and any other processor “which encounters an extension attribute that it
+        does not implement must behave as if the attribute was not present.” Now the typical situation to expect when using an
+        extension attribute is that one processor (the one who introduces the attribute) will behave differently than the other
+        processor (not knowing the attribute and therefor ignoring it). The exact outcome of using an extension attribute in
+        terms of interoperability depends heavily on the semantics of the attribute. As we can suggest that the implementer
+        introduced the attribute in order to get some effect, we can expect different behaviour of the same pipeline using
+        different processors in all cases, but the impact might vary: One can think of extension attributes used for debugging
+        purposes, invoking some extra effect to a step without changing its “normal” behaviour, but there might also be
+        extension attributes completely changing the behaviour of the step by producing another kind of output when present. To
+        sum this up: Extension attributes are a potential threat to the interoperability of pipelines as the other
+        implementation-defined or implementation-depended features, but their impact cannot be judged in general but has to be
+        considered from case to case.</para>
+    </section>
+    <section xml:id="paper-11_Sec7">
+      <title>The proposed extension steps from the EXProc community initiative</title>
+      <para>The next two possible obstacles to interoperability of pipelines result from one of the most interesting aspects of
+        this language: the open step library. Apart from the steps defined in the recommendation (as mandatory and optional
+        steps), there are additional steps proposed by a complementary community initiative called EXProc. The steps from the
+        EXProc library differ from those in the recommendation in at least three aspects that are important for the question of
+        interoperability:</para>
+      <itemizedlist mark="bullet">
+        <listitem>
+          <para>Until now, there are no procedures to decide whether a proposed step is actually a good idea or not. Therefore
+            every implementer of XProc can decide on his own, possibly resulting in different step libraries of the XProc
+            processors to migrate from or to.</para>
+        </listitem>
+        <listitem>
+          <para>The definitions of the steps in the EXProc community initiative are definitely not on the same level of
+            precision as the steps defined in the recommendation, so we might expect different interpretations of the step’s
+            behaviour.</para>
+        </listitem>
+        <listitem>
+          <para>Thirdly there are no tests defined for these steps, so implementers cannot check their implementation by running
+            tests ensuring the expected behaviour is actually delivered by the step’s implementation.</para>
+        </listitem>
+      </itemizedlist>
+      <para>In terms of interoperability these steps can be put in the same box as the optional steps defined in the
+        recommendation: Each implementer is free to implement none, some or even all of them. But as these steps are not part of
+        the recommendation, two processors may be conformant but implement different behaviour and therefore produce different
+        output for a pipeline containing one or more of them. And this effect does not come necessarily from an error or a bug,
+        but may result from different interpretations of the (rudimentary) description of the EXProc steps. </para>
+      <para>To give you an example: EXProc.org defines a step called &lt;pxp:zip /&gt; which creates a zip archive and is
+        expected to return a description of this archive. One feature of this description is the size of a compressed file,
+        which is not actually returned by every implementation. Some (<emphasis role="italic">MorganaXProc</emphasis> for
+        example) just return “-1” because they are not able to determine the size for every type of output stream (e.g. when the
+        zip is creates on a web service). Is this a correct implementation of &lt;pxp:zip /&gt; or not? You cannot tell this
+        from the step’s description. And this is certainly a possible threat to the interoperability of pipelines, because a
+        pipeline may (for what ever reason) depend on knowing the correct size of the archive.</para>
+    </section>
+    <section xml:id="paper-11_Sec8">
+      <title>Processor specific steps and author defined steps in a second language</title>
+      <para>Next up on our list of obstacles to the interoperability are processor specific steps, viz. steps that are part of
+        the processor’s built-in step library, but not covered by either the recommendation or the EXProc community process.
+        Since they come with the processor as vendor specific extensions, it is very unlikely that a pipeline containing one of
+        these steps will run (typically not even compile) on another processor. The fact that the step did not make it to the
+        two libraries can be taken as a hint that only a small group of people are interested in this step. So the motivation
+        for another implementer to take the step into her processor specific library may be very low.</para>
+      <para>The second, also processor-specific threat to interoperability comes from author-defined steps in a second language:
+        Typically, an XProc processor allows a pipeline author to define atomic steps in a second language, i.e. not in XProc
+        but in another programming language. And normally this will be the language in which the processor itself is written,
+        because this is obviously the easiest solution. This way of enhancing XProc’s standard library is explicitly mentioned
+        in the recommendation, but all details are declared to be “implementation-dependent”<footnote xml:id="paper-11_Fn16">
+          <para><emphasis xml:lang="de">See </emphasis>
+            <xref linkend="paper-11_bib1"/>, 5.8.1</para>
+        </footnote>.</para>
+      <para>This is done with good reasons, because taking a piece of say Java or C code implementing an XProc step to a
+        processor is only possible as a deep intervention. Any attempt to define an interface of an XProc processor to another
+        programming language would severely restrict the implementer. To understand this, we have to recognize we are not only
+        facing the problem of telling the processor which part of a second language code should be used for a specific atomic
+        step. This is in fact the easiest aspect of the problem. The more complex part is to connect the secondary language code
+        to the processor, so the processor can call this code when necessary. Remember that an atomic step in XProc has </para>
+      <itemizedlist mark="bullet">
+        <listitem>
+          <para>a list of input ports, each holding a sequence of XML documents, </para>
+        </listitem>
+        <listitem>
+          <para>a list of options, each holding a value, and </para>
+        </listitem>
+        <listitem>
+          <para>a list of output ports with XML documents representing the result of the step’s performance.</para>
+        </listitem>
+      </itemizedlist>
+      <para>How to represent this information necessary for the call and how to represent the data, supplied in calling the
+        step, is highly processor specific, because it is a part of the basic decisions an XProc implementation has to
+        make.</para>
+      <para>Given this, one may be tempted to say, that the piece of second language code has nearly nothing to do with XProc,
+        but has a great deal to do with the processor. It is almost impossible for an author-implemented steps used with
+        processor A to be runnable on processor B. So here we have one aspect of the recommendation, which seems to be an
+        insuperable barrier to interoperability of pipelines. If a pipeline needs to enhance the step library with an
+        author-defined step in a secondary language it is impossible to take it to another processor without any changes.</para>
+    </section>
+    <section xml:id="paper-11_Sec9">
+      <title>Problems from the underlying technologies in façade-steps</title>
+      <para>To complete our discussion of obstacles to interoperability we would like to mention one more point: Apart from
+        offering a good processing model for XML pipelines and having a rich step library, XProc is also designed to provide
+        façades for other XML technologies like XSLT, XQuery, XSL-FO, to mention just a few.<footnote xml:id="paper-11_Fn17">
+          <para><emphasis xml:lang="de">See [5], p. 133</emphasis></para>
+        </footnote> An XProc step like &lt;p:xslt/&gt; acts as a standardized interface to activate an XSLT transformation on an
+        XML document and to retrieve the transformation result. These technologies are mostly older and therefore presumably
+        more mature than XProc, but there is no conclusive reason to see them as perfect. And consequently all the obstacles to
+        interoperability in our sense that are connected to the XML technologies used (inaccurateness in the recommendation,
+        implementation-defined features, idiosyncrasies of the implementation) will also directly constrain the interoperability
+        of XProc pipelines using these technologies.</para>
+      <para>To give a concrete example of this type of problem, one might refer to Saxon’s implementation of the collection
+          function<footnote xml:id="paper-11_Fn18">
+          <para>See <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.saxonica.com/html/documentation9.6/sourcedocs/collections.html">http://www.saxonica.com/html/documentation9.6/sourcedocs/collections.html</link></para>
+        </footnote> where a file URI invokes a catalog-resolving process, while a directory URI might have query elements to
+        select specific files from the folder. These very useful mechanisms are used quite a lot, but they are not standardized.
+        The threat to interoperability here does not rise directly from anything in the XProc recommendation, but from the fact
+        that there is a &lt;p:xslt/&gt;-step defined for which different XProc processors may use different third party
+        implementations.</para>
+    </section>
+  </section>
+  <section xml:id="paper-11_Sec10">
+    <title>Back to our real world example: What obstacles to expect? </title>
+    <para>Now having looked at possible obstacles of migration to expect from the knowledge of XProc and its specification,
+      which of them did we actually expect to matter for our migration project?</para>
+    <para>As we said, both XProc implementations, <emphasis role="italic">XML Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis>, implement all required members of the step library as well as the optional library and the
+      step libraries proposed by EXProg.org. <emphasis role="italic">XML Calabash</emphasis> has a perfect score of 100%
+      conformance with the test suite, <emphasis role="italic">MorganaXProc</emphasis> is almost equivalent with 99.67%. The
+      three tests where <emphasis role="italic">MorganaXProc</emphasis> fails cover optional features (PSVI and XML 1.1.), which
+      are not relevant for our project. So there seems to be a fairly good chance to prove interoperability of XProc by
+      successfully migrating <emphasis role="italic">transpect</emphasis> from <emphasis role="italic">XML Calabash</emphasis>
+      to <emphasis role="italic">MorganaXProc</emphasis>.</para>
+    <para>On the other hand it was clear from our very start that we had to face problems concerning our migration project in at
+      least four points:</para>
+    <para>The first point has nothing or very little to do with XProc, but with the practical requirements of complex XProc
+      pipeline systems to be deployed to different users: <emphasis role="italic">resource management</emphasis>. Real live
+      XProc pipelines are typically no self-containing files, but have links to some sources outside the pipeline. For example a
+      pipeline may import a library with XProc steps declarations, call an XSLT stylesheet stored in another file or use an
+      Schematron schema stored in yet another file. This is a typical situation for a complex pipeline system because one may
+      put the resource into the XProc pipeline document itself, but in production contexts this is not an option for reasons
+      related to readability, maintenance and storage size.</para>
+    <para>XProc as a language has only rudimentary support for this kind of situation. One may do all the references with
+      relative URIs because XProc will resolve all relative URIs by using the pipeline’s base URI. This might work for some
+      relatively small systems of pipelines but is of course difficult to maintain in complex systems.</para>
+    <para>To cope with the problem of resource or dependency management, at least two different additions to XProc are in the
+      field: XML Catalog<footnote xml:id="paper-11_Fn19">
+        <para><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://xmlcatalogs.org">http://xmlcatalogs.org</link>
+        </para>
+      </footnote> and the EXPath packaging system [6]. The common basic idea is to use some kind of virtual or canonical URI in
+      pipelines to point to external resources and then to have a system for resolving this virtual URI to the “real” URI of the
+      requested resource. Now unfortunately <emphasis role="italic">transpect</emphasis> uses XML Catalog, which is not
+      supported by <emphasis role="italic">MorganaXProc</emphasis>, which in turn uses the EXPath packaging system. <emphasis role="italic">XML Calabash</emphasis> also supports the latter via an extension developed by Florent Georges [7]. So the
+      problem does not seem insuperable, but there is definitely some work to be done to get the pipeline system from <emphasis role="italic">XML Calabash</emphasis> to <emphasis role="italic">MorganaXProc</emphasis>.</para>
+    <para>The second source of problems, which was clear from the start, are user-written steps in a secondary language, here in
+      Java. <emphasis role="italic">transpect</emphasis> comes with four additional steps, which are quite necessary for the
+      tasks to perform:</para>
+    <orderedlist numeration="arabic">
+      <listitem>
+        <para>&lt;tr:unzip/&gt; has the task to extract a complete zip file or a single contained file to a specified
+          destination folder. This task cannot be performed by &lt;pxp:unzip/&gt;, because the latter is designed to produce an
+          XML document on the result port. The task of &lt;tr:unzip/&gt; on the other hand is to unzip the complete archive with
+          XML documents, graphic files and so on to a specific location in the file system.</para>
+      </listitem>
+      <listitem>
+        <para>&lt;tr:validate-with-rng/&gt; uses a patched version of “jing.jar” to generate a report of the validation, where
+          each error has its location in the document expressed as XPath instead of line numbers. So here we get a detailed
+          report of the validation result, while the optional step &lt;p:validate-with-relax-ng/&gt; in the XProc recommendation
+          is just designed to make sure that the document passes the validation.</para>
+      </listitem>
+      <listitem>
+        <para>&lt;tr:image-identify/&gt; reads image properties from raster images and</para>
+      </listitem>
+      <listitem>
+        <para>&lt;tr:image-transform/&gt; transforms raster images.</para>
+      </listitem>
+    </orderedlist>
+    <para>It might be unusual for a typical XProc pipeline system to depend on user-written extension steps in a secondary
+      language, but XProc does offer this mechanism and so any migration project like ours has to be aware of it. As both
+        <emphasis role="italic">XML Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis> are written in Java
+      and the user-written steps are in Java as well, our concrete project does not have to face the full range of problems. But
+      there is still the problem of connecting the user-written code to two implementations with a very different inner
+      life.</para>
+    <para>The third problem rises from the above-mentioned differences in the implementation-specific step library. <emphasis role="italic">XML Calabash</emphasis> supports all in all more than 25 steps neither mentioned in the recommendation nor
+      being part of the EXProc community process. In contrast <emphasis role="italic">MorganaXProc</emphasis> supports only two
+      special or processor specific extension steps. Surprisingly only two steps proved to be relevant: <emphasis role="italic">transpect</emphasis> uses <emphasis role="italic">XML Calabash</emphasis>’s extension steps &lt;cx:eval/&gt; and
+      &lt;cx:message/&gt; quite a lot. And <emphasis role="italic">MorganaXProc</emphasis> does not support either of the steps,
+      if we are to speak strictly. </para>
+    <para>Just a quick description for those of you not perfectly familiar with <emphasis role="italic">XML
+      Calabash</emphasis>’s extension library: &lt;cx:eval/&gt; evaluates a dynamically constructed pipeline. This clearly adds
+      a new level of possibilities to XProc: You can construct a pipeline within XProc, using XProc’s steps or XSLT or XQuery
+      and then you can execute this pipeline within the XProc environment. The second step &lt;cx:message/&gt; is much more
+      boring: It simply writes a message out to the console. Two quite useful steps.</para>
+    <para>What does it mean when we say that <emphasis role="italic">MorganaXProc</emphasis> does not support these two steps if
+      one is speaking strictly? The obvious problem is that the names of the two steps are in a namespace and that this
+      namespace is connected or represented by an URI starting with “<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://xmlcalabash.com/extension/steps/library-1.0.xpl">http://xmlcalabash.com/</link>”. One might argue
+      that this namespace belongs to <emphasis role="italic">XML Calabash</emphasis> and that therefore no other processor
+      should use it. This is because it is up to <emphasis role="italic">XML Calabash</emphasis> and its developer to define the
+      semantics of any step in this namespace. And it is also the exclusive right of the namespace’s owner to redefine the
+      semantics without consent of any other person and without prior announcement. So it is presumably a wise decision of any
+      other implementer, not to use this namespace, because the semantics of the steps implemented might change and his
+      implementation is not keeping up with this change. Given this line of argumentation, which is surely disputable, <emphasis role="italic">XML Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis> cannot have common steps
+      beyond the scope of the recommendation and the EXProc.org process. Even if both implementers choose to implement a step
+      with exactly the same behaviour, these never ever will be the <emphasis role="italic">same step</emphasis>, because they
+      have different names in different namespaces.</para>
+    <para>This argumentation might be too strongly rooted in linguistic theories for our practical purposes. But it also gives
+      us a hint of how to solve the problem: That an identical concept (here: step) is expressed by different names in different
+      languages is a known situation in linguistics. In fact it is the authority for translating one word from one language into
+      another word in another language. </para>
+    <para>The problem with &lt;cx:message/&gt; in the context of migration does not seem too big, since these messages do not
+      contribute to the results of any pipeline. One may simply ignore the step when the pipeline runs on a processor that does
+      not know how to execute it. To raise the excitement: We found another solution.</para>
+    <para>Now while &lt;cx:message/&gt; might be ignored, &lt;cx:eval/&gt; surely is a foreseeable burden for the migration
+      because <emphasis role="italic">transpect</emphasis> deeply depends on it and there is no workaround in sight using
+      “conventional XProc”.</para>
+    <para>The last problem we expected comes from the extension attribute “depends-on” introduced by <emphasis role="italic">XML
+        Calabash</emphasis>, which is heavily used in <emphasis role="italic">transpect</emphasis>. As mentioned, this attribute
+      allows pipeline authors to state that step <emphasis role="italic">B</emphasis> must be executed after step <emphasis role="italic">A</emphasis>, even when no input port of <emphasis role="italic">B</emphasis> is connected to any output
+      port of <emphasis role="italic">A</emphasis>. At the first sight this does not seem to be a problem at all as <emphasis role="italic">MorganaXProc</emphasis> does not do any reordering or parallel processing of steps. It simply executes the
+      steps in the physical order written in the pipeline, i.e., in document order. But on second thought one might imagine a
+      pipeline author relying on the attribute and its semantics while writing a pipeline that should not be executed in the
+      physical order of the steps. Luckily <emphasis role="italic">MorganaXProc</emphasis> also supports an extension attribute
+      “depends-on”. Here we have the problem with the different namespaces and therefore with the different attributes again.
+      But the recommendation holds the key to an easy solution: “A processor which encounters an extension attribute that it
+      does not implement must behave as if the attribute was not present.” So <emphasis role="italic">XML Calabash</emphasis> is
+      advised to ignore an attribute in <emphasis role="italic">MorganaXProc</emphasis>’s namespace and <emphasis role="italic">MorganaXProc</emphasis> must ignore the attribute belonging to <emphasis role="italic">XML Calabash</emphasis>’s
+      namespace. Consequence: We can have a step with both attributes to enforce execution order, each processor just reacting
+      to the attribute that it recognizes.</para>
+  </section>
+  <section xml:id="paper-11_Sec11">
+    <title>Off to the lab: Found problems</title>
+    <para>Expectations are one thing; reality in most cases is another. So: What types of additional problems did we actually
+      face when trying to migrate <emphasis role="italic">transpect</emphasis>? </para>
+    <para>The first thing that struck us when starting the actual migration process was that there is no defined way in the
+      recommendation to import extension steps. Although <emphasis role="italic">XML Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis> both support the complete range of atomic extension steps of EXProc.org, you
+      cannot compile a pipeline created for <emphasis role="italic">XML Calabash</emphasis> with <emphasis role="italic">MorganaXProc</emphasis>. The reason for this is that, according to the recommendation, the “processor must know how to
+        perform.”<footnote xml:id="paper-11_Fn20">
+        <para><xref linkend="paper-11_bib1"/>, 4.8</para>
+      </footnote> Neither <emphasis role="italic">XML Calabash</emphasis> nor <emphasis role="italic">MorganaXProc</emphasis>
+      know how to perform say &lt;pxf:mkdir/&gt; without any import. They fail with XS0044: “… the presence of atomic steps for
+      which there is no visible declaration may raise this error”. </para>
+    <para>How can we make the declaration visible in <emphasis role="italic">XML Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis>? Surprisingly neither EXProc.org nor the recommendation defines a strategy. <emphasis role="italic">XML Calabash</emphasis> chooses to incorporate all extension steps into a global library to be imported by
+        “http://xmlcalabash.com/extension/steps/library-1.0.xpl”.<footnote xml:id="paper-11_Fn21">
+        <para><emphasis xml:lang="de">See [4], 5.6</emphasis></para>
+      </footnote>
+      <emphasis role="italic">MorganaXProc</emphasis> chooses to use the namespace URI of the extension library also for the
+      import. And both processors do not actually read the step declarations from the URI, but have an internal representation
+      of the steps to be imported when the URI is found on a &lt;p:import/&gt;. Now this obviously makes the migration of a
+      pipeline importing one of these steps very difficult as the URI used in the import is a “special trigger” for one
+      processor, but seems to be a regular URI pointing to a library for the other. Currently the URI used by <emphasis role="italic">XML Calabash</emphasis> actually points to a textual representation of the pipeline to be imported. But
+      that may change over time. The URI used by <emphasis role="italic">MorganaXProc</emphasis> does not point to a library and
+      since the URI starts with “http://exproc.org”, there is no way to create such a textual representation for the processor’s
+      implementer.</para>
+    <para>One consequence of this situation is that you cannot have a pipeline using both ways of importing the step running on
+      both processors. <emphasis role="italic">MorganaXProc</emphasis> accepts the “special trigger” of <emphasis role="italic">XML Calabash</emphasis> (as there currently is a file at the designated position), but <emphasis role="italic">XML
+        Calabash</emphasis> will not accept a pipeline using “http://exproc.org/proposed/steps/file” to import the step library.
+      It will correctly raise a static error (err:XS0052), because there is no library at this URI.</para>
+    <para>The second type of problem we found trying to run <emphasis role="italic">transpect</emphasis> on <emphasis role="italic">MorganaXProc</emphasis> was a different behaviour of steps from the standard library in the two
+      processors. This came as a big surprise, because the steps in the standard library seem to be well defined in the
+      recommendation and the conformity of an implementation seems to be guaranteed by passing the respective test in the test
+      suite. However this is not true for at least three steps, where <emphasis role="italic">XML Calabash</emphasis> and
+        <emphasis role="italic">MorganaXProc</emphasis> have different interpretations and therefore implement different
+      behaviour. </para>
+    <para>The first step is &lt;p:store/&gt; which is used to write a serialized version of the document on the step’s input
+      port to a URI named by the step’s option “href”. According to the recommendation, a dynamic error (err:XC0050) must be
+      raised, “if the URI scheme is not supported or the step cannot store to the specified location.” The differences in
+      interpreting the step’s definition apply to the error conditions in which the processor has to raise “err:XC0050”.
+      Supposing the URI scheme used is “file”, what to do, if the document is to be stored into a folder that does not exist?
+        <emphasis role="italic">XML Calabash</emphasis> creates the folder hierarchy to store the file while <emphasis role="italic">MorganaXProc</emphasis> sees itself unable to store the file at the specified position and therefore
+      raises “err:XS0050”.</para>
+    <para>There are good arguments for both interpretations: <emphasis role="italic">MorganaXProc</emphasis> takes a very
+      literal approach to the provisions in the recommendation reading: The serialized version of the document must be storable
+      at the specified location or an error must be raised. This seems to be a legitimate reading of the recommendation.
+        <emphasis role="italic">XML Calabash</emphasis> obviously has a broader conception of “storing at a specified location”
+      which includes creating the folders necessary to do so. One basic argument for this interpretation may come from the fact
+      that &lt;p:store/&gt; does not only support URI scheme “file” but may also support “http” and that there is no concept of
+      folders associated with “http”. As URIs are opaque here, an XProc processor cannot ask for a parent folder to exist. So
+      creating the folder hierarchy with “file” is perfectly legitimate. Another argument in support for the interpretation put
+      forward by <emphasis role="italic">XML Calabash</emphasis> comes from the fact that there is no way to create a folder in
+      the XProc standard library. Therefore pipelines could never put their results into a specific folder unless the user
+      created this folder before running the pipeline. And even when we take into account that there is a step
+      &lt;pxf:mkdir/&gt; defined in the EXProc.org extension library, the solution <emphasis role="italic">XML
+        Calabash</emphasis> found would comprise only one step, while with <emphasis role="italic">MorganaXProc</emphasis> one
+      has to call at least two steps.</para>
+    <para>Looking deeper into this problem, we found that the different interpretations do not only apply to &lt;p:store/&gt;
+      but also to &lt;pxf:copy/&gt; and &lt;pxf:move/&gt;. <emphasis role="italic">XML Calabash</emphasis> will copy or move a
+      resource to the designated URI and will at the same time make sure that the respective parent resources will be created.
+      Now <emphasis role="italic">MorganaXProc</emphasis> is also consistent with its interpretation, so it will raise
+      “err:FU01” if the resource cannot be copied or moved to the position in the file system because the folder hierarchy
+      necessary to do so does not exist.</para>
+    <para>To find different possibilities of interpretation with a step in the standard step library was quite astonishing, but
+      as hinted above, the provisions concerning &lt;p:store/&gt; are not the only source of argumentation. The second step
+      where <emphasis role="italic">XML Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis> differ in the
+      interpretation of the recommendation is &lt;p:xslt/&gt; in very special cases making use of XSLT 2.0 (or higher).
+      According to the recommendation, for &lt;p:xslt/&gt;, the “primary result document of the transformation appears on the
+      result port. All other result documents appear on the secondary port.”<footnote xml:id="paper-11_Fn22">
+        <para><xref linkend="paper-11_bib1"/>, 7.1.31</para>
+      </footnote> But what is supposed to happen if a stylesheet only produces result documents on the secondary port? What is
+      to be found on the result port? Does my stylesheet have to produce a result for the primary port? </para>
+    <para>As the primary output port “result” is a non-sequence port, the answer is clearly “yes”, but <emphasis role="italic">XML Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis> disagree on the position, where the
+      required error “XD007” appears. <emphasis role="italic">XML Calabash</emphasis> will only complain if one tries to connect
+      the primary output port to a non sequence input port, but does accept an xslt stylesheet producing no primary result. So a
+      &lt;p:sink/&gt; after &lt;p:xslt/&gt; solves everything. This can be called a consumer oriented approach, because
+        <emphasis role="italic">XML Calabash</emphasis> will raise the error only if another step tries to consume or read the
+      non-existing result of &lt;p:xslt/&gt;. <emphasis role="italic">MorganaXProc</emphasis> on the other hand implements a
+      producer-oriented approach and will raise the necessary error at the moment an XSLT stylesheet completes without a result
+      for the primary port. One argument for this strategy is that it makes the resulting error message more readable,
+      especially in cases, when the xslt-stylesheet is not literally part of the pipeline but imported via &lt;p:document/&gt;.
+      But this is surely a case to argue about because the recommendation does not say a processor has to enforce an atomic step
+      to produce a result document. So here <emphasis role="italic">MorganaXProc</emphasis> is stricter in the interpretation of
+      the recommendation than <emphasis role="italic">XML Calabash</emphasis> (or may be even wrong taking into account Norm
+      Walsh’s double role). </para>
+    <para>And we found a third step in the standard library where <emphasis role="italic">XML Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis> have different interpretations of the recommendation and therefore implement a
+      different behaviour. As in the other two cases, it is a very special situation where this difference appears: There is a
+      note in the section about &lt;p:http-request/&gt; asking implementers “to support as many protocols as practical“ for
+      method “get”. Especially protocol “file” should be supported to allow pipelines to use computed URIs. Consequently both
+        <emphasis role="italic">XML Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis> support this
+      feature. But what is expected to happen when the file resource supplied for “get” does not exist?</para>
+    <para>Here <emphasis role="italic">XML Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis> take
+      different approaches as the first throws an error (as it is required for &lt;p:load/&gt; or &lt;p:document/&gt;) while
+        <emphasis role="italic">MorganaXProc</emphasis> returns a &lt;c:response/&gt; document with status “404”, as required
+      when &lt;p:http-request/&gt; is used with another protocol. As in the other cases, you can argue for both solutions and
+      you will not find decisive information in the recommendation. Surely it is a minor or exotic situation, but concerning our
+      question of interoperability we have to state that a pipeline relying on the behaviour of one processor will not produce
+      the same (expected) result on the other processor.</para>
+    <para>We found a fourth difference in interpretation and therefore in implementation with &lt;pxf:mkdir/&gt; from the
+      EXProc.org library. This step is supposed to create a directory, and should fail or return a &lt;c:error/&gt; if the
+      directory cannot be created. Now what is to happen when the directory already exists? <emphasis role="italic">MorganaXProc</emphasis> will fail, while <emphasis role="italic">XML Calabash</emphasis> will not. You can argue for
+      both solutions, so here we have one case where the description of EXProc.org definitely needs to be enhanced or reference
+      tests will be useful.</para>
+    <para>Another unexpected problem rises from the fact that XOM, the object model for XML used in <emphasis role="italic">MorganaXProc</emphasis> is even stricter than the S9Apis used by <emphasis role="italic">XML Calabash</emphasis>. When
+      you try to load a document with a namespace declaration like “xmlns:d=’dummy’”, <emphasis role="italic">MorganaXProc</emphasis> will fail with err:XD0011. This is because XOM does not regard a document as a well-formed XML
+      document when there is a missing scheme in the URI of a namespace declaration. The URI has to be in conformance with RFC
+      3986, which states: “Each URI begins with a scheme name that refers to a specification for assigning identifiers within
+      that scheme.”<footnote xml:id="paper-11_Fn23">
+        <para><xref linkend="paper-11_RFC3986"/>, p. 16</para>
+      </footnote> The only way to get XOM and consequently <emphasis role="italic">MorganaXProc</emphasis> to accept this
+      document is to change the namespace declaration to something like “http://dummy”. </para>
+  </section>
+  <section xml:id="paper-11_Sec12">
+    <title>Problems solved: Lifting the burdens of migration</title>
+    <para>Having listed the problems we had to face when trying to migrate <emphasis role="italic">transpect</emphasis> from
+        <emphasis role="italic">XML Calabash</emphasis> to <emphasis role="italic">MorganaXProc</emphasis>, let us now look at
+      the solutions we found. No fear! We will not discuss every detail of our migration here. We will focus on those problems
+      we take to be typical for migration projects and which therefore may throw a light on the question of interoperable XProc
+      pipelines. We also believe we have found some recipes which might be interesting for other XProc projects.</para>
+    <section xml:id="paper-11_Sec13">
+      <title>Resource management</title>
+      <para>The first problem we had to address in order to get <emphasis role="italic">transpect</emphasis> running on
+          <emphasis role="italic">MorganaXProc</emphasis> relates to resource management. As <emphasis role="italic">transpect</emphasis> heavily relies on XML Catalog to resolve imports and other resources (e.g. loading stylesheets
+        for XSLT or schema documents for validation), it was impossible to run it out of box with <emphasis role="italic">MorganaXProc</emphasis>, which does not support XML Catalog. We had four options to solve this problem:</para>
+      <para>The first option was to rewrite all references to external resources in the pipelines to relative URIs resolved by
+        the used XProc processor. This would have taken quite a while, but is obviously the easiest alternative. We do no longer
+        rely on XML Catalog as an additional tool to XProc but only use the tools built into the language. But there are good
+        reasons why le-tex chose not to go this way but made use of XML Catalog when <emphasis role="italic">transpect</emphasis> was originally developed: Using a resource management system is a reasonable solution when you
+        deal with large pipeline systems to be maintained and deployed into different user contexts. </para>
+      <para>Knowing that we needed some kind of resource management for <emphasis role="italic">transpect </emphasis>the second
+        option was to use the EXPath packaging system (supported by <emphasis role="italic">MorganaXProc</emphasis>) and XML
+        Catalog (supported by <emphasis role="italic">XML Calabash</emphasis>) side by side. This was actually the first step
+        taken to make <emphasis role="italic">transpect</emphasis> run with <emphasis role="italic">MorganaXProc</emphasis>: We
+        rewrote the dispatching rules in the catalog files of XML Catalog for the EXPath system, which took about half an hour’s
+        time. This seems to be a reasonable solution for some cases but makes it obviously more difficult to maintain the
+          <emphasis role="italic">transpect</emphasis> libraries in the future: Every change in the dependency must be marked in
+        two files, which is an error prone process. Since XML Catalog and the EXPath packaging system both use XML as their base
+        format, one might think about an XSLT stylesheet doing this work automatically, but even then one might forget to invoke
+        the stylesheet resulting in a broken delivery for one of the supported processors.</para>
+      <para>Having taken the decision to rely on just one system for resource management, there are some arguments to use the
+        EXPath packaging system for <emphasis role="italic">transpect</emphasis>. The most obvious one is that there is an
+        implementation for both processors. This option would have taken a rather short time to fix the problems once and for
+        all. We would just have to rewrite the resource management for <emphasis role="italic">transpect</emphasis> using EXPath
+        and we are done. However this option was not taken. One argument against this solution was that <emphasis role="italic">XML Calabash</emphasis> does not support the EXPath packaging system out of the box, but only via an extension. As a
+        consequence the process of delivering <emphasis role="italic">transpect</emphasis> (which includes <emphasis role="italic">XML Calabash</emphasis>) would become somewhat more difficult because the additional software would have
+        to be packed and delivered, too. The other argument against this solution in the broader perspective of interoperable
+        XProc pipeline is that it creates an isolated application. There might be use cases where the XProc project for some
+        reason or another has to use XML Catalog and cannot move to the EXPath packaging system. So we would not provide a
+        solution for these situations.</para>
+      <para>Having this broader perspective in mind, we finally convinced ourselves to add native support for XML Catalog to
+          <emphasis role="italic">MorganaXProc</emphasis>. This was obviously the most expensive option because providing
+        different kinds of resources to different types of steps is one of the basic tasks an XProc processor has to fulfil.
+        Therefore a lot of code has to be written in different classes in order to get the task done, always trying not to
+        interfere with the existing support for the EXPath packaging systems. As <emphasis role="italic">MorganaXProc</emphasis>
+        provides a pluggable file system, allowing users to add support for special kinds of external resources (i.e. databases
+        etc.), implementing XML Catalog for <emphasis role="italic">MorganaXProc</emphasis> was a non-trivial task.</para>
+      <para>Taking on this task might not be justified for just the special case of migrating <emphasis role="italic">transpect</emphasis> from <emphasis role="italic">XML Calabash</emphasis> to <emphasis role="italic">MorganaXProc</emphasis>. But as discussed above, resource management is a general requirement for complex XProc
+        pipeline systems and so we can expect other projects to face a similar problem. As we already said: Resource management
+        does not have anything to do with XProc as a language, but when you look at large, real-life projects, there will always
+        be some kind of resource management involved. So we think our solution for the problem is also a contribution to enhance
+        interoperability of real-life XProc projects. And of course it introduces an additional feature for users of <emphasis role="italic">MorganaXProc</emphasis>, so it is a win-win situation.</para>
+    </section>
+    <section xml:id="paper-11_Sec14">
+      <title>Divergent interpretations of the recommendation</title>
+      <para>While we are at it, we decided to make some further changes to <emphasis role="italic">MorganaXProc</emphasis> in
+        order to enhance interoperability. As discussed above, <emphasis role="italic">XML Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis> take different approaches when it comes to store, copy or move a resource to a
+        location that does not exist in the file system. <emphasis role="italic">XML Calabash</emphasis> will create the
+        necessary folders while <emphasis role="italic">MorganaXProc</emphasis> will raise an error because it sees itself
+        unable to store, copy, or move the resource. As the recommendation does only say a processor has to raise an error if
+        the resource cannot be created, but does not explicate these conditions, both interpretations seem to be fully
+        justified. However they lead to non-interoperable pipelines, allowing a pipeline executable with <emphasis role="italic">MorganaXProc</emphasis> to be executed with <emphasis role="italic">XML Calabash</emphasis> but not vice
+        versa.</para>
+      <para>It would be possible to rewrite the pipelines to make them interoperable as both processors implement
+        &lt;pxf:mkdir/&gt; which is used to create folders. But as we have shown above, there is also an interpretation problem
+        with this step, as <emphasis role="italic">XML Calabash</emphasis> will not raise an error when the folder to be created
+        already exists while <emphasis role="italic">MorganaXProc</emphasis> will complain. So the rewrite would be a little bit
+        more complicated: </para>
+      <orderedlist numeration="arabic">
+        <listitem>
+          <para>Check whether the parent folder exists, if not create it.</para>
+        </listitem>
+        <listitem>
+          <para>Store/copy/move the resource.</para>
+        </listitem>
+      </orderedlist>
+      <para>Anyone familiar with XProc sees a lot of lines to be written to make this happen. Of course one could declare three
+        new steps in a &lt;p:library/&gt; doing this task until the divergent interpretations are ruled out, but this would not
+        be very handy and at the time of writing there is no time horizon in sight for an authorized judgement. As it is also no
+        principle question of the understanding of the steps and as the interpretation put forward by <emphasis role="italic">XML Calabash</emphasis> leads to shorter pipelines, <emphasis role="italic">MorganaXProc</emphasis>’s behaviour was
+        adapted to <emphasis role="italic">XML Calabash</emphasis>. From release 0.9.5.10 on <emphasis role="italic">MorganaXProc</emphasis> will create all necessary paths for store, copy and move and thereby reduce the burdens of
+        migration.</para>
+    </section>
+    <section xml:id="paper-11_Sec15">
+      <title>User-defined steps in second language</title>
+      <para>This leads us to the first point where pipeline authors have to do some work. In our discussion of <emphasis role="italic">transpect</emphasis> we mentioned the fact that it relies on four additional XProc steps for which a
+        Java implementation is supplied. As XProc comes with a quite large library of built-in steps and there are additional
+        libraries defined by EXProc.org, it is surely not typical for every XProc project to introduce new steps written in a
+        second language. But it might be necessary to do this in some cases, as we saw with the four steps in <emphasis role="italic">transpect</emphasis> that cannot be expressed using XProc.</para>
+      <para>As explained above, it is quite impossible for a user-defined step written in Java etc. to run on more than one
+        processor. Therefore if you need this kind of extension to XProc, you will always face the task of providing an
+        implementation for every processor that the step is expected to run on. So in our special case, having implementations
+        of the four steps for <emphasis role="italic">XML Calabash</emphasis>, we had to develop four additional classes for
+          <emphasis role="italic">MorganaXProc</emphasis> so they could be called from the <emphasis role="italic">transpect</emphasis> pipelines.</para>
+      <para>Can one think of an easier solution? Maybe, but that would surely be a topic of another paper. What might be
+        interesting for the themes discussed here is that we can distinguish three different tasks to fulfil when providing a
+        piece of secondary language as implementation for an XProc step: Firstly, you have to tell the processor that a declared
+        step with a given signature is to be performed using the secondary language code. Secondly, when the step is called, you
+        have to provide a mechanism of connecting the actual documents on the input ports and the option values from the XProc
+        processor to the user written code, so the code can access the documents and options and create the result documents,
+        which in turn must be sent back, so the processor knows what documents are on the output port. And thirdly you have to
+        implement the step’s logic itself, i.e. provide a piece of code taking the input values (ports and options) and produce
+        the result values.</para>
+      <para>Now while the first and the second task are inherently processor dependent, the third is not. Actually it might be
+        quite useful to separate the concerns for maintenance reasons. Our proposed strategy to have different implementation of
+        the same step for each processor will face problems when bugs have to be removed or additional functionality is to be
+        provided. The implementer always has to make the changes twice and has to provide different tests for her
+        implementation. To solve these kinds of problems we developed an alternative solution by separating the “connect task”
+        (steps 1 and 2) from the “execution task” (step 3). Our implementation of each step actually does not consist of two
+        Java classes (one for <emphasis role="italic">XML Calabash</emphasis> and one for <emphasis role="italic">MorganaXProc</emphasis>), but of three. The third class implements the step’s logic while the other two serve the
+        task of connecting this logic to the respective processor. So we just have one class to maintain as long as the step’s
+        signature is not changed.</para>
+      <para>While having some benefits, our solution is obviously only possible because both processors, <emphasis role="italic">XML Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis>, are written in Java and therefore any
+        implementation of extension steps will most likely also consist of Java code. It is very difficult to hold on to our
+        type of solution when it comes to implement an XProc step for two processors written in different programming languages.
+        And there is another drawback of our solution, which concerns efficiency: As we chose to implement the step’s
+        functionally in a separate class used by the processor specific class which makes the connection to the processors we
+        had to find a common representation for XML documents in Java. As we said above, <emphasis role="italic">XML
+          Calabash</emphasis> uses the object model introduced by Saxon while <emphasis role="italic">MorganaXProc</emphasis>
+        relies on XOM. So the document inputs coming from the two processors to our two connection-classes are in different
+        object models, but we obviously need a common object model for the implementing-class to make sense. At the current
+        level of development we used the most common object model possible: the Java string class. So currently we serialize the
+        document to strings in the connection-classes, perform string operations in the implementing-class and then build the
+        needed object model from the resulting string in the connection-classes.</para>
+      <para>This process of serialization and building is surely not the most efficient way, to say the least. We shall think of
+        better ways to do this, probably using the class “ContentHandler” from the saxproject<footnote xml:id="paper-11_Fn24">
+          <para><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.saxproject.org">http://www.saxproject.org</link></para>
+        </footnote>. But we think that our solution even in its current state may serve as a blueprint for other projects, which
+        have to enhance XProc with secondary code on one hand and try to avoid a vendor lock-in on the other hand.</para>
+    </section>
+    <section xml:id="paper-11_Sec16">
+      <title>A short look at the remaining agenda</title>
+      <para>Let us just see, which problems are still on the agenda now: </para>
+      <orderedlist numeration="loweralpha">
+        <listitem>
+          <para>Namespace declarations without scheme names</para>
+        </listitem>
+        <listitem>
+          <para>Missing primary results for &lt;p:xslt/&gt;</para>
+        </listitem>
+        <listitem>
+          <para>Divergent step libraries for messaging and executing pipelines</para>
+        </listitem>
+        <listitem>
+          <para>Different import mechanisms for EXProc.org libraries</para>
+        </listitem>
+        <listitem>
+          <para>Implementation specific extension attributes as “depends-on”</para>
+        </listitem>
+        <listitem>
+          <para>Different interpretations of the expected behaviour of &lt;pxf:mkdir/&gt;</para>
+        </listitem>
+        <listitem>
+          <para>Different error behaviour for non-existing files in &lt;p:http-request/&gt;</para>
+        </listitem>
+      </orderedlist>
+      <para>Now the first two problems have to be solved by hand because there is obviously no workaround. The XOM object model
+        used in <emphasis role="italic">MorganaXProc</emphasis> will not build a document having a namespace declaration with an
+        URI not conforming to RFC 3986, notably not having a scheme name. So there is no other way than go to the source files
+        and correct the namespace declaration – or avoid these kinds of declarations right from the start.</para>
+      <para>Handwork also seems to be required when it comes to make sure every stylesheet in &lt;p:xslt/&gt; produces a
+        document to appear on the primary output port. This is due to the above-mentioned mechanism in <emphasis role="italic">MorganaXProc</emphasis> to raise an error about the missing result immediately after finishing stylesheet execution.
+        We could invent a work-around by putting every &lt;p:xslt/&gt; into a &lt;p:try/&gt; and then writing a &lt;p:catch/&gt;
+        to check out whether the error results from a missing document and if so to provide this document. And we could avoid
+        manual adaptations by writing a pipeline or an XSLT stylesheet wrapping every occurrence of &lt;p:xslt/&gt; into the
+        descripted code. This would be a viable solution, but the price for the automation would be very high: There would be
+        20+ lines of code around every &lt;p:xslt/&gt; dramatically affecting the readability of our pipelines. And: The
+        &lt;p:try/&gt; will slow down the performance of our pipelines if it is not actually needed, i.e. when the pipeline runs
+        with <emphasis role="italic">XML Calabash</emphasis> or the &lt;p:xslt/&gt; does produce a proper result for the primary
+        output port. So we should use the workaround only for those cases where no proper result is produced. And as those cases
+        can only be inspected by hand, it seems to be much easier to change the stylesheets found directly than to write a
+        wrapper around the &lt;p:xslt/&gt; using these stylesheets.</para>
+      <para>And what about the other problems? While we rejected the idea of using automation to make our pipelines
+        interoperable for the special case of supplying missing primary results for &lt;p:xslt/&gt; it seems to be a good idea
+        for the other cases. And it works. So let us see how to use XProc to make XProc pipelines interoperable!</para>
+    </section>
+    <section xml:id="paper-11_Sec17">
+      <title>XProc to the rescue</title>
+      <para>In order to make XProc pipelines that are running successfully on <emphasis role="italic">XML Calabash</emphasis>
+        also usable on <emphasis role="italic">MorganaXProc</emphasis> we actually need two XProc pipelines:</para>
+      <para>The first pipeline, actually a library, is called “xproc-iop.xpl”. The basic task of this library is to bridge the
+        “namespace gap” between steps in the implementation specific libraries of two (or more) XProc processors. So the use
+        case here is the mentioned fact that <emphasis role="italic">XML Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis> do have steps performing (nearly) the same operations, but having different names or being in
+        different namespaces. The library establishes a common ground by declaring steps in a publicly available namespace,
+        which can be used in either processor. The body (or subpipeline) of the step is then just a call of the respective step
+        in the step library of the XProc processor actually running. Here is an excerpt from the library for one step, just to
+        illustrate the idea: </para>
+      <programlisting language="xproc">&lt;p:declare-step type="iop:message" 
+                name="message"&gt;
+  &lt;p:input port="source" sequence="true" /&gt;
+  &lt;p:output port="result" sequence="true" /&gt;
+  &lt;p:option name="message" required="true" /&gt;
+  &lt;!-- if XML Calabash is used --&gt;
+  &lt;cx:message p:use-when=
+    "p:system-property('p:product-name')
+       = 'XML Calabash'"&gt;
+    &lt;p:with-option name="message"
+      select="$message" /&gt;
+  &lt;/cx:message&gt;
+  &lt;!-- if MorganaXProc is used --&gt;
+  &lt;mod:report p:use-when=
+    "p:system-property('p:product-name')
+       = 'MorganaXProc'"&gt;
+    &lt;p:with-option name="message"
+      select="$message" /&gt;
+  &lt;/mod:report&gt;
+&lt;/p:declare-step&gt;</programlisting>
+      <para>We declare a step named &lt;iop:message/&gt; which can be used in pipelines running on either processor. The rest
+        relies on the attribute “p:use-when” which triggers a conditional element exclusion if it’s value is false. To quote
+        from the recommendation: “If the attribute is present and the effective boolean value of the expression is false, then
+        the element and all of its descendants are effectively excluded from the pipeline document.”<footnote xml:id="paper-11_Fn25">
+          <para><xref linkend="paper-11_bib1"/>, 3.9</para>
+        </footnote> As the exclusion has to be done before any static analysis of the pipeline, <emphasis role="italic">XML
+          Calabash</emphasis> actually will just see its known &lt;cx:message/&gt; while <emphasis role="italic">MorganaXProc</emphasis> will just see &lt;mod:report/&gt;. Because this is done even before compiling the library, we
+        do not have to fear any loss in the pipeline’s performance. The other step currently implemented is &lt;iop:eval/&gt;
+        which serves as a bridge between &lt;cx:eval/&gt; (<emphasis role="italic">XML Calabash</emphasis>) and
+        &lt;mocc:eval/&gt; (<emphasis role="italic">MorganaXProc</emphasis>).</para>
+      <para>Additionally this library could be used to force a common behaviour of the two processors for &lt;pfx:mkdir/&gt; (if
+        the folder to be created does already exist) and/or &lt;p:http-request/&gt; (when trying to get a non-existing file). As
+        it is not totally clear which behaviour is expected, we have not incorporated a solution in our prototype of the
+        library, but you can easily think of a private or in-house-version of this library declaring a step to enforce the
+        behaviour your pipelines rely on.</para>
+      <para>Another important aspect of our solution is that it copes with the (hopefully) transient need for this kind of
+        library. Suppose the working group decides to make something like &lt;cx:message/&gt; or &lt;mod:report/&gt; part of the
+        standard library as a step in the XProc namespace, then all you have to do is to replace the subpipeline with a call of
+        the newly introduced step. Or: You might run a pipeline over all of your pipelines to replace every call to
+        &lt;iop:message/&gt; with a call to the new step. So our solution does not only work for the moment, but can also be
+        adapted to future developments.</para>
+      <para>Of course you have to change your pipeline currently running successfully on one processor in order to use our
+        solution. You have to insert a &lt;p:import/&gt; to make our library visible and you have to change the respective step
+        names to the library-declared steps. Here our second pipeline, called “interoperator.xpl” comes into play. If you
+        develop a new pipeline from scratch you will probably not need “interoperator.xpl”, but if you want an existing pipeline
+        to be interoperable, you can use it to solve your problems. So what does Interoperator do?</para>
+      <para><emphasis role="italic">Interoperator</emphasis> relies on the fact that every XProc pipeline is an XML document.
+        Therefore we can use XProc’s technology to make XProc pipelines interoperable. Our pipeline will request a pipeline’s
+        URI as an option and do all the necessary changes in this pipeline to make it run with <emphasis role="italic">XML
+          Calabash</emphasis> and <emphasis role="italic">MorganaXProc</emphasis>. And of course it will not only change the
+        pipeline itself but also all pipelines and libraries imported. So you just have to call Interoperator once with the top
+        most pipeline of your project and what you get as a result is an interoperable pipeline system running on both
+        processors. </para>
+      <para>We will not bore you discussing the pipeline step by step so let us just sum up the tasks to do:</para>
+      <itemizedlist mark="bullet">
+        <listitem>
+          <para>Make import of <emphasis role="italic">XML Calabash</emphasis>’s extension library conditional, so it is only
+            used when the processor is actually running.</para>
+        </listitem>
+        <listitem>
+          <para>Add attribute “mox:depends-on” to every step that has an attribute “cx:depends‑on” and vice versa.</para>
+        </listitem>
+        <listitem>
+          <para>Rename every step &lt;cx:message/&gt; to &lt;iop:message/&gt;</para>
+        </listitem>
+        <listitem>
+          <para>Rename every step &lt;cx:eval/&gt; to &lt;iop:eval/&gt;</para>
+        </listitem>
+        <listitem>
+          <para>Add &lt;p:import/&gt; for “xproc-iop.xpl” if its needed.</para>
+        </listitem>
+        <listitem>
+          <para>Add &lt;p:import/&gt; for “http://exproc.org/proposed/steps/os” (conditional import when running <emphasis role="italic">MorganaXProc</emphasis>) provided a step from the library is used.</para>
+        </listitem>
+        <listitem>
+          <para>Add &lt;p:import/&gt; for “http://exproc.org/proposed/steps/file” (conditional for <emphasis role="italic">MorganaXProc</emphasis> only), provided a step from this library is used.</para>
+        </listitem>
+        <listitem>
+          <para>Add &lt;p:import/&gt; for “http://exproc.org/proposed/steps” (conditional for <emphasis role="italic">MorganaXProc</emphasis> only), provided a step from this library is used.</para>
+        </listitem>
+        <listitem>
+          <para>Make sure all EXProc.org-steps are used with their “exproc.org”-namespace. This step is necessary because
+              <emphasis role="italic">XML Calabash</emphasis> offers proprietary namespaces for the File and the OS
+              libraries.<footnote xml:id="paper-11_Fn26">
+              <para><emphasis xml:lang="de">See </emphasis>the declarations in <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://xmlcalabash.com/extension/steps/library-1.0.xpl">http://xmlcalabash.com/extension/steps/library-1.0.xpl</link></para>
+            </footnote> Since the “xmlcalabash.com/xxx” and the “exproc.org/…/xxx” namespaces contain the same step declaration,
+            one can either rename the steps with a &lt;p:rename/&gt; or rename the whole namespace
+            (&lt;p:namespace-rename/&gt;).</para>
+        </listitem>
+        <listitem>
+          <para>Rename steps &lt;cx:zip/&gt; to &lt;pxp:zip/&gt;, &lt;cx:unzip/&gt; to &lt;pxp:unzip/&gt; and &lt;cx:nvdl/&gt;
+            to &lt;pxp:nvdl/&gt;. This is necessary because for convenience reasons <emphasis role="italic">XML
+              Calabash</emphasis> allows these steps also to be used with the “Calabash extension namespace”. This is handy when
+            you actually use <emphasis role="italic">XML Calabash</emphasis> but restrains interoperability of the respective
+            pipelines.</para>
+        </listitem>
+      </itemizedlist>
+      <para>This is a pretty long list, but remember: You have to call <emphasis role="italic">Interoperator</emphasis> only
+        once for every pipeline (or pipeline system since imports are respected) and you get a pipeline runnable on both
+        processors. So you do not have to worry about loss of performance. The pipeline will only be increased by a few lines
+        for the additional import statements that are only used when the respective XProc processor is in operation.</para>
+      <para>We will release both pipelines on github<footnote xml:id="paper-11_Fn27">
+          <para><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://github.com/xml-project">https://github.com/xml-project</link>
+          </para>
+        </footnote>, so anyone can use it for her/his XProc projects. It will also serve as a basis to enhance interoperability
+        of XProc pipelines. So anyone who finds other obstacles to interoperability may contribute by creating an issue or
+        better by sending a pull request with an improved version of the pipelines. This is of course not only restricted to the
+        task of making pipelines from <emphasis role="italic">XML Calabash</emphasis> runnable on <emphasis role="italic">MorganaXProc</emphasis> and vice versa, but does also apply to other XProc processors. And the two pipelines also may
+        serve an additional purpose: In some aspects the particular state of the two pipelines at any given time might be taken
+        as an indicator for the state of interoperability, so they may also be seen as a tool to document the obstacles to
+        interoperability of XProc pipelines.</para>
+    </section>
+  </section>
+  <section xml:id="paper-11_Sec18">
+    <title>Conclusions from our projects</title>
+    <para>We dug deep into the inner life of XProc as a technology, examined aspects of the anatomy of two XProc processors and
+      we got two XProc pipelines helping us to make other XProc pipelines interoperable. What lessons are to be learned for
+      migration projects in particular and what about our starting point, the question of interoperability of XProc
+      pipelines?</para>
+    <para>If you are a pipeline author who wants or has to develop interoperable XProc pipelines, there are a lot of conclusions
+      to be drawn: First, probably as always, there is the KISS-principle, in our case spelled out as: keep it standard, stupid.
+      If you can solve your problems by writing XProc pipelines which only rely on the standard library and which only use those
+      features marked in the recommendation as “required”, you are pretty safe. If these restrictions do not work for you, we
+      showed obstacles you might run into. The two pipelines we developed for our project, both document the difficulties to be
+      expected and serve as a tool to cope with the problems of interoperability. So if we translate our opening question into
+      the question, whether it is possible to develop a complex and interoperable XProc pipeline system, the answer is obviously
+      “yes”. We proved it by successfully migrating <emphasis role="italic">transpect</emphasis> from <emphasis role="italic">XML Calabash</emphasis> to <emphasis role="italic">MorganaXProc</emphasis>.</para>
+    <para>From this, we can obviously also proclaim good news for pipeline users and technology decision makers: Our two
+      pipelines should in most cases solve the problem of taking pipelines from one processor to the other without deeper skills
+      in XProc or actually, without any knowledge at all. So as a pipeline-user you have the freedom of choice: If you invest a
+      little work, you can use your XProc pipeline with any processor you like. And finally: If you are a technology decision
+      maker taking into consideration using XProc, you do not need to worry about vendor independence and reusability of
+      pipelines. There are minor obstacles, but they are easy to overcome.</para>
+    <para>And what lessons are to be learned for the XProc community? As we have shown, even very complex pipeline system can be
+      transformed to be interoperable. The Working Group and everybody involved in the process of developing XProc did a great
+      job. But as we saw also, there are some things left to be done. The sheer necessity of the two XProc pipelines to make
+        <emphasis role="italic">transpect</emphasis> work on the two XProc processors shows we are not completely finished with
+      making XProc a fully useful <emphasis role="italic">and</emphasis> interoperable language. </para>
+  </section>
+  <bibliography>
+    <title>Bibliography</title>
+    <biblioentry xml:id="paper-11_bib1" xreflabel="[1]">
+      <abbrev>1</abbrev>
+      <title>XProc. An XML Pipeline Language</title>
+      <pubdate>11th May 2010</pubdate>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <biblioid class="uri">http://www.w3.org/TR/xproc/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_xmlprague" xreflabel="[2]">
+      <abbrev>2</abbrev>
+      <title>Private communication by XML Prague 2016 participants involved in XProc development and
+        specification</title> <!--
+          title tag used, for the purpose of Indexing Content -->
+      <!--
+      <bibliomisc>Private communication by XML Prague 2016 participants involved in XProc development and
+        specification</bibliomisc>
+        -->
+    </biblioentry>
+    <biblioentry xml:id="paper-11_bib2" xreflabel="[3]">
+      <abbrev>3</abbrev>
+      <title>W3C Technical Report Development Process</title>
+      <pubdate>14 October 2005</pubdate>
+      <publishername>World Wide Web Consortium (W3C)</publishername>
+      <biblioid class="uri">http://www.w3.org/2005/10/Process-20051014/tr.html</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_WalshWiki" xreflabel="[4]">
+      <abbrev>4</abbrev>
+      <author>
+        <personname>
+          <firstname>Norman</firstname>
+          <surname>Walsh</surname>
+        </personname>
+      </author>
+      <title>Wiki editing with XProc</title>
+    	<pubdate>07th March 2010</pubdate>
+      <biblioid class="uri">http://norman.walsh.name/2010/03/07/wikiEdit</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_CalabashReference" xreflabel="[5]">
+      <abbrev>5</abbrev>
+      <author>
+        <personname>
+          <firstname>Norman</firstname>
+          <surname>Walsh</surname>
+        </personname>
+      </author>
+      <title>XML Calabash Reference</title>
+    	<pubdate>09 June 2015</pubdate>
+      <biblioid class="uri">http://xmlcalabash.com/docs/reference/</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_FullerDiaries" xreflabel="[6]">
+      <abbrev>6</abbrev>
+      <author>
+        <personname>James Fuller</personname>
+      </author>
+			<title>Diaries of a desperate XProc Hacker</title>
+			<subtitle>Managing XProc dependencies with depify</subtitle>
+      <confgroup>
+        <conftitle>XML London 2015</conftitle>
+      </confgroup>
+      <biblioid class="doi">10.14337/XMLLondon15.Fuller01</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_EXPathPackaging" xreflabel="[7]">
+      <abbrev>7</abbrev>
+      <title>Packaging System. EXPath Candidate Module 9 May 2012</title>
+      <biblioid class="uri">http://expath.org/spec/pkg</biblioid>
+    </biblioentry>
+    <biblioentry xml:id="paper-11_GeorgesCalabash" xreflabel="[8]">
+      <abbrev>8</abbrev>
+      <author>
+        <personname>
+          <firstname>Florent</firstname>
+          <surname>Georges</surname></personname>
+      </author>
+      <title>EX­Path Packaging System: the on-disk repository layout</title>
+			<pubdate>15 November 2009</pubdate>
+      <biblioid class="uri">http://fgeorges.blogspot.de/2009/11/expath-packaging-system-on-disk.html</biblioid>
+    </biblioentry>
+		<biblioentry xml:id="paper-11_RFC3986" xreflabel="[9]">
+		  <abbrev>9</abbrev>
+		  <authorgroup>
+		    <author>
+		      <personname>
+		        <firstname>Tim</firstname>
+		        <surname>Berners-Lee</surname>
+		      </personname>
+		    </author>
+				<author>
+					<personname>
+						<firstname>Roy</firstname>
+						<surname>Fielding</surname>
+					</personname>
+				</author>
+				<author>
+					<personname>
+						<firstname>Larry</firstname>
+						<surname>Masinter</surname>
+					</personname>
+				</author>
+		  </authorgroup>
+		  <title>Uniform Resource Identifier (URI): Generic Syntax</title>
+		  <publishername>The Internet Society</publishername>
+			<pubdate>January 2005</pubdate>
+		  <biblioid class="uri">https://www.ietf.org/rfc/rfc3986.txt</biblioid>
+		</biblioentry>
+  </bibliography>
+</article>

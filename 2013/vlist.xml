@@ -1,0 +1,1493 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.oxygenxml.com/docbook/xml/5.0/rng/dbsvg.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="http://docbook.org/xml/5.0/rng/docbook.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:id="paper-14" version="5.0">
+    <info xmlns:xlink="http://www.w3.org/1999/xlink">
+      <title>When MVC becomes a burden for XForms</title>
+        <abstract>
+            <para>XForms is gaining traction and is being used to develop complex forms, revealing its strengths but
+                also its weaknesses.</para>
+            <para>One of the latest is not specific to XForms but inherent to the MVC (Model View Controller)
+                architecture which is one of the bases of XForms.</para>
+            <para>In this talk we see how the MVC architecture dramatically affect the modularity and reusabilty of
+                XForms developments and some of the solutions used to work around this flaw.</para>
+        </abstract>
+        <author>
+            <personname>
+                <firstname>Eric</firstname>
+                <surname>van der Vlist</surname>
+            </personname>
+            <personblurb>
+                <para>Eric is an independent consultant and trainer. His domain of expertise include Web development and
+                    XML technologies.</para>
+                <para>He is the creator and main editor of <link xlink:href="http://xmlfr.org">XMLfr.org</link>, the
+                    main site dedicated to XML technologies in French, the author of the O'Reilly animal books XML
+                    Schema and RELAX NG and has been involved in the ISO DSDL (<link xlink:href="http://dsdl.org">http://dsdl.org</link>) working group focused on XML schema languages.</para>
+                <para>He his based in Paris and you can reach him by mail (<link xlink:href="mailto:vdv@dyomedea.com">vdv@dyomedea.com</link>) or meet him in one of the many conferences where he presents his
+                    projects.</para>
+            </personblurb>
+            <affiliation>
+                <orgname>Dyomedea</orgname>
+            </affiliation>
+        </author>
+    </info>
+    <section xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>Practice: a quiz</title>
+        <para>Let's start with a quiz...</para>
+        <section>
+            <title>Basic XForms</title>
+            <section>
+                <title>Question</title>
+                <para>Given the following
+                    instance:<programlisting language="xml">
+&lt;xf:instance&gt;
+  &lt;figures&gt;
+    &lt;line&gt;
+      &lt;length&gt;
+        &lt;value&gt;10&lt;/value&gt;
+        &lt;unit&gt;in&lt;/unit&gt;
+      &lt;/length&gt;
+    &lt;/line&gt;
+  &lt;/figures&gt;
+&lt;/xf:instance&gt;
+&lt;/xf:instance&gt;
+</programlisting>
+          implement
+                    a standard XForms 1.1 form displaying the following user interface:<inlinemediaobject>
+                        <imageobject>
+                            <imagedata fileref="images/quiz.png" width="100%"/>
+                        </imageobject>
+                    </inlinemediaobject></para>
+            </section>
+            <section>
+                <title>Answer</title>
+                <para>Model:<programlisting language="xml">
+&lt;xf:model&gt;
+  &lt;xf:instance&gt;
+    &lt;figures&gt;
+      &lt;line&gt;
+        &lt;length&gt;
+          &lt;value&gt;10&lt;/value&gt;
+          &lt;unit&gt;in&lt;/unit&gt;
+        &lt;/length&gt;
+      &lt;/line&gt;
+    &lt;/figures&gt;
+  &lt;/xf:instance&gt;
+&lt;/xf:model&gt;
+</programlisting></para>
+
+                <para>View:
+
+<programlisting language="xml">
+&lt;xf:group ref="line/length"&gt;
+  &lt;xf:input ref="value"&gt;
+    &lt;xf:label&gt;Length: &lt;/xf:label&gt;
+  &lt;/xf:input&gt;
+  &lt;xf:select1 ref="unit"&gt;
+    &lt;xf:label&gt;&lt;/xf:label&gt;
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;pixels&lt;/xf:label&gt;
+      &lt;xf:value&gt;px&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;font size&lt;/xf:label&gt;
+      &lt;xf:value&gt;em&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;font height&lt;/xf:label&gt;
+      &lt;xf:value&gt;ex&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;inches&lt;/xf:label&gt;
+      &lt;xf:value&gt;in&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;centimeters&lt;/xf:label&gt;
+      &lt;xf:value&gt;cm&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;millimeters&lt;/xf:label&gt;
+      &lt;xf:value&gt;mm&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;points&lt;/xf:label&gt;
+      &lt;xf:value&gt;pt&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;picas&lt;/xf:label&gt;
+      &lt;xf:value&gt;pc&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;%&lt;/xf:label&gt;
+      &lt;xf:value&gt;%&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+  &lt;/xf:select1&gt;
+&lt;/xf:group&gt;
+
+</programlisting>
+</para>
+            </section>
+        </section>
+        <section>
+            <title>Using instances and actions</title>
+            <section>
+                <title>Question</title>
+                <para>Implement the same user interface if the instance uses the CSS2 / SVG 1.1 conventions for
+                    sizes:<programlisting language="xml">
+&lt;xf:instance id="main"&gt;
+  &lt;figures&gt;
+    &lt;line length="10in"/&gt;
+  &lt;/figures&gt;
+&lt;/xf:instance&gt;
+</programlisting></para>
+            </section>
+            <section>
+                <title>Answer</title>
+                <para>Model:<programlisting language="xml">
+&lt;xf:model&gt;
+  &lt;xf:instance id="main"&gt;
+    &lt;figures&gt;
+      &lt;line length="10in"/&gt;
+    &lt;/figures&gt;
+  &lt;/xf:instance&gt;
+  &lt;xf:instance id="split"&gt;
+    &lt;line&gt;
+      &lt;length&gt;
+        &lt;value/&gt;
+        &lt;unit/&gt;
+      &lt;/length&gt;
+    &lt;/line&gt;
+  &lt;/xf:instance&gt;
+  .../...
+&lt;/xf:model&gt;
+</programlisting></para>
+                <para>View:<programlisting language="xml">
+&lt;xf:group ref="instance('split')/length"&gt;
+  &lt;xf:input ref="value" id="length-control"&gt;
+    &lt;xf:label&gt;Length: &lt;/xf:label&gt;
+  &lt;/xf:input&gt;
+  &lt;xf:select1 ref="unit" id="unit-control"&gt;
+    &lt;xf:label/&gt;
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;pixels&lt;/xf:label&gt;
+      &lt;xf:value&gt;px&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+    .../...
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;%&lt;/xf:label&gt;
+      &lt;xf:value&gt;%&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+  &lt;/xf:select1&gt;
+&lt;/xf:group&gt;
+</programlisting></para>
+                <para>Controller:<programlisting language="xml">
+&lt;xf:model&gt;
+  .../...
+  &lt;xf:action ev:event="xforms-ready"&gt;
+    &lt;xf:setvalue
+            ref="instance('split')/length/value"
+            value="translate(
+                    instance('main')/line/@length,
+                    '%incmptxe',
+                     '')" /&gt;
+    &lt;xf:setvalue ref="instance('split')/length/unit"
+              value="translate(
+                      instance('main')/line/@length,
+                      '0123456789',
+                      '')" /&gt;
+  &lt;/xf:action&gt;
+  &lt;xf:action ev:event="xforms-value-changed"
+             ev:observer="length-control"&gt;
+    &lt;xf:setvalue
+      ref="instance('main')/line/@length"
+      value="concat(
+              instance('split')/length/value,
+              instance('split')/length/unit)" /&gt;
+  &lt;/xf:action&gt;
+  &lt;xf:action ev:event="xforms-value-changed"
+             ev:observer="unit-control"&gt;
+    &lt;xf:setvalue
+      ref="instance('main')/line/@length"
+      value="concat(
+              instance('split')/length/value,
+              instance('split')/length/unit)" /&gt;
+  &lt;/xf:action&gt;
+&lt;/xf:model&gt;
+</programlisting></para>
+            </section>
+        </section>
+        <section>
+            <title>Modularity</title>
+            <section>
+                <title>Question</title>
+                <para>Still using XForms 1.1 standard features, extend this user interface to edit the height and width
+                    of a
+                    rectangle:<programlisting language="xml">
+&lt;xf:instance id="main"&gt;
+  &lt;figures&gt;
+    &lt;rectangle height="10in" width="4em"/&gt;
+  &lt;/figures&gt;
+&lt;/xf:instance&gt;
+</programlisting></para>
+                <para><emphasis role="bold">Hint</emphasis>: copy/paste is your friend!</para>
+            </section>
+            <section>
+                <title>Answer</title>
+                <para>Model:<programlisting language="xml">
+&lt;xf:model&gt;
+  &lt;xf:instance id="main"&gt;
+    &lt;figures&gt;
+      &lt;rectangle height="10in" width="4em"/&gt;
+    &lt;/figures&gt;
+  &lt;/xf:instance&gt;
+  &lt;xf:instance id="height"&gt;
+    &lt;height&gt;
+      &lt;value/&gt;
+      &lt;unit/&gt;
+    &lt;/height&gt;
+  &lt;/xf:instance&gt;
+  .../...
+  &lt;xf:instance id="width"&gt;
+    &lt;width&gt;
+      &lt;value/&gt;
+      &lt;unit/&gt;
+    &lt;/width&gt;
+  &lt;/xf:instance&gt;
+  .../...
+&lt;/xf:model&gt;
+</programlisting></para>
+                <para>View:<programlisting language="xml">
+&lt;xf:group ref="instance('height')"&gt;
+  &lt;xf:input ref="value" id="height-value-control"&gt;
+    &lt;xf:label&gt;Height: &lt;/xf:label&gt;
+  &lt;/xf:input&gt;
+  &lt;xf:select1 ref="unit" id="height-unit-control"&gt;
+    &lt;xf:label/&gt;
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;pixels&lt;/xf:label&gt;
+      &lt;xf:value&gt;px&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+    .../...
+  &lt;/xf:select1&gt;
+&lt;/xf:group&gt;
+&lt;xh:br/&gt;
+&lt;xf:group ref="instance('width')"&gt;
+  &lt;xf:input ref="value" id="width-value-control"&gt;
+    &lt;xf:label&gt;Width: &lt;/xf:label&gt;
+  &lt;/xf:input&gt;
+  &lt;xf:select1 ref="unit" id="width-unit-control"&gt;
+    &lt;xf:label/&gt;
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;pixels&lt;/xf:label&gt;
+      &lt;xf:value&gt;px&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+    .../...
+  &lt;/xf:select1&gt;
+&lt;/xf:group&gt;
+</programlisting></para>
+                <para>Controller:<programlisting language="xml">
+&lt;xf:model&gt;
+  .../...
+  &lt;xf:action ev:event="xforms-ready"&gt;
+    &lt;xf:setvalue ref="instance('height')/value"
+      value="translate(
+               instance('main')/rectangle/@height,
+               '%incmptxe', '')" /&gt;
+    &lt;xf:setvalue ref="instance('height')/unit"
+      value="translate(
+        instance('main')/rectangle/@height,
+        '0123456789', '')"/&gt;
+  &lt;/xf:action&gt;
+  &lt;xf:action ev:event="xforms-value-changed"
+             ev:observer="height-value-control"&gt;
+    &lt;xf:setvalue
+      ref="instance('main')/rectangle/@height"
+      value="concat(instance('height')/value,
+                    instance('height')/unit)" /&gt;
+  &lt;/xf:action&gt;
+  &lt;xf:action ev:event="xforms-value-changed"
+             ev:observer="height-unit-control"&gt;
+    &lt;xf:setvalue
+      ref="instance('main')/rectangle/@height"
+      value="concat(
+              instance('height')/value,
+              instance('height')/unit)" /&gt;
+  &lt;/xf:action&gt;
+  .../...
+  &lt;xf:action ev:event="xforms-ready"&gt;
+    &lt;xf:setvalue ref="instance('width')/value"
+      value="translate(
+        instance('main')/rectangle/@width,
+        '%incmptxe', '')"/&gt;
+    &lt;xf:setvalue ref="instance('width')/unit"
+      value="translate(
+        instance('main')/rectangle/@width,
+        '0123456789', '')"/&gt;
+  &lt;/xf:action&gt;
+  &lt;xf:action ev:event="xforms-value-changed"
+             ev:observer="width-value-control"&gt;
+    &lt;xf:setvalue
+      ref="instance('main')/rectangle/@width"
+      value="concat(instance('width')/value,
+                    instance('width')/unit)" /&gt;
+  &lt;/xf:action&gt;
+  &lt;xf:action ev:event="xforms-value-changed"
+             ev:observer="width-unit-control"&gt;
+    &lt;xf:setvalue
+      ref="instance('main')/rectangle/@width"
+      value="concat(instance('width')/value,
+                    instance('width')/unit)"/&gt;
+  &lt;/xf:action&gt;
+&lt;/xf:model&gt;
+</programlisting></para>
+            </section>
+        </section>
+        <section>
+            <title>Homework: repeated content</title>
+            <para>Still using standard XForms features, extend this form to support any number of rectangles in the
+                instance.</para>
+            <para><emphasis role="bold">Hint</emphasis>: you will not be able to stick to atomic instances for the width
+                and height but act more globally and maintain instances with a set of dimensions which you'll have to
+                keep synchronized with the main instance when rectangles are inserted or deleted.</para>
+        </section>
+        <section>
+            <title>What's the problem?</title>
+            <para>XForms lacks a feature to define and use "components" that would package a group of controls together
+                with their associated model and actions.</para>
+        </section>
+    </section>
+    <section xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>Theory: the MVC design pattern</title>
+        <para>XForms<link xlink:href="http://http://www.w3.org/TR/xforms11/">describes itself</link> as a <link xlink:href="http://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller">MVC</link>
+            architecture:</para>
+        <blockquote>
+            <para>An XForm allows processing of data to occur using three mechanisms:</para>
+            <itemizedlist>
+                <listitem>
+                    <para>a declarative <emphasis role="bold">model</emphasis> composed of formulae for data
+                        calculations and constraints, data type and other property declarations, and data submission
+                        parameters</para>
+                </listitem>
+                <listitem>
+                    <para>a <emphasis role="bold">view</emphasis> layer composed of intent-based user interface
+                        controls</para>
+                </listitem>
+                <listitem>
+                    <para>an imperative <emphasis role="bold">controller</emphasis> for orchestrating data
+                        manipulations, interactions between the model and view layers, and data submissions.</para>
+                </listitem>
+            </itemizedlist>
+        </blockquote>
+        <para>Micah Dubinko <link xlink:href="http://http://dubinko.info/blog/2010/09/02/is-xforms-really-mvc/">argues</link> that the mapping is more obvious with <link xlink:href="http://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93presenter">Model-view-presenter
+                (MVP)</link>, a derivative of the MVC software pattern but that’s not the point I’d like to make and
+            I’ll stick to the MVC terminology where:</para>
+        <itemizedlist>
+            <listitem>
+                <para>The model is composed of XForms instances and binds</para>
+            </listitem>
+            <listitem>
+                <para>The view is composed of the XForms controls together with the HTML elements and CSS
+                    stylesheets</para>
+            </listitem>
+            <listitem>
+                <para>The controller is composed of the actions</para>
+            </listitem>
+        </itemizedlist>
+        <mediaobject>
+            <imageobject>
+                <imagedata fileref="images/MVC-Process.svg" width="100%"/>
+            </imageobject>
+            <caption>
+                <para><link xlink:href="http://commons.wikimedia.org/wiki/File:MVC-Process.svg"> Mode-view-controler on
+                        wikimedia </link></para>
+            </caption>
+        </mediaobject>
+        <para><link xlink:href="http://wiki.orbeon.com/forms/doc/user-guide/form-builder-user-guide">Orbeon Form
+                Builder</link>/<link xlink:href="http://wiki.orbeon.com/forms/doc/user-guide/form-runner-user-guide">Form Runner</link> go one step forward and add a fourth concern for localization and we get a
+            model/view/localization/controller pattern.</para>
+        <para>This <link xlink:href="http://en.wikipedia.org/wiki/Separation_of_concerns">separation of concerns</link>
+            is great to differentiate different roles and split work between specialists but doesn’t play well with
+                <link xlink:href="http://http://en.wikipedia.org/wiki/Modular_programming">modularity</link> and <link xlink:href="http://en.wikipedia.org/wiki/Reusability">reusability</link>.</para>
+        <para>I am currently working on a project to develop big and complex forms and this is becoming one of the
+            biggest issues: these forms share a number of common fields and group of fields and, not even speaking of
+            sharing these definitions, this separation of concerns adds a significant burden when copying these
+            definitions from one form to another.</para>
+        <para>To copy a field from one form to another you need to copy definitions from the model, the view, the
+            localization and the controller and can’t just copy a “component”.</para>
+        <para>And of course, there is no easy way to reuse common components instead of copying them.</para>
+        <para>This kind of issue is common with the MVC design pattern and the <link xlink:href="http://en.wikipedia.org/wiki/Hierarchical_model%E2%80%93view%E2%80%93controller">Hierarchical model–view–controller (HMVC)</link> has been <link xlink:href="http://www.javaworld.com/javaworld/jw-07-2000/jw-0721-hmvc.html">introduced for this
+                purpose</link>, but how can we use such a pattern with XForms?</para>
+    
+                <mediaobject>
+                    <imageobject>
+                        <imagedata fileref="images/jw-0721-hmvc1.gif" width="100%"/>
+                    </imageobject>
+                    <caption>
+                        <para><link xlink:href="http://www.javaworld.com/javaworld/jw-07-2000/jw-0721-hmvc.html?page=2">Hierarchical model-view-controller in JavaWorld</link></para>
+                    </caption>
+                </mediaobject>
+    </section>
+    <section xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>Solutions</title>
+        <para>A number of solutions are being used to work around this issue with XForms.</para>
+        <section>
+            <title>Copy/Paste</title>
+            <para>This is what we've done for our quiz and we've seen that this is easy -but very verbose and hard to
+                maintain- until we start to deal with repeated content.</para>
+            <para>I would guess that this is the most common practice when fields (or group of fields) are being reused
+                in XForms though!</para>
+        </section>
+        <section>
+            <title>XForms generation or templating</title>
+            <para>We're XML developers, aren't we? When something is verbose we can use XSLT or any other tool to
+                generate it and XForms is no exception.</para>
+            <para>XForms can be generated from any kind of model including annotated schemas or other vocabularies such
+                as <link xlink:href="http://en.wikipedia.org/wiki/Data_Documentation_Initiative">DDI</link> (we'll be
+                presenting this option at the <link xlink:href="http://www.balisage.net/XML-Interfaces/index.html">Balisage International Symposium on Native XML User Interfaces</link> in August.</para>
+            <para>Projects without any obvious model formats in mind often chose to transform simplified versions of
+                XForms into plain XForms. In that case the approach may tends toward a templating system where
+                placeholders are inserted into XForms documents to be transformed into proper XForms.</para>
+            <para>We may want for instance to define <code>&lt;my:dimension/&gt;</code> placeholders which would look like
+                XForms controls and generate the whole model, view and controller XForms definitions. </para>
+            <para>The source form would then be something as simple
+                as:<programlisting language="xml">
+&lt;xh:html xmlns:xh="http://www.w3.org/1999/xhtml"
+         xmlns:xf="http://www.w3.org/2002/xforms"
+  xmlns:my="http://ns.dyomedea.com/my-components/"&gt;
+  &lt;xh:head&gt;
+    &lt;xh:title&gt;Template&lt;/xh:title&gt;
+    &lt;xf:model&gt;
+      &lt;xf:instance id="main"&gt;
+        &lt;figures&gt;
+          &lt;rectangle height="10in" width="4em"/&gt;
+        &lt;/figures&gt;
+      &lt;/xf:instance&gt;
+    &lt;/xf:model&gt;
+  &lt;/xh:head&gt;
+  &lt;xh:body&gt;
+    &lt;my:dimension ref="rectangle/@height"&gt;
+      &lt;xf:label&gt;Height&lt;/xf:label&gt;
+    &lt;/my:dimension&gt;
+    &lt;br/&gt;
+    &lt;my:dimension ref="rectangle/@width"&gt;
+      &lt;xf:label&gt;Width&lt;/xf:label&gt;
+    &lt;/my:dimension&gt;
+  &lt;/xh:body&gt;
+&lt;/xh:html&gt;
+</programlisting></para>
+            <para>A simplistic version of a transformation to process this example is not overly complex. The controls
+                are quite easy to generate from the
+                placeholders:<programlisting language="xml">
+&lt;xsl:template match="my:dimension"&gt;
+  &lt;xsl:variable name="id"
+    select="if (@id) then @id else generate-id()"/&gt;
+  &lt;xf:group ref="instance('{$id}-instance')"&gt;
+    &lt;xf:input ref="value" id="{$id}-value-control"&gt;
+      &lt;xsl:apply-templates/&gt;
+    &lt;/xf:input&gt;
+    &lt;xf:select1 ref="unit" id="{$id}-unit-control"&gt;
+      &lt;xf:label/&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;pixels&lt;/xf:label&gt;
+        &lt;xf:value&gt;px&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      .../...
+    &lt;/xf:select1&gt;
+  &lt;/xf:group&gt;
+&lt;/xsl:template&gt;
+</programlisting>A
+                model can be appended to the <code>&lt;xh:head/&gt;</code>
+                element:<programlisting language="xml">
+&lt;xsl:template match="xh:head"&gt;
+  &lt;xsl:copy&gt;
+    &lt;xsl:apply-templates select="@*|node()"
+                         mode="#current" /&gt;
+    &lt;xf:model&gt;
+      &lt;xsl:apply-templates select="//my:dimension"
+                           mode="model" /&gt;
+    &lt;/xf:model&gt;
+  &lt;/xsl:copy&gt;
+&lt;/xsl:template&gt;
+</programlisting></para>
+            <para>And the instances and actions can be generated
+                similarly:<programlisting language="xml">
+&lt;xsl:template match="my:dimension" mode="model"&gt;
+  &lt;xsl:variable name="id"
+    select="if (@id) then @id else generate-id()"/&gt;
+  &lt;xf:instance id="{$id}-instance"&gt;
+    &lt;height&gt;
+      &lt;value/&gt;
+      &lt;unit/&gt;
+    &lt;/height&gt;
+  &lt;/xf:instance&gt;
+  &lt;xf:action ev:event="xforms-ready"&gt;
+    &lt;xf:setvalue
+      ref="instance('{$id}-instance')/value"
+      value="translate(instance('main')/{@ref},
+                       '%incmptxe', '')"/&gt;
+    &lt;xf:setvalue
+      ref="instance('{$id}-instance')/unit"
+      value="translate(instance('main')/{@ref},
+                       '0123456789', '')"/&gt;
+  &lt;/xf:action&gt;
+  &lt;xf:action ev:event="xforms-value-changed"
+             ev:observer="{$id}-value-control"&gt;
+    &lt;xf:setvalue ref="instance('main')/{@ref}"
+    value="concat(
+              instance('{$id}-instance')/value,
+              instance('{$id}-instance')/unit)" /&gt;
+  &lt;/xf:action&gt;
+  &lt;xf:action ev:event="xforms-value-changed"
+             ev:observer="{$id}-unit-control"&gt;
+    &lt;xf:setvalue ref="instance('main')/{@ref}"
+      value="concat(
+        instance('{$id}-instance')/value,
+        instance('{$id}-instance')/unit)" /&gt;
+  &lt;/xf:action&gt;
+&lt;/xsl:template&gt;
+</programlisting></para>
+            <para>As always, the devil is in details and this would be far from perfect:<itemizedlist>
+                    <listitem>
+                        <para>In actions, references to the main instance do not take into account the context node
+                            under which the <code>&lt;my:dimension/&gt;</code> placeholder is defined (paths are therefore
+                            expected to be relative to the default instance). Mimicking the behavior of an XForms
+                            control and its support of the context node would be much more challenging.</para>
+                    </listitem>
+                    <listitem>
+                        <para>Supporting repetitions would be another challenge.</para>
+                    </listitem>
+                </itemizedlist></para>
+        </section>
+        <section>
+            <title>Orbeon Forms' XBL implementation</title>
+            <para><link xlink:href="http://wiki.orbeon.com/forms/doc/developer-guide/xbl-components-guide">Orbeon's
+                    component architecture</link> is inpired by XBL 2.0 which describes itself as:<blockquote>
+                      <attribution><link xlink:href="http://www.w3.org/TR/xbl/">XBL 2.0</link></attribution>
+                    <para>XBL (the Xenogamous Binding Language) describes the ability to associate elements in a
+                        document with script, event handlers, CSS, and more complex content models, which can be stored
+                        in another document. This can be used to re-order and wrap content so that, for instance, simple
+                        HTML or XHTML markup can have complex CSS styles applied without requiring that the markup be
+                        polluted with multiple semantically neutral div elements.</para>
+                    <para>It can also be used to implement new DOM interfaces, and, in conjunction with other
+                        specifications, enables arbitrary tag sets to be implemented as widgets. For example, XBL could
+                        be used to implement the form controls in XForms or HTML.</para>
+                    
+                </blockquote></para>
+            <para>Even if this specification is no longer maintained by the W3C Web Applications Working Group, the
+                concepts described in XBL 2.0 fit very nicely in the context of XForms documents even though the syntax
+                may sometimes look strange, such as when CSS selectors are used where XPath patterns would look more
+                natural in XForms documents.</para>
+            <note>
+                <para>The syntax of XBL declarations has been changed between Orbeon Forms version 3 and 4. The syntax
+                    shown in this paper is the syntax of version 4.</para>
+            </note>
+            <para>The definition of an XBL component to implement our dimension widget would be composed of three parts:
+                handlers, implementation and
+                template:<programlisting language="xml">
+&lt;xbl:binding id="my-dimension"
+             element="my|dimension"
+             xxbl:mode="lhha binding value"&gt;
+  &lt;xbl:handlers&gt;
+    .../...
+  &lt;/xbl:handlers&gt;
+  &lt;xbl:implementation&gt;
+    .../...
+  &lt;/xbl:implementation&gt;
+  &lt;xbl:template&gt;
+    .../...
+  &lt;/xbl:template&gt;
+&lt;/xbl:binding&gt;
+</programlisting></para>
+            <para>A fourth element could be added to define component specific resources such as CSS stylesheets.</para>
+            <para>The XForms component's model goes into the
+                implementation:<programlisting language="xml">
+&lt;xbl:implementation&gt;
+  &lt;xf:model id="my-dimension-model"&gt;
+    &lt;xf:instance id="my-dimension-instance"&gt;
+      &lt;dimension&gt;
+        &lt;value/&gt;
+        &lt;unit/&gt;
+      &lt;/dimension&gt;
+    &lt;/xf:instance&gt;
+    .../...
+&lt;/xbl:implementation&gt;
+</programlisting></para>
+            <para>The XForms component's controls are defined into the
+                template:<programlisting language="xml">
+&lt;xbl:template&gt;
+  &lt;xf:input ref="value"
+            id="my-dimension-value-control"/&gt;
+  &lt;xf:select1 ref="unit"
+              id="my-dimension-unit-control"&gt;
+    &lt;xf:label/&gt;
+    &lt;xf:item&gt;
+      &lt;xf:label&gt;pixels&lt;/xf:label&gt;
+      &lt;xf:value&gt;px&lt;/xf:value&gt;
+    &lt;/xf:item&gt;
+    .../...
+  &lt;/xf:select1&gt;
+&lt;/xbl:template&gt;
+</programlisting></para>
+            <para>The XForms actions are split between the handlers and the implementation (or the template): handlers
+                are used to define actions triggered by events which are external to the component (such as in our case
+                    <code>xforms-ready</code>) while traditional XForms actions are used to handle events "internal" to
+                the component such as user actions.</para>
+            <para>The handlers would thus
+                be:<programlisting language="xml">
+&lt;xbl:handlers&gt;
+  &lt;xbl:handler
+      event="xforms-enabled xforms-value-changed"&gt;
+
+    &lt;xf:setvalue
+      ref="instance('my-dimension-instance')/value" 
+      value="translate(
+        xxf:binding('my-dimension'),
+        '%incmptxe', '')" /&gt;
+
+    &lt;xf:setvalue
+      ref="instance('my-dimension-instance')/unit" 
+      value="translate(
+        xxf:binding('my-dimension'),
+        '0123456789', '')" /&gt;
+  &lt;/xbl:handler&gt;
+&lt;/xbl:handlers&gt;
+</programlisting></para>
+            <para>And the remaining
+                actions:<programlisting language="xml">
+&lt;xbl:implementation&gt;
+  &lt;xf:model id="my-dimension-model"&gt;
+    .../...
+    &lt;xf:setvalue ev:event="xforms-value-changed"
+           ev:observer="my-dimension-value-control" 
+      ref="xxf:binding('my-dimension')" 
+      value="
+        concat(
+          instance('my-dimension-instance')/value,
+          instance('my-dimension-instance')/unit)" /&gt;
+    &lt;xf:setvalue ev:event="xforms-value-changed"
+                 ev:observer="my-dimension-unit-control" 
+      ref="xxf:binding('my-dimension')" 
+      value="
+      concat(
+        instance('my-dimension-instance')/value,
+        instance('my-dimension-instance')/unit)"/&gt;
+  &lt;/xf:model&gt;
+&lt;/xbl:implementation&gt;
+</programlisting></para>
+            <para>I won't go into the details which are described in Orbeon's <link xlink:href="http://wiki.orbeon.com/forms/doc/developer-guide/xbl-components-guide">XBL - Guide to
+                    Using and Writing XBL Components</link> but it is worth noting that there is a strict encapsulation
+                of both the model, the view and the controller of this component that seen from the outside acts as a
+                standard XForms control.</para>
+            <para>Of course, this component can be used as a standard XForms
+                control:<programlisting language="xml">
+&lt;xh:body&gt;
+  &lt;my:dimension ref="rectangle/@height"&gt;
+    &lt;xf:label&gt;Height&lt;/xf:label&gt;
+  &lt;/my:dimension&gt;
+  &lt;br/&gt;
+  &lt;my:dimension ref="rectangle/@width"&gt;
+    &lt;xf:label&gt;Width&lt;/xf:label&gt;
+  &lt;/my:dimension&gt;
+&lt;/xh:body&gt;
+</programlisting></para>
+            <para>The complete form with the component definition would
+                be:<programlisting language="xml">
+&lt;?xml-stylesheet href="xsltforms/xsltforms.xsl" type="text/xsl"?&gt;
+&lt;?xsltforms-options debug="yes"?&gt;
+&lt;xh:html xmlns:xh="http://www.w3.org/1999/xhtml" xmlns:xf="http://www.w3.org/2002/xforms"
+  xmlns:xxf="http://orbeon.org/oxf/xml/xforms" xmlns:ev="http://www.w3.org/2001/xml-events"
+  xmlns:xbl="http://www.w3.org/ns/xbl" xmlns:xxbl="http://orbeon.org/oxf/xml/xbl"
+  xmlns:fr="http://orbeon.org/oxf/xml/form-runner" xmlns:my="http://ns.dyomedea.com/my-components/"&gt;
+  &lt;xh:head&gt;
+    &lt;xh:title&gt;Simple XBL Component&lt;/xh:title&gt;
+    &lt;xbl:xbl script-type="application/xhtml+xml"&gt;
+      &lt;xbl:binding id="my-dimension" element="my|dimension" xxbl:mode="lhha binding value"&gt;
+        &lt;xbl:handlers&gt;
+          &lt;xbl:handler event="xforms-enabled xforms-value-changed"&gt;
+            &lt;xf:setvalue ref="instance('my-dimension-instance')/value" value="translate(xxf:binding('my-dimension'), '%incmptxe', '')"/&gt;
+            &lt;xf:setvalue ref="instance('my-dimension-instance')/unit" value="translate(xxf:binding('my-dimension'), '0123456789', '')"/&gt;
+          &lt;/xbl:handler&gt;
+        &lt;/xbl:handlers&gt;
+        &lt;xbl:implementation&gt;
+          &lt;xf:model id="my-dimension-model"&gt;
+            &lt;xf:instance id="my-dimension-instance"&gt;
+              &lt;dimension&gt;
+                &lt;value/&gt;
+                &lt;unit/&gt;
+              &lt;/dimension&gt;
+            &lt;/xf:instance&gt;
+            &lt;xf:setvalue ev:event="xforms-value-changed" ev:observer="my-dimension-value-control" ref="xxf:binding('my-dimension')" value="concat(instance('my-dimension-instance')/value, instance('my-dimension-instance')/unit)"/&gt;
+            &lt;xf:setvalue ev:event="xforms-value-changed" ev:observer="my-dimension-unit-control" ref="xxf:binding('my-dimension')" value="concat(instance('my-dimension-instance')/value, instance('my-dimension-instance')/unit)"/&gt;
+          &lt;/xf:model&gt;
+        &lt;/xbl:implementation&gt;
+        &lt;xbl:template&gt;
+          &lt;xf:input ref="value" id="my-dimension-value-control"/&gt;
+          &lt;xf:select1 ref="unit" id="my-dimension-unit-control"&gt;
+            &lt;xf:label/&gt;
+            &lt;xf:item&gt;
+              &lt;xf:label&gt;pixels&lt;/xf:label&gt;
+              &lt;xf:value&gt;px&lt;/xf:value&gt;
+            &lt;/xf:item&gt;
+            &lt;xf:item&gt;
+              &lt;xf:label&gt;font size&lt;/xf:label&gt;
+              &lt;xf:value&gt;em&lt;/xf:value&gt;
+            &lt;/xf:item&gt;
+            &lt;xf:item&gt;
+              &lt;xf:label&gt;font height&lt;/xf:label&gt;
+              &lt;xf:value&gt;ex&lt;/xf:value&gt;
+            &lt;/xf:item&gt;
+            &lt;xf:item&gt;
+              &lt;xf:label&gt;inches&lt;/xf:label&gt;
+              &lt;xf:value&gt;in&lt;/xf:value&gt;
+            &lt;/xf:item&gt;
+            &lt;xf:item&gt;
+              &lt;xf:label&gt;centimeters&lt;/xf:label&gt;
+              &lt;xf:value&gt;cm&lt;/xf:value&gt;
+            &lt;/xf:item&gt;
+            &lt;xf:item&gt;
+              &lt;xf:label&gt;millimeters&lt;/xf:label&gt;
+              &lt;xf:value&gt;mm&lt;/xf:value&gt;
+            &lt;/xf:item&gt;
+            &lt;xf:item&gt;
+              &lt;xf:label&gt;points&lt;/xf:label&gt;
+              &lt;xf:value&gt;pt&lt;/xf:value&gt;
+            &lt;/xf:item&gt;
+            &lt;xf:item&gt;
+              &lt;xf:label&gt;picas&lt;/xf:label&gt;
+              &lt;xf:value&gt;pc&lt;/xf:value&gt;
+            &lt;/xf:item&gt;
+            &lt;xf:item&gt;
+              &lt;xf:label&gt;%&lt;/xf:label&gt;
+              &lt;xf:value&gt;%&lt;/xf:value&gt;
+            &lt;/xf:item&gt;
+          &lt;/xf:select1&gt;
+        &lt;/xbl:template&gt;
+      &lt;/xbl:binding&gt;
+    &lt;/xbl:xbl&gt;
+
+    &lt;xf:model&gt;
+      &lt;xf:instance id="main"&gt;
+        &lt;figures&gt;
+          &lt;rectangle height="10in" width="4em"/&gt;
+        &lt;/figures&gt;
+      &lt;/xf:instance&gt;
+
+    &lt;/xf:model&gt;
+  &lt;/xh:head&gt;
+  &lt;xh:body&gt;
+    &lt;my:dimension ref="rectangle/@height"&gt;
+      &lt;xf:label&gt;Height&lt;/xf:label&gt;
+    &lt;/my:dimension&gt;
+    &lt;br/&gt;
+    &lt;my:dimension ref="rectangle/@width"&gt;
+      &lt;xf:label&gt;Width&lt;/xf:label&gt;
+    &lt;/my:dimension&gt;
+
+    &lt;fr:xforms-inspector/&gt;
+  &lt;/xh:body&gt;
+&lt;/xh:html&gt;
+</programlisting></para>
+        </section>
+        <section>
+            <title>Subforms</title>
+            <para>Subforms are implemented by <link xlink:href="http://www.agencexml.com/xsltforms">XSLTForms</link> and
+                    <link xlink:href="http://www.betterform.de/en/index.html">betterFORM</link>. They have been
+                considered for inclusion in XForms 2.0 but no consensus have been reached and they won't be included in
+                2.0. </para>
+            <para>There are a number of differences between the XSLTForms and Betterform implementations but the
+                principle -and the shortcomings- are the same.</para>
+            <para>The basic principle behind subforms is to embed (or load) a form within another one. This embedding
+                must be specifically performed using an <code>&lt;xf:load&gt;</code> action with a
+                    <code>@show="embed"</code> attribute. Subforms can also be unloaded.</para>
+            <para>The fact that subforms are explicitly loaded and unloaded in their "master" form is a key feature for
+                big forms where this mechanism reduces the consumption of resources and leads to important performance
+                improvements.</para>
+            <section>
+                <title>Subforms, betterFORM flavor</title>
+                <para>Subforms are described, in the <link xlink:href="http://betterform.wordpress.com/modularizing-forms/">betterFORM
+                    documentation</link>, as <quote>a way to avoid redundancies and keep the documents
+                        maintainable</quote>:<blockquote>
+                          <attribution><link xlink:href="http://betterform.wordpress.com/modularizing-forms/">betterFORM
+                            "Modularizing forms"</link></attribution>
+                        <para>As XForms follows a MVC architecture the XForms model is the first logical candidate when
+                            decomposing larger forms into smaller pieces. Aggregating more complex forms from little
+                            snippets of UI (or snippets of a model) is a limited approach as the interesting parts are
+                            located on the bind Elements. This is where controls learn about their constraints, states,
+                            calculations and data types. Instead of just glueing pieces of markup together the inclusion
+                            of complete models allow the reuse of all the semantics defined within them.</para>
+                        
+                    </blockquote></para>
+                <para><link xlink:href="http://www.betterform.de/en/whoweare.html">Joern Turner</link>, founder of Chiba
+                    and co-founder of betterFORM, makes it clear that subforms haven't been introduced to implement
+                    components, though:<blockquote>
+                      <attribution><link xlink:href="http://sourceforge.net/mailarchive/message.php?msg_id=30884969">Joern Turner on the betterform-users mailing list</link></attribution>
+                        <para>Sorry i need to get a bit philosophic here but subforms are called subforms as they are
+                            *not* components ;) I don't want to dive into academic discussions here but the main
+                            difference for us is that from a component you would expect to use it as a part of a form as
+                            a means to edit one or probably several values in your form and encapsulate the editing
+                            logic inside of it. A subform on the other hand should be designed to be completely
+                            standalone. Typically we build our subforms as complete xhtml documents which can be run and
+                            tested standalone without being a part of a host document.</para>
+                        
+                    </blockquote></para>
+                <para>A proper solution for components, based on Web Components) should be implemented in betterFORM 6: <blockquote>
+                  <attribution><link xlink:href="http://sourceforge.net/mailarchive/message.php?msg_id=30927847">Joern Turner on the betterform-users mailing list</link></attribution>
+                        <para>We have also considered to implement this [XBL] but decided against it due to the
+                            acceptance and future of XBL and due to the fact that we found it overly complex and
+                            academic. We will come up with our own component model in betterFORM 6 which will orient at
+                            more modern approaches (Web Components).</para>
+                        
+                    </blockquote></para>
+                <para>In the meantime it is still possible to use subforms to design component like features assuming we
+                    take into account the following constraints:<itemizedlist>
+                        <listitem>
+                            <para><link xlink:href="http://betterform.wordpress.com/2012/03/26/xforms-model-to-model-communication/">Communications between the master form and the subform</link> are done using either
+                                in memory submissions (ContextSubmissionHandler identified by a <code>model:</code>
+                                pseudo protocol),  the <code>instanceOfModel()</code> function which gives access to
+                                instances from other models or custom events passing context information.</para>
+                        </listitem>
+                        <listitem>
+                            <para>There is no id collision between the main form and the subforms which are loaded
+                                simultaneously.</para>
+                        </listitem>
+                    </itemizedlist></para>
+                <para>This second constraint should be released in the future but the current version of the processor
+                    doesn't address it. In practice it means that in our sample we cannot load simultaneously an
+                    instance of the subform to edit the width and a second instance to edit the height but we can still
+                    take a "master/slave approach" where a single instance of the subform will be used to edit the width
+                    and the height separately or mimic an "update in place feature" where an instance of the subform
+                    will replace the display of the width or height.</para>
+                <para>A way to implement our example using these principles could be:<itemizedlist>
+                        <listitem>
+                            <para>In the master form:<itemizedlist>
+                                    <listitem>
+                                        <para>Define an instance used as an interface with the subform to carry the
+                                            value to edit and identify the active subform instance.</para>
+                                    </listitem>
+                                    <listitem>
+                                        <para>Include triggers to load and unload subforms.</para>
+                                    </listitem>
+                                    <listitem>
+                                        <para>Define actions to load and unload the subforms and maintain the
+                                            "interface" instance.</para>
+                                    </listitem>
+                                    <listitem>
+                                        <para>Control when to display the triggers to avoid that simultaneous loads of
+                                            the subform.</para>
+                                    </listitem>
+                                </itemizedlist></para>
+                        </listitem>
+                        <listitem>
+                            <para>In the subforms:<itemizedlist>
+                                    <listitem>
+                                        <para>Synchronize the local model with the instance used as an interface.</para>
+                                    </listitem>
+                                    <listitem>
+                                        <para>Perform all the logic attached to the component.</para>
+                                    </listitem>
+                                </itemizedlist></para>
+                        </listitem>
+                    </itemizedlist>The master form would then
+                    be:<programlisting language="xml">&lt;xh:html xmlns:xh="http://www.w3.org/1999/xhtml" xmlns:ev="http://www.w3.org/2001/xml-events"
+  xmlns:xf="http://www.w3.org/2002/xforms"&gt;
+  &lt;xh:head&gt;
+    &lt;xh:title&gt;Subforms&lt;/xh:title&gt;
+    &lt;xf:model id="master"&gt;
+      &lt;xf:instance id="main"&gt;
+        &lt;figures&gt;
+          &lt;rectangle height="10in" width="4em"/&gt;
+        &lt;/figures&gt;
+      &lt;/xf:instance&gt;
+
+      &lt;!-- Instance used as an "interface" with the subform --&gt;
+      &lt;xf:instance id="dimension-interface"&gt;
+        &lt;dimension active=""/&gt;
+      &lt;/xf:instance&gt;
+    &lt;/xf:model&gt;
+
+    &lt;!-- Dirty hack to style controls inline --&gt;
+    &lt;xh:style type="text/css"&gt;
+
+      .xfContainer div {
+      display: inline !important;
+      }
+
+      .xfContainer span {
+      display: inline !important;
+      }
+      
+    &lt;/xh:style&gt;
+  &lt;/xh:head&gt;
+  &lt;xh:body&gt;
+    &lt;xf:group ref="rectangle"&gt;
+      &lt;!-- Height --&gt;
+      &lt;xf:group ref="@height"&gt;
+        &lt;xf:label&gt;Height: &lt;/xf:label&gt;
+        &lt;!-- This should be displayed when the subform is not editing the height --&gt;
+        &lt;xf:group ref=".[instance('dimension-interface')/@active!='height']"&gt;
+          &lt;xf:output ref="."/&gt;
+          &lt;!-- Display the trigger when the subform is not loaded anywhere --&gt;
+          &lt;xf:trigger ref=".[instance('dimension-interface')/@active = '']"&gt;
+            &lt;xf:label&gt;Edit&lt;/xf:label&gt;
+            &lt;xf:action ev:event="DOMActivate"&gt;
+              &lt;!-- Set the value of the interface instance --&gt;
+              &lt;xf:setvalue ref="instance('dimension-interface')" value="instance('main')/rectangle/@height"/&gt;
+              &lt;!-- Remember that we are editing the height --&gt;
+              &lt;xf:setvalue ref="instance('dimension-interface')/@active"&gt;height&lt;/xf:setvalue&gt;
+              &lt;!-- Load the subform --&gt;
+              &lt;xf:load show="embed" targetid="height" resource="subform-embedded.xhtml"/&gt;
+            &lt;/xf:action&gt;
+          &lt;/xf:trigger&gt;
+        &lt;/xf:group&gt;
+        &lt;xh:div id="height"/&gt;
+        &lt;!-- This should be displayed only when we're editing the height --&gt;
+        &lt;xf:group ref=".[instance('dimension-interface')/@active='height']"&gt;
+          &lt;xf:trigger&gt;
+            &lt;xf:label&gt;Done&lt;/xf:label&gt;
+            &lt;xf:action ev:event="DOMActivate"&gt;
+              &lt;!-- Copy the value from the interface instance --&gt;
+              &lt;xf:setvalue value="instance('dimension-interface')" ref="instance('main')/rectangle/@height"/&gt;
+              &lt;!-- We're no longer editing any dimension --&gt;
+              &lt;xf:setvalue ref="instance('dimension-interface')/@active"/&gt;
+              &lt;!-- Unload the subform --&gt;
+              &lt;xf:load show="none" targetid="height"/&gt;
+            &lt;/xf:action&gt;
+          &lt;/xf:trigger&gt;
+        &lt;/xf:group&gt;
+      &lt;/xf:group&gt;
+      &lt;br/&gt;
+      &lt;!-- Width --&gt;
+      &lt;xf:group ref="@width"&gt;
+        &lt;xf:label&gt;Width: &lt;/xf:label&gt;
+        &lt;xf:group ref=".[instance('dimension-interface')/@active!='width']"&gt;
+          &lt;xf:output ref="."/&gt;
+          &lt;xf:trigger ref=".[instance('dimension-interface')/@active = '']"&gt;
+            &lt;xf:label&gt;Edit&lt;/xf:label&gt;
+            &lt;xf:action ev:event="DOMActivate"&gt;
+              &lt;xf:setvalue ref="instance('dimension-interface')" value="instance('main')/rectangle/@width"/&gt;
+              &lt;xf:setvalue ref="instance('dimension-interface')/@active"&gt;width&lt;/xf:setvalue&gt;
+              &lt;xf:load show="embed" targetid="width" resource="subform-embedded.xhtml"/&gt;
+            &lt;/xf:action&gt;
+          &lt;/xf:trigger&gt;
+        &lt;/xf:group&gt;
+        &lt;xh:div id="width"/&gt;
+        &lt;xf:group ref=".[instance('dimension-interface')/@active='width']"&gt;
+          &lt;xf:trigger&gt;
+            &lt;xf:label&gt;Done&lt;/xf:label&gt;
+            &lt;xf:action ev:event="DOMActivate"&gt;
+              &lt;xf:setvalue value="instance('dimension-interface')" ref="instance('main')/rectangle/@width"/&gt;
+              &lt;xf:setvalue ref="instance('dimension-interface')/@active"/&gt;
+              &lt;xf:load show="none" targetid="width"/&gt;
+            &lt;/xf:action&gt;
+          &lt;/xf:trigger&gt;
+        &lt;/xf:group&gt;
+      &lt;/xf:group&gt;
+    &lt;/xf:group&gt;
+  &lt;/xh:body&gt;
+&lt;/xh:html&gt;
+</programlisting></para>
+                <para>And the
+                    subform:<programlisting language="xml">
+&lt;xh:div xmlns:xh="http://www.w3.org/1999/xhtml" xmlns:ev="http://www.w3.org/2001/xml-events"
+  xmlns:xf="http://www.w3.org/2002/xforms"&gt;
+  &lt;xf:model id="dimension-model"&gt;
+    &lt;xf:instance id="concat"&gt;
+      &lt;data/&gt;
+    &lt;/xf:instance&gt;
+    &lt;xf:instance id="split"&gt;
+      &lt;height&gt;
+        &lt;value/&gt;
+        &lt;unit/&gt;
+      &lt;/height&gt;
+    &lt;/xf:instance&gt;
+    &lt;!-- Get the value from the "interface" instance and initialize the   --&gt;
+    &lt;xf:submission id="get-dimension-value" resource="model:master#instance('dimension-interface')/*"
+      replace="instance" method="get"&gt;
+      &lt;xf:action ev:event="xforms-submit-done"&gt;
+        &lt;!--&lt;xf:message level="ephemeral"&gt;Subform has updated itself.&lt;/xf:message&gt;--&gt;
+        &lt;xf:setvalue ref="instance('split')/value" value="translate(instance('concat'), '%incmptxe', '')"/&gt;
+        &lt;xf:setvalue ref="instance('split')/unit" value="translate(instance('concat'), '0123456789', '')"/&gt;
+      &lt;/xf:action&gt;
+      &lt;xf:message ev:event="xforms-submit-error" level="ephemeral"&gt;Error while subform update.&lt;/xf:message&gt;
+    &lt;/xf:submission&gt;
+    &lt;xf:send ev:event="xforms-ready" submission="get-dimension-value"/&gt;
+    &lt;xf:submission id="set-dimension-value" resource="model:master#instance('dimension-interface')/*" replace="none"
+      method="post"&gt;
+      &lt;xf:action ev:event="xforms-submit-done"&gt;
+        &lt;!--&lt;xf:message level="ephemeral"&gt;Main form has been updated&lt;/xf:message&gt;--&gt;
+      &lt;/xf:action&gt;
+      &lt;xf:message ev:event="xforms-submit-error" level="ephemeral"&gt;Error while main form update.&lt;/xf:message&gt;
+    &lt;/xf:submission&gt;
+  &lt;/xf:model&gt;
+  &lt;xf:group ref="instance('split')"&gt;
+    &lt;xf:input ref="value"&gt;
+      &lt;xf:action ev:event="xforms-value-changed"&gt;
+        &lt;xf:setvalue ref="instance('concat')" value="concat(instance('split')/value, instance('split')/unit)"/&gt;
+        &lt;xf:send submission="set-dimension-value"/&gt;
+      &lt;/xf:action&gt;
+    &lt;/xf:input&gt;
+    &lt;xf:select1 ref="unit"&gt;
+      &lt;xf:action ev:event="xforms-value-changed"&gt;
+        &lt;xf:setvalue ref="instance('concat')" value="concat(instance('split')/value, instance('split')/unit)"/&gt;
+        &lt;xf:send submission="set-dimension-value"/&gt;
+      &lt;/xf:action&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;pixels&lt;/xf:label&gt;
+        &lt;xf:value&gt;px&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;font size&lt;/xf:label&gt;
+        &lt;xf:value&gt;em&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;font height&lt;/xf:label&gt;
+        &lt;xf:value&gt;ex&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;inches&lt;/xf:label&gt;
+        &lt;xf:value&gt;in&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;centimeters&lt;/xf:label&gt;
+        &lt;xf:value&gt;cm&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;millimeters&lt;/xf:label&gt;
+        &lt;xf:value&gt;mm&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;points&lt;/xf:label&gt;
+        &lt;xf:value&gt;pt&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;picas&lt;/xf:label&gt;
+        &lt;xf:value&gt;pc&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;%&lt;/xf:label&gt;
+        &lt;xf:value&gt;%&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+    &lt;/xf:select1&gt;
+  &lt;/xf:group&gt;
+&lt;/xh:div&gt;
+</programlisting></para>
+                <para>The code for defining the subform has the same level of complexity than the definition of the XBL
+                    in Orbeon Forms but a lot of geeky stuff needs to be added around the invocation of the form which
+                    becomes tricky. </para>
+                <para>From a user perspective, the page would initially look like:<inlinemediaobject>
+                        <imageobject>
+                            <imagedata fileref="images/betterform1.png" width="100%"/>
+                        </imageobject>
+                    </inlinemediaobject></para>
+                <para>When a user clicks on one of the "Edit" buttons, the corresponding subform is loaded (note that
+                    all the "Edit" buttons have disappeared):<inlinemediaobject>
+                        <imageobject>
+                            <imagedata fileref="images/betterform2.png" width="100%"/>
+                        </imageobject>
+                    </inlinemediaobject></para>
+                <para>Once the user is done editing the values in this subform, (s)he can click on "Done" to come back
+                    to a state where both the height and width are displayed and can be edited:<inlinemediaobject>
+                        <imageobject>
+                            <imagedata fileref="images/betterform3.png" width="100%"/>
+                        </imageobject>
+                    </inlinemediaobject></para>
+                <para>The presentation can be improved replacing for instance the buttons by trendy icons but we had to
+                    bend our requirements to get something that can be implemented with subforms.</para>
+                <para>Of course here we are misusing subforms to implement components, something which was not a design
+                    goal, and it's not surprising that the resulting code is more verbose and that we've had to accept a
+                    different user interface. The future component feature announced by Joern Turner should solve these
+                    glitches.</para>
+            </section>
+            <section>
+                <title>Subforms, XSLTForms flavor</title>
+                <para>The support of subforms in XSLTForms is illustrated by a sample: a <link xlink:href="http://sourceforge.net/p/xsltforms/code/ci/master/tree/testsuite/samples/writers.xhtml">writers.xhtml</link> master form embeds a <link xlink:href="http://sourceforge.net/p/xsltforms/code/ci/master/tree/testsuite/samples/books.xhtml">books.xhtml</link> subform.</para>
+                <para>The main principle behind this subform implementation appears to be the same than for betterFORM
+                    but there are some important differences between these two implementations:<itemizedlist>
+                        <listitem>
+                            <para>XSLTForms doesn't isolate the models from the master form and its subform and it is
+                                possible to access directly to any instance of the master form from the subforms.</para>
+                        </listitem>
+                        <listitem>
+                            <para>The features to communicate between models implemented by betterFORM are thus not
+                                necessary and do not exist in XSLTForms.</para>
+                        </listitem>
+                        <listitem>
+                            <para>The context node is not isolated and is available directly from the controls in the
+                                subform (see the writers/books example for an illustration.</para>
+                        </listitem>
+                        <listitem>
+                            <para>A specific action (<code>xf:unload</code>) is used to unload subforms in XSLTForms
+                                while an <code>xf:load</code> action with an <code>@show="none"</code> attribute is used
+                                in betterFORM for the same purpose.</para>
+                        </listitem>
+                    </itemizedlist></para>
+                <para>With these differences, the code developed for betterFORM could be adapted to work with XSLTForms
+                    as:<programlisting language="xml">&lt;?xml-stylesheet href="xsltforms/xsltforms.xsl" type="text/xsl"?&gt;
+&lt;?xsltforms-options debug="yes"?&gt;
+&lt;xh:html xmlns:xh="http://www.w3.org/1999/xhtml" xmlns:ev="http://www.w3.org/2001/xml-events"
+  xmlns:xf="http://www.w3.org/2002/xforms"&gt;
+  &lt;xh:head&gt;
+    &lt;xh:title&gt;Subforms&lt;/xh:title&gt;
+    &lt;xf:model id="master"&gt;
+      &lt;xf:instance id="main"&gt;
+        &lt;figures&gt;
+          &lt;rectangle height="10in" width="4em"/&gt;
+        &lt;/figures&gt;
+      &lt;/xf:instance&gt;
+
+      &lt;!-- Instance used as an "interface" with the subform --&gt;
+      &lt;xf:instance id="dimension-interface"&gt;
+        &lt;dimension active=""/&gt;
+      &lt;/xf:instance&gt;
+    &lt;/xf:model&gt;
+
+    &lt;!-- Dirty hack to style controls inline --&gt;
+    &lt;xh:style type="text/css"&gt;&lt;![CDATA[
+
+      .xforms-group-content, .xforms-group, span.xforms-control, .xforms-label {
+      display:inline; 
+      }
+
+      ]]&gt;
+    &lt;/xh:style&gt;
+  &lt;/xh:head&gt;
+  &lt;xh:body&gt;
+    &lt;xf:group ref="rectangle"&gt;
+      &lt;!-- Height --&gt;
+      &lt;xf:group ref="@height"&gt;
+        &lt;xf:label&gt;Height: &lt;/xf:label&gt;
+        &lt;!-- This should be displayed when the subform is not editing the height --&gt;
+        &lt;xf:group ref=".[instance('dimension-interface')/@active!='height']"&gt;
+          &lt;xf:output ref="."/&gt;
+          &lt;!-- Display the trigger when the subform is not loaded anywhere --&gt;
+          &lt;xf:trigger ref=".[instance('dimension-interface')/@active = '']"&gt;
+            &lt;xf:label&gt;Edit&lt;/xf:label&gt;
+            &lt;xf:action ev:event="DOMActivate"&gt;
+              &lt;!-- Set the value of the interface instance --&gt;
+              &lt;xf:setvalue ref="instance('dimension-interface')" value="instance('main')/rectangle/@height"/&gt;
+              &lt;!-- Remember that we are editing the height --&gt;
+              &lt;xf:setvalue ref="instance('dimension-interface')/@active"&gt;height&lt;/xf:setvalue&gt;
+              &lt;!-- Load the subform --&gt;
+              &lt;xf:load show="embed" targetid="height" resource="subform-embedded.xml"/&gt;
+            &lt;/xf:action&gt;
+          &lt;/xf:trigger&gt;
+        &lt;/xf:group&gt;
+        &lt;xh:span id="height"/&gt;
+        &lt;!-- This should be displayed only when we're editing the height --&gt;
+        &lt;xf:group ref=".[instance('dimension-interface')/@active='height']"&gt;
+          &lt;xf:trigger&gt;
+            &lt;xf:label&gt;Done&lt;/xf:label&gt;
+            &lt;xf:action ev:event="DOMActivate"&gt;
+              &lt;!-- Copy the value from the interface instance --&gt;
+              &lt;xf:setvalue value="instance('dimension-interface')" ref="instance('main')/rectangle/@height"/&gt;
+              &lt;!-- We're no longer editing any dimension --&gt;
+              &lt;xf:setvalue ref="instance('dimension-interface')/@active"/&gt;
+              &lt;!-- Unload the subform --&gt;
+              &lt;xf:unload targetid="height"/&gt;
+            &lt;/xf:action&gt;
+          &lt;/xf:trigger&gt;
+        &lt;/xf:group&gt;
+      &lt;/xf:group&gt;
+      &lt;br/&gt;
+      &lt;!-- Width --&gt;
+      &lt;xf:group ref="@width"&gt;
+        &lt;xf:label&gt;Width: &lt;/xf:label&gt;
+        &lt;xf:group ref=".[instance('dimension-interface')/@active!='width']"&gt;
+          &lt;xf:output ref="."/&gt;
+          &lt;xf:trigger ref=".[instance('dimension-interface')/@active = '']"&gt;
+            &lt;xf:label&gt;Edit&lt;/xf:label&gt;
+            &lt;xf:action ev:event="DOMActivate"&gt;
+              &lt;xf:setvalue ref="instance('dimension-interface')" value="instance('main')/rectangle/@width"/&gt;
+              &lt;xf:setvalue ref="instance('dimension-interface')/@active"&gt;width&lt;/xf:setvalue&gt;
+              &lt;xf:load show="embed" targetid="width" resource="subform-embedded.xml"/&gt;
+            &lt;/xf:action&gt;
+          &lt;/xf:trigger&gt;
+        &lt;/xf:group&gt;
+        &lt;xh:span id="width"/&gt;
+        &lt;xf:group ref=".[instance('dimension-interface')/@active='width']"&gt;
+          &lt;xf:trigger&gt;
+            &lt;xf:label&gt;Done&lt;/xf:label&gt;
+            &lt;xf:action ev:event="DOMActivate"&gt;
+              &lt;xf:setvalue value="instance('dimension-interface')" ref="instance('main')/rectangle/@width"/&gt;
+              &lt;xf:setvalue ref="instance('dimension-interface')/@active"/&gt;
+              &lt;xf:unload targetid="width"/&gt;
+            &lt;/xf:action&gt;
+          &lt;/xf:trigger&gt;
+        &lt;/xf:group&gt;
+      &lt;/xf:group&gt;
+    &lt;/xf:group&gt;
+  &lt;/xh:body&gt;
+&lt;/xh:html&gt;</programlisting>for
+                    the main form
+                    and:<programlisting language="xml">
+&lt;?xml-stylesheet href="xsltforms/xsltforms.xsl" type="text/xsl"?&gt;
+&lt;?xsltforms-options debug="yes"?&gt;
+&lt;xh:html xmlns:xh="http://www.w3.org/1999/xhtml" xmlns:xf="http://www.w3.org/2002/xforms"
+  xmlns:ev="http://www.w3.org/2001/xml-events"&gt;
+  &lt;xh:head&gt;
+    &lt;xh:title&gt;A subform&lt;/xh:title&gt;
+    &lt;xf:model id="subform-model"&gt;
+      &lt;xf:instance id="split"&gt;
+        &lt;height&gt;
+          &lt;value/&gt;
+          &lt;unit/&gt;
+        &lt;/height&gt;
+      &lt;/xf:instance&gt;
+      &lt;xf:action ev:event="xforms-subform-ready"&gt;
+        &lt;xf:setvalue ref="instance('split')/value" value="translate(instance('dimension-interface'), '%incmptxe', '')"/&gt;
+        &lt;xf:setvalue ref="instance('split')/unit" value="translate(instance('dimension-interface'), '0123456789', '')"/&gt;
+      &lt;/xf:action&gt;
+    &lt;/xf:model&gt;
+  &lt;/xh:head&gt;
+  &lt;xh:body&gt;
+    &lt;xf:group ref="instance('split')"&gt;
+      &lt;xf:input ref="value"&gt;
+        &lt;xf:label/&gt;
+        &lt;xf:setvalue ev:event="xforms-value-changed" ref="instance('dimension-interface')" value="concat(instance('split')/value, instance('split')/unit)"/&gt;
+      &lt;/xf:input&gt;
+      &lt;xf:select1 ref="unit"&gt;
+        &lt;xf:label/&gt;
+        &lt;xf:setvalue ev:event="xforms-value-changed" ref="instance('dimension-interface')" value="concat(instance('split')/value, instance('split')/unit)"/&gt;
+        &lt;xf:item&gt;
+          &lt;xf:label&gt;pixels&lt;/xf:label&gt;
+          &lt;xf:value&gt;px&lt;/xf:value&gt;
+        &lt;/xf:item&gt;
+        &lt;xf:item&gt;
+          &lt;xf:label&gt;font size&lt;/xf:label&gt;
+          &lt;xf:value&gt;em&lt;/xf:value&gt;
+        &lt;/xf:item&gt;
+        &lt;xf:item&gt;
+          &lt;xf:label&gt;font height&lt;/xf:label&gt;
+          &lt;xf:value&gt;ex&lt;/xf:value&gt;
+        &lt;/xf:item&gt;
+        &lt;xf:item&gt;
+          &lt;xf:label&gt;inches&lt;/xf:label&gt;
+          &lt;xf:value&gt;in&lt;/xf:value&gt;
+        &lt;/xf:item&gt;
+        &lt;xf:item&gt;
+          &lt;xf:label&gt;centimeters&lt;/xf:label&gt;
+          &lt;xf:value&gt;cm&lt;/xf:value&gt;
+        &lt;/xf:item&gt;
+        &lt;xf:item&gt;
+          &lt;xf:label&gt;millimeters&lt;/xf:label&gt;
+          &lt;xf:value&gt;mm&lt;/xf:value&gt;
+        &lt;/xf:item&gt;
+        &lt;xf:item&gt;
+          &lt;xf:label&gt;points&lt;/xf:label&gt;
+          &lt;xf:value&gt;pt&lt;/xf:value&gt;
+        &lt;/xf:item&gt;
+        &lt;xf:item&gt;
+          &lt;xf:label&gt;picas&lt;/xf:label&gt;
+          &lt;xf:value&gt;pc&lt;/xf:value&gt;
+        &lt;/xf:item&gt;
+        &lt;xf:item&gt;
+          &lt;xf:label&gt;%&lt;/xf:label&gt;
+          &lt;xf:value&gt;%&lt;/xf:value&gt;
+        &lt;/xf:item&gt;
+      &lt;/xf:select1&gt;
+    &lt;/xf:group&gt;
+  &lt;/xh:body&gt;
+&lt;/xh:html&gt;
+</programlisting>for
+                    the subform.</para>
+                <para>Acknowledging that things could be easier, XSLTForms has introduced a new experimental feature,
+                    derived from subforms, to implement simple components:<blockquote>
+                      <attribution><link xlink:href="http://sourceforge.net/mailarchive/message.php?msg_id=30923296">Alain Couthures on the Xsltforms-support mailing list</link></attribution>
+                        <para>I have implemented a new component control in XSLTForms. It is named
+                                <code>"xf:component</code>" and has two attributes named "<code>@ref</code>" and
+                                "<code>@resource</code>". There are still restrictions within a component: ids cannot be
+                            used if the component is to be instantiated more than once. The default instance is local to
+                            each instantiated component and the <code>subform-instance()</code> function can be used to
+                            get the document element of it. From the main form to the component, a binding with a
+                            special mip named "changed" is defined. The <code>subform-context()</code> allows to
+                            reference the node bound to the component control in the main form. The corresponding build
+                            has been committed to repositories: <link xlink:href="http://sourceforge.net/p/xsltforms/code/ci/master/tree/build/">http://sourceforge.net/p/xsltforms/code/ci/master/tree/build/</link></para>
+                        
+                    </blockquote> With this new experimental feature and another extension (the @changed MIP implemented
+                    in XSLTForms), the master form would
+                    be:<programlisting language="xml">[
+&lt;?xml-stylesheet href="xsltforms/xsltforms.xsl"
+                 type="text/xsl"?&gt;
+&lt;?xsltforms-options debug="yes"?&gt;
+&lt;xh:html xmlns:xh="http://www.w3.org/1999/xhtml"
+       xmlns:ev="http://www.w3.org/2001/xml-events"
+  xmlns:xf="http://www.w3.org/2002/xforms"&gt;
+  &lt;xh:head&gt;
+    &lt;xh:title&gt;Subforms&lt;/xh:title&gt;
+    &lt;xf:model&gt;
+      &lt;xf:instance id="main"&gt;
+        &lt;figures&gt;
+          &lt;rectangle height="10in" width="4em"/&gt;
+        &lt;/figures&gt;
+      &lt;/xf:instance&gt;
+
+    &lt;/xf:model&gt;
+  &lt;/xh:head&gt;
+  &lt;xh:body&gt;
+    &lt;xf:group ref="rectangle"&gt;
+      &lt;!-- Height --&gt;
+      &lt;xf:group ref="@height"&gt;
+        &lt;xf:label&gt;Height: &lt;/xf:label&gt;
+        &lt;xf:component ref="."
+                 resource="component-subform.xml"/&gt;
+      &lt;/xf:group&gt;
+      &lt;br/&gt;
+      &lt;!-- Width --&gt;
+      &lt;xf:group ref="@width"&gt;
+        &lt;xf:label&gt;Width: &lt;/xf:label&gt;
+        &lt;xf:component ref="."
+                 resource="component-subform.xml"/&gt;
+      &lt;/xf:group&gt;
+    &lt;/xf:group&gt;
+  &lt;/xh:body&gt;
+&lt;/xh:html&gt;
+</programlisting>and
+                    the subform (or
+                    component):<programlisting language="xml">[
+&lt;?xml-stylesheet href="xsltforms/xsltforms.xsl"
+                 type="text/xsl"?&gt;
+&lt;xh:html xmlns:xh="http://www.w3.org/1999/xhtml" 
+  xmlns:xf="http://www.w3.org/2002/xforms" 
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+  xmlns:ev="http://www.w3.org/2001/xml-events"&gt;
+  &lt;xh:head&gt;
+    &lt;xh:title&gt;Size&lt;/xh:title&gt;
+    &lt;xf:model&gt;
+      &lt;xf:instance&gt;
+        &lt;size&gt;
+          &lt;value xsi:type="xsd:decimal"&gt;2&lt;/value&gt;
+          &lt;unit&gt;cm&lt;/unit&gt;
+        &lt;/size&gt;
+      &lt;/xf:instance&gt;
+      &lt;xf:bind ref="subform-instance()/value" 
+      changed="translate(subform-context(), '%incmptxe', '')"/&gt;
+      &lt;xf:bind ref="subform-instance()/unit" 
+      changed="translate(subform-context(), '0123456789', '')"/&gt;
+    &lt;/xf:model&gt;
+  &lt;/xh:head&gt;
+  &lt;xh:body&gt;
+    &lt;xf:input ref="subform-instance()/value"&gt;
+      &lt;xf:label/&gt;
+      &lt;xf:setvalue ev:event="xforms-value-changed" 
+        ref="subform-context()" value="concat(subform-instance()/value, 
+      subform-instance()/unit)"/&gt;
+    &lt;/xf:input&gt;
+    &lt;xf:select1 ref="subform-instance()/unit"&gt;
+      &lt;xf:label/&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;pixels&lt;/xf:label&gt;
+        &lt;xf:value&gt;px&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;font size&lt;/xf:label&gt;
+        &lt;xf:value&gt;em&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;font height&lt;/xf:label&gt;
+        &lt;xf:value&gt;ex&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;inches&lt;/xf:label&gt;
+        &lt;xf:value&gt;in&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;centimeters&lt;/xf:label&gt;
+        &lt;xf:value&gt;cm&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;millimeters&lt;/xf:label&gt;
+        &lt;xf:value&gt;mm&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;points&lt;/xf:label&gt;
+        &lt;xf:value&gt;pt&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;picas&lt;/xf:label&gt;
+        &lt;xf:value&gt;pc&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:item&gt;
+        &lt;xf:label&gt;%&lt;/xf:label&gt;
+        &lt;xf:value&gt;%&lt;/xf:value&gt;
+      &lt;/xf:item&gt;
+      &lt;xf:setvalue ev:event="xforms-value-changed" 
+        ref="subform-context()" value="concat(subform-instance()/value, 
+      subform-instance()/unit)"/&gt;
+    &lt;/xf:select1&gt;
+  &lt;/xh:body&gt;
+&lt;/xh:html&gt;
+</programlisting></para>
+                <para>The level of complexity of both the definition of the subform component and its invocation are
+                    similar to what we've seen with Orbeon's XBL feature. The main difference is the encapsulation (no
+                    encapsulation in XSLTForms and a controlled encapsulation in Orbeon Forms which handles the issue of
+                    id collisions).</para>
+                <para>Note that we are escaping the issue caused by id collision because we are accessing the instance
+                    from the master form directly from the subform using the <code>subform-context()</code> function.
+                    This feature allows us to use only one local instance in the subform and we take care of not
+                    defining any id for this instance and access it using the <code>subform-instance()</code> function.
+                    This trick wouldn't work if we needed several instances or if we had to define ids on other elements
+                    in the subform.</para>
+            </section>
+        </section>
+    </section>
+    <section xmlns:xlink="http://www.w3.org/1999/xlink">
+        <title>Conclusion</title>
+        <para>The lack of modularity has been one of the serious weaknesses in the XForms recommendations so far.</para>
+        <para>A common solution is to generate or "template" XForms but this can be tricky when dealing with
+            "components" used multiple times in a form and especially within <code>xf:repeat</code> controls.</para>
+        <para>Different implementation have come up with different solutions to address this issue (XBL for Orbeon,
+            subforms for betterFORM and XSLTForms).</para>
+        <para>The main differences between these solutions are:<itemizedlist>
+                <listitem>
+                    <para>The syntax:<itemizedlist>
+                            <listitem>
+                                <para>XBL + XForms for Orbeon Forms</para>
+                            </listitem>
+                            <listitem>
+                                <para>XForms with minor extensions for betterFORM and XSLTForms)</para>
+                            </listitem>
+                        </itemizedlist></para>
+                </listitem>
+                <listitem>
+                    <para>The encapsulation or isolation and features to communicate between the component and other models:<itemizedlist>
+                            <listitem>
+                                <para>complete for betterFORM with extensions to communicate between models</para>
+                            </listitem>
+                            <listitem>
+                                <para>either complete or partial for Orbeon Forms with extension to communicate between
+                                    models</para>
+                            </listitem>
+                            <listitem>
+                                <para>no isolation for XSLTForms with extensions to access to the context node and
+                                    default instance from a component</para>
+                            </listitem>
+                        </itemizedlist></para>
+                </listitem>
+                <listitem>
+                    <para>The support of id collisions between components and the main form:<itemizedlist>
+                            <listitem>
+                                <para>Id collisions are handled by Orbeon Forms</para>
+                            </listitem>
+                            <listitem>
+                                <para>They are forbidden by betterFORM and XSLTForms</para>
+                            </listitem>
+                        </itemizedlist></para>
+                </listitem>
+            </itemizedlist></para>
+        <para>The lack of interoperability between these implementations will probably not be addressed by the W3C
+            XForms Working Group and it would be very useful if XForms implementers could work together to define
+            interoperable solutions to define reusable components in XForms.</para>
+        <para>In this paper, generation (or templating) has been presented as an alternative to XML or subforms but they
+            are by no mean exclusive. In real world projects, hybrid approaches mixing XForms generation (or templating)
+            and components (XBL or subforms) are on the contrary very valuable. They have been demonstrated in a number
+            of talks during the pre-conference day at XML Prague. </para>
+        <para>These hybrid approaches are easy to implement with common XML toolkits. The generation/templating can be
+            static (using tools such as XProc, Ant or classical make files) or dynamic (using XProc or XPL pipelines or
+            plain XQuery or XSLT) and Orbeon Forms XBL implementation even provides <link xlink:href="http://wiki.orbeon.com/forms/doc/developer-guide/xbl-components-guide#TOC-xbl:template-xxbl:transform-attribute">a feature</link> to dynamically invoke a transformation on the content of the bound element).</para>
+        <section>
+            <title>Acknowledgments</title>
+            <para>I would like to thank Erik Bruchez (Orbeon), Joern Turner (betterFORM) and Alain Couthures (XSLTForms)
+                for the time they've spent to answer my questions and review this paper.</para>
+        </section>
+    </section>
+</article>
